@@ -14,6 +14,9 @@ const SONGS = {
   result:  { bpm: 104, root: 48, prog: [8, 10, 0, 0, 8, 10, 0, 0], calm: true, seed: 93 },
 };
 
+// 場面 → 曲ファイル(bgm/*.mp3)
+const BGM_FILES = { title: 'title', plains: 'battle', desert: 'battle', snow: 'battle2', volcano: 'battle2', castle: 'castle', boss: 'boss', rage: 'rage', result: 'result' };
+
 export const Audio = {
   ctx: null, vol: { bgm: 0.6, sfx: 0.8 }, intensity: 0.4,
   _song: null, _songName: '', _step: 0, _next: 0, _timer: 0, _last: {},
@@ -110,6 +113,9 @@ export const Audio = {
   bgm(name) {
     if (this._songName === name) return;
     this._songName = name;
+    // 曲ファイルがある場面はそれを再生(音楽:魔王魂 / CC BY 4.0)
+    if (BGM_FILES[name]) { this._song = null; this._playFile(BGM_FILES[name]); return; }
+    this._fadeFile();
     const def = SONGS[name];
     if (!def) { this._song = null; return; }
     // メロディ自動生成(8小節 = 128ステップ)
@@ -137,7 +143,32 @@ export const Audio = {
     if (this.ctx) this._next = this.ctx.currentTime + 0.08;
     if (!this._timer) this._timer = setInterval(() => this._sched(), 28);
   },
-  stopBgm() { this._songName = ''; this._song = null; },
+  stopBgm() { this._songName = ''; this._song = null; this._fadeFile(); },
+
+  _playFile(file) {
+    this.init();
+    const c = this.ctx; if (!c) return;
+    if (!this._el) {
+      this._el = new window.Audio(); this._el.loop = true; this._el.preload = 'auto';
+      this._elG = c.createGain(); this._elG.gain.value = 0;
+      c.createMediaElementSource(this._el).connect(this._elG).connect(this.bgmG);
+    }
+    const el = this._el, g = this._elG.gain, t = c.currentTime, token = (this._fileTok = (this._fileTok || 0) + 1);
+    const start = () => {
+      if (token !== this._fileTok) return;
+      el.src = 'bgm/' + file + '.mp3'; el.currentTime = 0;
+      const p = el.play(); if (p && p.catch) p.catch(() => {});
+      const n = c.currentTime; g.cancelScheduledValues(n); g.setValueAtTime(0, n); g.linearRampToValueAtTime(1.5, n + 0.6);
+    };
+    if (!el.paused && el.src) { g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(0, t + 0.45); setTimeout(start, 470); }
+    else start();
+  },
+  _fadeFile() {
+    if (!this._el || this._el.paused) return;
+    const c = this.ctx, g = this._elG.gain, t = c.currentTime, el = this._el, token = (this._fileTok = (this._fileTok || 0) + 1);
+    g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(0, t + 0.6);
+    setTimeout(() => { if (token === this._fileTok) el.pause(); }, 650);
+  },
 
   _sched() {
     const c = this.ctx, S = this._song;

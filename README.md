@@ -149,3 +149,9 @@ tools/                開発用サーバーなど
 
 - ゲーム本体のコード・データ: 自由に改変・公開してかまいません
 - [Three.js](https://threejs.org/): MIT License(`vendor/THREE-LICENSE.txt`)
+
+## クレジット
+
+- 音楽: 魔王魂(https://maou.audio/) — CC BY 4.0
+  - 民族32「初詣」/ 民族33「和bravery heart」/ ネオロック73「夕日の沈む丘へ」/ オーケストラ23「be proudly」/ オーケストラ24「crisis」/ オーケストラ25「神々の試練」/ オーケストラ26「戦いの跡」
+- [three-vrm](https://github.com/pixiv/three-vrm): MIT License(`vendor/THREE-VRM-LICENSE.txt`)

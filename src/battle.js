@@ -496,6 +496,7 @@ export class Battle {
     if (src && src.alive && src.boss) src.stag += 3;
   }
   onBossPhase2(f) {
+    if (this.bossBgm) Audio.bgm('rage');
     this.ui.say(f.name, BOSS_LINES[f.lookId] || 'まだだ…まだ終わらぬ!'); this.ui.banner('激昂', f.name + ' の攻撃が激しくなった', 'bad');
     FX.nova(f.x, f.z, 6, [4, 0.5, 0.3]); GFX.shake(0.8); Audio.sfx('awaken');
   }

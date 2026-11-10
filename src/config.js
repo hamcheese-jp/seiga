@@ -4,4 +4,4 @@
 // 空のままでも、ゲーム内「設定」画面から個別にURLを入力できます。
 export const CLOUD_URL = 'https://script.google.com/macros/s/AKfycbwIXAdAaQbAvjuTPs3f40_3I8KxJB3mKbrFkAzfM-IuFDj_kmxqeDuisBGuqbjSZOJp1Q/exec';
 
-export const VERSION = '1.0.3';
+export const VERSION = '1.0.4';

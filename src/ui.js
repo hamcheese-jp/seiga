@@ -138,7 +138,7 @@ export const UI = {
 
   // ================= 各画面 =================
   r_title() {
-    this.html('title', `<div class="logo">${GAME_TITLE}</div><div class="logo-sub">${GAME_SUB}</div><div class="tap">画面をタップして開始</div><div class="ver">ver ${VERSION}</div>${this.installBtn('inst-title')}`);
+    this.html('title', `<div class="logo">${GAME_TITLE}</div><div class="logo-sub">${GAME_SUB}</div><div class="tap">画面をタップして開始</div><div class="ver">音楽:魔王魂(CC BY 4.0) ／ ver ${VERSION}</div>${this.installBtn('inst-title')}`);
     $('#s-title').dataset.a = 'start';
   },
   r_home() {
