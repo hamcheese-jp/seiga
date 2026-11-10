@@ -16,6 +16,15 @@ const SAVE_HEAD = ['id', 'name', 'updated', 'level', 'totalKO', 'gold', 'weapons
 const RANK_HEAD = ['board', 'id', 'name', 'hero', 'score', 'ko', 'time', 'rank', 'date'];
 const CHUNK = 45000;   // 1セルの文字数上限(5万)に収まるよう分割
 
+// 初回だけエディタで実行: 権限を承認し、シートを用意する
+function setup() {
+  sheet_(SHEET_SAVE, SAVE_HEAD);
+  sheet_(SHEET_RANK, RANK_HEAD);
+  const def = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('シート1');
+  if (def && SpreadsheetApp.getActiveSpreadsheet().getSheets().length > 1) SpreadsheetApp.getActiveSpreadsheet().deleteSheet(def);
+  Logger.log('準備完了');
+}
+
 function sheet_(name, head) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sh = ss.getSheetByName(name);
