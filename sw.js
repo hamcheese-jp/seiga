@@ -1,11 +1,11 @@
 // サービスワーカー: 全ファイルをキャッシュしてオフラインでも遊べるようにする
 // ※ ゲームを更新したら CACHE の番号を上げてください(古いキャッシュが破棄されます)
-const CACHE = 'seiga-v1.0.4';
+const CACHE = 'seiga-v1.0.5';
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css', 'vendor/three.module.min.js',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png',
   'src/main.js', 'src/config.js', 'src/util.js', 'src/geo.js', 'src/gfx.js', 'src/input.js', 'src/audio.js', 'src/models.js', 'src/rig.js',
-  'src/data.js', 'src/moves.js', 'src/stage.js', 'src/horde.js', 'src/fx.js', 'src/fighter.js', 'src/battle.js', 'src/ui.js', 'src/save.js', 'src/lobby.js', 'src/install.js',
+  'src/data.js', 'src/moves.js', 'src/stage.js', 'src/horde.js', 'src/fx.js', 'src/fighter.js', 'src/battle.js', 'src/ui.js', 'src/save.js', 'src/lobby.js', 'src/install.js', 'src/vrmchar.js', 'vendor/three-vrm.module.min.js', 'vendor/addons/loaders/GLTFLoader.js', 'vendor/addons/utils/BufferGeometryUtils.js',
 ];
 
 self.addEventListener('install', (e) => {

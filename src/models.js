@@ -317,11 +317,11 @@ export function buildHero(look, wtype, tier = 0) {
   // 武器
   const W = buildWeapon(wtype, tier, P);
   const wb = {}; for (const p of W.parts) (wb[p.k] || (wb[p.k] = [])).push(p.g);
-  const wMeshes = [];
+  const wMeshes = { R: [], L: [] };
   for (const k in wb) {
     const geo = merge(wb[k]);
-    const m = new THREE.Mesh(geo, M[k]); m.castShadow = true; J.handR.add(m); wMeshes.push(m);
-    if (W.dual) { const m2 = new THREE.Mesh(geo, M[k]); m2.castShadow = true; J.handL.add(m2); wMeshes.push(m2); }
+    const m = new THREE.Mesh(geo, M[k]); m.castShadow = true; J.handR.add(m); wMeshes.R.push(m);
+    if (W.dual) { const m2 = new THREE.Mesh(geo, M[k]); m2.castShadow = true; J.handL.add(m2); wMeshes.L.push(m2); }
   }
   B.build(J, M);
   J.root.scale.setScalar(L.scale);
@@ -330,11 +330,13 @@ export function buildHero(look, wtype, tier = 0) {
     root: J.root, J, M, dang, scale: L.scale, wtype, two: W.two, dual: W.dual,
     tip: new THREE.Vector3(...W.tip), base: new THREE.Vector3(...W.base), grip: new THREE.Vector3(...W.grip),
     rest: { ...RESTS[wtype], ...REST_COMMON }, height: 1.95 * L.scale, glow: P.glow,
+    wMeshes,
     restTan: W.two ? new THREE.Vector3(0.75, 0, 0.66).normalize() : new THREE.Vector3(0, 0, 1),
   };
 }
 
 export function disposeModel(model) {
+  if (model.vbody) model.vbody.dispose();
   model.root.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
   for (const k in model.M) model.M[k].dispose();
   if (model.root.parent) model.root.parent.remove(model.root);

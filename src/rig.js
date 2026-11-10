@@ -66,6 +66,7 @@ export class Rig {
     if (k === this._flash) return;
     this._flash = k;
     this.model.M.c.emissive.setRGB(r, g, b); this.model.M.m.emissive.setRGB(r, g, b);
+    if (this.model.vbody) this.model.vbody.flash(r, g, b);
   }
 
   update(dt) {
@@ -166,6 +167,7 @@ export class Rig {
     this.root.updateMatrixWorld(true);
     J.handR.localToWorld(this.wBase.copy(this.model.base)); J.handR.localToWorld(this.wTip.copy(this.model.tip));
     if (this.model.dual) { J.handL.localToWorld(this.wBaseL.copy(this.model.base)); J.handL.localToWorld(this.wTipL.copy(this.model.tip)); }
+    if (this.model.vbody) this.model.vbody.sync(dt, this);
   }
 
   _aim(arm, fore, az, el, bend, tan, k, dt) {

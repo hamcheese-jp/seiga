@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { GFX } from './gfx.js';
 import { buildHero, disposeModel } from './models.js';
+import { hasVrm, loadVrm, VrmBody } from './vrmchar.js';
 import { Rig } from './rig.js';
 import { MS } from './moves.js';
 import { ELEMENTS } from './data.js';
@@ -21,6 +22,8 @@ export class Fighter {
     const look = { ...o.look, pal: { ...o.look.pal, glow: o.look.pal.glow || this.col } };
     this.model = buildHero(look, o.wtype, o.tier || 0); this.rig = new Rig(this.model);
     GFX.scene.add(this.model.root);
+    // VRoidのキャラがあれば読み込んで差し替える(読み込み中は今の姿で表示)
+    if (o.heroId && hasVrm(o.heroId)) loadVrm(o.heroId).then((vrm) => { if (!vrm) return; if (this.disposed) { vrm.scene.traverse((x) => { if (x.geometry) x.geometry.dispose(); }); return; } new VrmBody(this.model, vrm); }).catch((e) => console.warn(e));
     this.ms = MS[o.ms];
     this.x = o.x; this.z = o.z; this.y = 0; this.vx = 0; this.vy = 0; this.vz = 0; this.yaw = o.yaw || 0;
     this.rad = 0.5 * this.model.scale; this.alive = true; this.hidden = false; this.ghost = false; this.gone = false; this.sealed = false;
@@ -386,6 +389,7 @@ export class Fighter {
   }
 
   dispose() {
+    this.disposed = true;
     for (const t of this.trails) t.dispose(); if (this.trailsL) for (const t of this.trailsL) t.dispose();
     if (this.tag) { GFX.scene.remove(this.tag); this.tag.material.dispose(); this.tagTex.dispose(); }
     disposeModel(this.model);
