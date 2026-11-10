@@ -3,6 +3,7 @@ import { Save, Cloud } from './save.js';
 import { HEROES, HERO, ELEMENTS, STAGES, ENDLESS, STAGE, DIFFS, RARITY, RAR_MAXLV, traitText, weaponName, weaponAtk, forgeCost, sellPrice, GACHA_COST, rollWeapon, calcStats, expNeed,
   ACHIEVEMENTS, STAR_LABELS, UNLOCKS, GAME_TITLE, GAME_SUB, MAX_LV, maxNormals, maxCharges } from './data.js';
 import { VERSION } from './config.js';
+import { Install } from './install.js';
 import { Audio } from './audio.js';
 import { GFX } from './gfx.js';
 import { $, el, fmtTime, clamp } from './util.js';
@@ -29,6 +30,7 @@ export const UI = {
     for (const id of ['hp-fill', 'hp-text', 'sp-fill', 'rg-fill', 'pl-name', 'pl-lv', 'obj', 'mor-a', 'timer', 'mission', 'ko-n', 'combo', 'combo-n', 'h-target', 'tg-name', 'tg-fill', 'h-base', 'bs-name', 'bs-fill', 'h-say', 'h-fps', 'banner', 'cutin', 'card', 'kob', 'pops', 'toast', 'hurt']) this.E[id] = document.getElementById(id);
     this.mctx = $('#minimap').getContext('2d');
     this.bS = $('.b-s'); this.bR = $('.b-r');
+    Install.onChange(() => { if (this.cur === 'title' || this.cur === 'home') this.show(this.cur); });
     const S = Save.data; this.sel = { ...S.last };
   },
 
@@ -83,6 +85,7 @@ export const UI = {
       case 'reset': this.confirm('すべてのセーブデータを消去します。よろしいですか?', () => { Save.reset(); this.sel = { ...Save.data.last }; this.app.lobbyHero(this.sel.hero); this.toast('データを初期化しました'); this.show('home'); }); break;
       case 'mok': { const f = this._mok; this.closeModal(); if (f) f(); break; }
       case 'mno': this.closeModal(); break;
+      case 'install': this.install(); break;
     }
   },
   confirm(msg, ok) {
@@ -109,14 +112,38 @@ export const UI = {
   },
   gachaPower() { let p = 6; STAGES.forEach((s) => { const st = Save.data.stages[s.id]; if (st) for (const d of DIFFS) if (st[d.id] && st[d.id].clear) p = Math.max(p, s.lv * 2.2 + d.pow + 6); }); return p; },
 
+  // ================= アプリとして追加 =================
+  installBtn(cls) { return Install.installed() ? '' : `<button class="inst ${cls}" data-a="install">📲 アプリとして追加</button>`; },
+  async install() {
+    Audio.sfx('ui');
+    if (Install.canPrompt()) { if (await Install.prompt()) this.toast('ホーム画面に追加しました'); return; }
+    let body;
+    if (Install.inApp && Install.isAndroid) {
+      body = `<p>今はLINEなどの<b>アプリ内ブラウザ</b>で開いているため、ホーム画面に追加できません。</p>
+        <p><a class="pbtn" style="display:inline-block;text-decoration:none" href="${Install.chromeUrl()}">Chromeで開き直す</a></p>
+        <p class="note">開けない場合は、右上の「︙」→「ブラウザで開く」を選んでください。</p>`;
+    } else if (Install.inApp) {
+      body = `<p>今はLINEなどの<b>アプリ内ブラウザ</b>で開いています。</p><p>右下(または右上)のメニューから「<b>Safariで開く</b>」を選び、Safariでもう一度このボタンを押してください。</p>`;
+    } else if (Install.isIOS) {
+      body = `<p>Safariの下にある <b>共有ボタン(□に↑)</b> を押し、<b>「ホーム画面に追加」</b> を選んでください。</p><p class="note">ChromeなどSafari以外で開いている場合は、Safariで開き直してください。</p>`;
+    } else if (Install.isAndroid) {
+      body = `<p>Chromeの右上 <b>「︙」</b> を押し、<b>「アプリをインストール」</b> または <b>「ホーム画面に追加」</b> を選んでください。</p>
+        <p class="note">項目が無いときは、少し待ってからページを再読み込みしてください。Chrome以外のブラウザでは追加できない場合があります。</p>`;
+    } else {
+      body = `<p>アドレスバー右端の <b>インストールのアイコン</b> を押してください。</p><p class="note">スマホでは公開URLをChrome(Android)かSafari(iPhone)で開いてください。</p>`;
+    }
+    const d = el('div', 'modal', `<div class="panel"><h3>アプリとして追加</h3>${body}<div class="row" style="justify-content:center;margin-top:10px"><button class="sbtn" data-a="mno">閉じる</button></div></div>`);
+    d.id = 'modal'; this.closeModal(); $('#menus').appendChild(d);
+  },
+
   // ================= 各画面 =================
   r_title() {
-    this.html('title', `<div class="logo">${GAME_TITLE}</div><div class="logo-sub">${GAME_SUB}</div><div class="tap">画面をタップして開始</div><div class="ver">ver ${VERSION}</div>`);
+    this.html('title', `<div class="logo">${GAME_TITLE}</div><div class="logo-sub">${GAME_SUB}</div><div class="tap">画面をタップして開始</div><div class="ver">ver ${VERSION}</div>${this.installBtn('inst-title')}`);
     $('#s-title').dataset.a = 'start';
   },
   r_home() {
     const S = Save.data, h = HERO[this.sel.hero];
-    this.html('home', `<div class="head"><div class="who">${esc(S.name)}</div><div class="sp"></div><div class="goldv">${S.gold.toLocaleString()}</div></div>
+    this.html('home', `<div class="head"><div class="who">${esc(S.name)}</div><div class="sp"></div>${this.installBtn('inst-home')}<div class="goldv">${S.gold.toLocaleString()}</div></div>
       <div class="home-menu">
         <button class="mbtn main" data-a="go" data-v="stage">出陣<small>章を選んで合戦へ</small></button>
         <button class="mbtn" ${Save.stageCleared('s1') ? 'data-a="go" data-v="endless"' : 'style="opacity:.45"'}>無限戦場<small>${Save.stageCleared('s1') ? `最高 ${S.endless.ko}人撃破 / 第${S.endless.wave}波` : '第一章クリアで解放'}</small></button>
