@@ -1,0 +1,19 @@
+{
+  "name": "星牙戦記 SEIGA",
+  "short_name": "星牙戦記",
+  "description": "大軍をなぎ倒し拠点を制圧する、一騎当千タクティカルアクション。",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "landscape",
+  "background_color": "#04050c",
+  "theme_color": "#0b0f1e",
+  "categories": ["games", "action"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

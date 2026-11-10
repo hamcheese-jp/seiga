@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>星牙戦記 SEIGA</title>
+<meta name="description" content="大軍をなぎ倒し拠点を制圧する、一騎当千タクティカルアクション。">
+<meta name="theme-color" content="#0b0f1e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="星牙戦記">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="css/style.css">
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<div id="touch" class="hide">
+  <div id="stick"><div id="knob"></div></div>
+  <div id="btns">
+    <div class="btn b-a" data-k="a"><span>攻撃</span></div>
+    <div class="btn b-c" data-k="c"><span>チャージ</span></div>
+    <div class="btn b-d" data-k="d"><span>回避</span></div>
+    <div class="btn b-s" data-k="s"><span>奥義</span></div>
+    <div class="btn b-r" data-k="r"><span>覚醒</span></div>
+  </div>
+</div>
+
+<div id="hud" class="hide">
+  <div id="h-player">
+    <div class="pl-top"><span id="pl-name"></span><span id="pl-lv"></span></div>
+    <div class="bar hp"><i id="hp-fill"></i><b id="hp-text"></b></div>
+    <div class="bar sp"><i id="sp-fill"></i><em>奥義</em></div>
+    <div class="bar rg"><i id="rg-fill"></i><em>覚醒</em></div>
+  </div>
+  <div id="h-top">
+    <div id="obj"></div>
+    <div id="morale"><i id="mor-a"></i><span>戦況</span></div>
+    <div id="timer">0:00</div>
+    <div id="mission" class="hide"></div>
+  </div>
+  <div id="h-map"><canvas id="minimap" width="280" height="280"></canvas><button id="btn-pause" aria-label="一時停止">Ⅱ</button></div>
+  <div id="h-ko"><div id="ko-n">0</div><div class="ko-l">撃破</div><div id="combo" class="hide"><b id="combo-n">0</b><span>連撃</span></div></div>
+  <div id="h-target" class="hide"><div id="tg-name"></div><div class="bar tg"><i id="tg-fill"></i></div></div>
+  <div id="h-base" class="hide"><div id="bs-name"></div><div class="bar bs"><i id="bs-fill"></i></div></div>
+  <div id="h-say"></div>
+  <div id="h-fps"></div>
+</div>
+
+<div id="fx-layer">
+  <div id="hurt"></div>
+  <div id="card"></div>
+  <div id="banner"></div>
+  <div id="cutin"></div>
+  <div id="kob"></div>
+  <div id="pops"></div>
+  <div id="toast"></div>
+</div>
+
+<div id="menus"></div>
+<div id="fade"></div>
+<div id="boot"><div class="boot-in"><div class="boot-logo">星牙戦記</div><div class="boot-msg">読み込み中…</div></div></div>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
