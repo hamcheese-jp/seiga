@@ -24,7 +24,7 @@ export class Fighter {
     GFX.scene.add(this.model.root);
     // VRoidのキャラがあれば読み込んで差し替える(読み込み中は今の姿で表示)
     const vk = o.heroId || o.vrmKey;
-    if (vk) loadVrm(vk).then((vrm) => { if (!vrm) return; if (this.disposed) { vrm.scene.traverse((x) => { if (x.geometry) x.geometry.dispose(); }); return; } new VrmBody(this.model, vrm); }).catch((e) => console.warn(e));
+    if (vk) loadVrm(vk).then((vrm) => { if (!vrm) return; if (this.disposed) { vrm.scene.traverse((x) => { if (x.geometry) x.geometry.dispose(); }); return; } new VrmBody(this.model, vrm).rim(this.col, this.team === 1 ? (this.boss ? 2 : 1) : 0); }).catch((e) => console.warn(e));
     this.ms = MS[o.ms];
     this.x = o.x; this.z = o.z; this.y = 0; this.vx = 0; this.vy = 0; this.vz = 0; this.yaw = o.yaw || 0;
     this.rad = 0.5 * this.model.scale; this.alive = true; this.hidden = false; this.ghost = false; this.gone = false; this.sealed = false;
@@ -85,6 +85,7 @@ export class Fighter {
       if (Math.random() < dt * 40) FX.aura(this.x, this.y + 0.2, this.z, this.col, 1, 0.6);
       if (this.awake <= 0) { this.rage = 0; if (this.isPlayer) B.ui.toast('覚醒終了'); }
     }
+    if (this.boss && this.team === 1 && Math.random() < dt * 12) FX.aura(this.x, this.y + 0.1, this.z, [1.6, 0.08, 0.35], 1, 0.75 * this.model.scale);
     if (this.enraged && Math.random() < dt * 30) FX.aura(this.x, this.y + 0.2, this.z, [3.5, 0.4, 0.3], 1, 0.7);
     if (this.burn > 0) { this.burn -= dt; this.burnT -= dt; if (this.burnT <= 0) { this.burnT = 0.5; FX.embers(this.x, 1, this.z, 4.5, 1.5, 0.3, 4, 0.3, 3); this.hp -= this.burnDmg; if (this.hp <= 0) { this.hp = 1; } if (this.tag) this._drawTag(); } }
     if (this.S && this.S.regen > 0 && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + this.maxHp * this.S.regen / 100 * dt);

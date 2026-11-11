@@ -6,3 +6,4 @@ Thumbs.db
 .claude/
 dev/
 vrm/*.orig.vrm
+vrm/*.vroid

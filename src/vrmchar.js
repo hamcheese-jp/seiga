@@ -139,6 +139,23 @@ export class VrmBody {
     g.position.copy(root.worldToLocal(_w.clone()));
     g.quaternion.copy(q);
   }
+  // 輪郭光と陰影で印象づける: 味方は属性色のふち取り、敵は赤い逆光と暗い陰(lv 2=ボス)
+  rim(col, lv) {
+    const enemy = lv > 0;
+    this.vrm.scene.traverse((o) => {
+      if (!o.isMesh) return;
+      for (const m of [].concat(o.material)) {
+        if (m.parametricRimColorFactor) {
+          if (enemy) m.parametricRimColorFactor.setRGB(lv > 1 ? 1.8 : 1.1, 0.06, lv > 1 ? 0.12 : 0.03);
+          else m.parametricRimColorFactor.setRGB(col[0] * 0.18, col[1] * 0.18, col[2] * 0.18);
+          m.parametricRimFresnelPowerFactor = enemy ? (lv > 1 ? 2.0 : 2.8) : 4;
+          m.parametricRimLiftFactor = enemy ? 0.06 : 0;
+        }
+        if (enemy && m.shadeColorFactor) m.shadeColorFactor.multiplyScalar(lv > 1 ? 0.5 : 0.68);
+        if (enemy && m.color) m.color.multiplyScalar(lv > 1 ? 0.78 : 0.88);
+      }
+    });
+  }
   flash(r, g, b) {
     const k = r + g * 7 + b * 49; if (k === this._fl) return; this._fl = k;
     for (const { m, c } of this.mats) { if (r || g || b) m.emissive.setRGB(c.r + r, c.g + g, c.b + b); else m.emissive.copy(c); }

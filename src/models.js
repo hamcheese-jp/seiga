@@ -59,80 +59,112 @@ function chain(J, dang, parent, name, x, y, z, yaw, n, segLen, mk, opt = {}) {
 }
 
 function buildWeapon(type, tier, P) {
-  const steel = ['#aab3c0', '#cfd8e6', '#eef2ff'][tier], gold = tier === 0 ? '#8a7350' : P.gold;
-  const gs = [0.4, 0.75, 1.25][tier], glow = [P.glow[0] * gs, P.glow[1] * gs, P.glow[2] * gs];
+  const steel = ['#b4bccb', '#d6deec', '#f2f5ff'][tier], dark = '#2a2d36', gold = tier === 0 ? '#9a8058' : P.gold;
+  const gs = [0.45, 0.8, 1.3][tier], glow = [P.glow[0] * gs, P.glow[1] * gs, P.glow[2] * gs];
   const parts = [], add = (k, g) => parts.push({ k, g });
   const flat = (g, s) => at(g, 0, 0, 0, 0, 0, 0, s, 1, 1);
+  const side = (pts, d, c) => at(extrude(pts, d, c), 0, 0, 0, 0, -PI / 2, 0);   // 形の x → +Z
+  const mirror = (pts) => pts.map(([x, y]) => [-x, y]).reverse();
   let tip, base, two = false, dual = false, grip = [0, -0.4, 0];
   if (type === 'sword') {
-    const len = 1.12 + tier * 0.07, w = 0.075 + tier * 0.008;
-    add('c', at(cyl(0.021, 0.023, 0.3, '#2a1a14', 8), 0, 0, 0));
-    add('m', at(sph(0.032, gold, 8, 6), 0, -0.165, 0));
-    add('m', at(box(0.04, 0.026, 0.17 + tier * 0.04, gold), 0, 0.165, 0));
-    add('m', at(box(0.02, len * 0.84, w, steel), 0, 0.18 + len * 0.42, 0));
-    add('m', at(flat(at(cone(w * 0.5, len * 0.18, steel, 4), 0, 0, 0, 0, PI / 4, 0), 0.38), 0, 0.18 + len * 0.93, 0, 0, 0, 0, 1, 1, 1.42));
-    add('g', at(box(0.026, len * 0.86, 0.014, glow), 0, 0.2 + len * 0.43, w * 0.5));
-    if (tier > 0) add('g', at(sph(0.022, glow, 6, 5), 0, 0.165, 0));
-    tip = [0, 0.18 + len, 0]; base = [0, 0.3, 0];
+    // 大太刀: 幅広の刀身・峰・光る刃・翼の鍔
+    const len = 1.3 + tier * 0.1, w = 0.1 + tier * 0.012, b0 = 0.2;
+    add('c', at(cyl(0.022, 0.025, 0.34, '#1a1210', 8), 0, 0, 0));
+    for (let i = 0; i < 4; i++) add('m', at(cyl(0.027, 0.027, 0.018, gold, 8), 0, -0.12 + i * 0.08, 0));
+    add('m', at(sph(0.038, gold, 8, 6), 0, -0.19, 0)); add('g', at(sph(0.022, glow, 6, 5), 0, -0.225, 0));
+    const wing = [[0.03, 0.13], [0.12, 0.12], [0.24, 0.2], [0.3, 0.13], [0.2, 0.09], [0.06, 0.17]];
+    add('m', side([...wing, ...mirror(wing)], 0.05, gold));
+    add('g', at(sph(0.03, glow, 8, 6), 0, 0.15, 0, 0, 0, 0, 1.6, 1, 1));
+    add('m', at(box(0.022, len * 0.86, w, steel), 0, b0 + len * 0.43, 0));
+    add('m', at(box(0.032, len * 0.86, w * 0.26, dark), 0, b0 + len * 0.43, -w * 0.38));
+    add('m', at(flat(at(cone(w * 0.5, len * 0.2, steel, 4), 0, 0, 0, 0, PI / 4, 0), 0.38), 0, b0 + len * 0.96, 0, 0, 0, 0, 1, 1, 1.42));
+    add('g', at(box(0.024, len * 0.88, 0.01, glow), 0, b0 + len * 0.44, w * 0.52));
+    for (let i = 0; i < 2 + tier * 2; i++) add('g', at(box(0.036, 0.06, 0.022, glow), 0, b0 + 0.16 + i * len * 0.13, -w * 0.05));
+    tip = [0, b0 + len * 1.04, 0]; base = [0, 0.3, 0];
   } else if (type === 'spear') {
-    add('c', at(cyl(0.02, 0.021, 2.2, '#4a2e20', 8), 0, 0.35, 0));
-    add('m', at(cone(0.03, 0.12, steel, 6), 0, -0.8, 0, PI, 0, 0));
-    add('m', at(cyl(0.036, 0.03, 0.13, gold, 8), 0, 1.44, 0));
-    add('m', at(flat(at(cone(0.085, 0.52 + tier * 0.05, steel, 4), 0, 0, 0, 0, PI / 4, 0), 0.3), 0, 1.76 + tier * 0.025, 0));
-    add('m', at(flat(at(cone(0.085, 0.12, steel, 4), 0, 0, 0, PI, PI / 4, 0), 0.3), 0, 1.44, 0));
-    if (tier > 0) for (const s of [1, -1]) add('m', at(flat(at(cone(0.04, 0.26, steel, 4), 0, 0, 0, 0, PI / 4, 0), 0.4), 0, 1.6, s * 0.1, s * 0.9, 0, 0));
-    add('c', at(cone(0.06, 0.2, P.c1, 8), 0, 1.33, 0, PI, 0, 0));
-    add('g', at(box(0.012, 0.44, 0.012, glow), 0, 1.74, 0.045)); add('g', at(box(0.012, 0.44, 0.012, glow), 0, 1.74, -0.045));
-    add('g', at(sph(0.028, glow, 6, 5), 0, 1.45, 0.035));
-    tip = [0, 2.02 + tier * 0.05, 0]; base = [0, 1.42, 0]; two = true; grip = [0, 0.5, 0];
+    // 長槍: 大きな穂先+三日月の副刃+房
+    const hl = 0.62 + tier * 0.07;
+    add('c', at(cyl(0.021, 0.023, 2.3, '#3a2218', 8), 0, 0.35, 0));
+    for (let i = 0; i < 3; i++) add('m', at(cyl(0.028, 0.028, 0.03, gold, 8), 0, -0.1 + i * 0.5, 0));
+    add('m', at(cone(0.034, 0.16, steel, 6), 0, -0.86, 0, PI, 0, 0));
+    add('m', at(cyl(0.042, 0.032, 0.16, gold, 8), 0, 1.5, 0));
+    add('m', side([[0, 1.58], [0.1, 1.72], [0.07, 1.58 + hl * 0.7], [0, 1.58 + hl], [-0.07, 1.58 + hl * 0.7], [-0.1, 1.72]], 0.028, steel));
+    const moon = [[0.04, 1.56], [0.2, 1.5], [0.34, 1.62], [0.38, 1.82], [0.3, 1.7], [0.18, 1.62], [0.06, 1.66]];
+    add('m', side(moon, 0.024, steel));
+    if (tier > 0) add('m', side(mirror(moon), 0.024, steel));
+    add('c', at(cone(0.075, 0.26, P.c1, 8), 0, 1.36, 0, PI, 0, 0));
+    add('g', side([[0, 1.62], [0.035, 1.72], [0, 1.52 + hl * 0.95], [-0.035, 1.72]], 0.034, glow));
+    add('g', at(sph(0.034, glow, 6, 5), 0, 1.5, 0.045));
+    tip = [0, 1.58 + hl, 0]; base = [0, 1.46, 0]; two = true; grip = [0, 0.5, 0];
   } else if (type === 'twin') {
-    const len = 0.66 + tier * 0.05;
-    add('c', at(cyl(0.02, 0.02, 0.2, '#1c1a22', 8), 0, 0, 0));
-    add('m', at(box(0.036, 0.022, 0.11, gold), 0, 0.105, 0));
-    add('m', at(box(0.016, len * 0.85, 0.062, steel), 0, 0.115 + len * 0.425, 0));
-    add('m', at(flat(at(cone(0.031, len * 0.17, steel, 4), 0, 0, 0, 0, PI / 4, 0), 0.36), 0, 0.115 + len * 0.93, 0, 0, 0, 0, 1, 1, 1.42));
-    add('g', at(box(0.02, len * 0.85, 0.012, glow), 0, 0.12 + len * 0.42, 0.031));
-    tip = [0, 0.115 + len, 0]; base = [0, 0.18, 0]; dual = true;
+    // 双剣: 反りのある刃+鉤爪の鍔
+    const len = 0.72 + tier * 0.06;
+    add('c', at(cyl(0.02, 0.021, 0.22, '#16141c', 8), 0, 0, 0));
+    add('m', at(sph(0.03, gold, 6, 5), 0, -0.12, 0));
+    add('m', side([[-0.1, 0.13], [-0.05, 0.1], [0.05, 0.1], [0.13, 0.04], [0.09, 0.13]], 0.04, gold));
+    const bl = [[-0.035, 0.12], [0.035, 0.12], [0.05, 0.12 + len * 0.5], [0.02, 0.12 + len * 0.85], [-0.03, 0.12 + len * 1.02], [-0.02, 0.12 + len * 0.55]];
+    add('m', side(bl, 0.018, steel));
+    add('g', side([[0.036, 0.14], [0.052, 0.12 + len * 0.5], [0.022, 0.12 + len * 0.85], [-0.03, 0.12 + len * 1.02], [0.008, 0.12 + len * 0.84], [0.038, 0.12 + len * 0.5], [0.024, 0.14]], 0.022, glow));
+    tip = [0, 0.12 + len, -0.02]; base = [0, 0.18, 0]; dual = true;
   } else if (type === 'hammer') {
-    const hs = 1 + tier * 0.1;
-    add('c', at(cyl(0.028, 0.03, 1.75, '#3d2a1e', 8), 0, 0.45, 0));
-    add('m', at(cyl(0.04, 0.04, 0.08, gold, 8), 0, -0.42, 0));
-    add('m', at(box(0.3 * hs, 0.34 * hs, 0.58 * hs, P.metal), 0, 1.34, 0));
-    for (const s of [1, -1]) { add('m', at(box(0.33 * hs, 0.37 * hs, 0.07, gold), 0, 1.34, s * 0.21 * hs)); add('m', at(box(0.24 * hs, 0.28 * hs, 0.04, steel), 0, 1.34, s * 0.3 * hs)); }
-    add('m', at(cone(0.06, 0.16, gold, 6), 0, 1.34 + 0.25 * hs, 0));
-    add('g', at(box(0.312 * hs, 0.14, 0.14, glow), 0, 1.34, 0));
-    tip = [0, 1.5, 0.12]; base = [0, 0.9, 0]; two = true; grip = [0, 0.5, 0];
+    // 大槌: 巨大な頭+棘+光る紋
+    const hs = 1.12 + tier * 0.12;
+    add('c', at(cyl(0.03, 0.032, 1.8, '#2e1f16', 8), 0, 0.45, 0));
+    add('m', at(cyl(0.045, 0.045, 0.1, gold, 8), 0, -0.44, 0));
+    for (let i = 0; i < 3; i++) add('m', at(cyl(0.036, 0.036, 0.03, gold, 8), 0, 0.1 + i * 0.12, 0));
+    add('m', at(box(0.34 * hs, 0.38 * hs, 0.62 * hs, P.metal), 0, 1.38, 0));
+    for (const s of [1, -1]) {
+      add('m', at(box(0.37 * hs, 0.41 * hs, 0.07, gold), 0, 1.38, s * 0.22 * hs));
+      add('m', at(cyl(0.16 * hs, 0.19 * hs, 0.08, dark, 8), 0, 1.38, s * 0.34 * hs, PI / 2, 0, 0));
+      for (const [dy, dx] of [[0.13, 0.12], [-0.13, 0.12], [0.13, -0.12], [-0.13, -0.12]]) add('m', at(cone(0.035, 0.14 * hs, steel, 5), dx * hs, 1.38 + dy * hs, s * 0.38 * hs, s * PI / 2, 0, 0));
+    }
+    add('m', at(cone(0.07, 0.26, gold, 6), 0, 1.38 + 0.31 * hs, 0));
+    add('g', at(box(0.35 * hs, 0.12, 0.66 * hs, glow), 0, 1.38, 0));
+    tip = [0, 1.55, 0.15]; base = [0, 0.95, 0]; two = true; grip = [0, 0.5, 0];
   } else if (type === 'axe') {
-    add('c', at(cyl(0.026, 0.028, 1.9, '#2e221c', 8), 0, 0.45, 0));
-    add('m', at(extrude([[0.02, 0.95], [0.4, 0.82], [0.52, 1.02], [0.54, 1.22], [0.5, 1.42], [0.38, 1.62], [0.02, 1.48]], 0.03, steel), 0, 0, 0, 0, -PI / 2, 0));
-    add('m', at(extrude([[0.0, 1.1], [0.24, 1.22], [0.0, 1.34]], 0.03, steel), 0, 0, 0, 0, PI / 2, 0));
-    add('m', at(cyl(0.05, 0.05, 0.6, gold, 8), 0, 1.22, 0));
-    add('m', at(cone(0.045, 0.22, steel, 6), 0, 1.62, 0));
-    add('g', at(box(0.034, 0.5, 0.02, glow), 0, 1.22, 0.3));
-    tip = [0, 1.25, 0.54]; base = [0, 0.95, 0]; two = true; grip = [0, 0.5, 0];
+    // 大戦斧: 両刃の三日月+棘
+    const s = 1.08 + tier * 0.1, Y = (y) => 1.22 + (y - 1.22) * s;
+    add('c', at(cyl(0.028, 0.03, 2.0, '#241a14', 8), 0, 0.45, 0));
+    for (let i = 0; i < 3; i++) add('m', at(cyl(0.035, 0.035, 0.03, gold, 8), 0, 0.0 + i * 0.12, 0));
+    const big = [[0.03, Y(0.92)], [0.38 * s, Y(0.78)], [0.56 * s, Y(1.0)], [0.6 * s, Y(1.22)], [0.56 * s, Y(1.44)], [0.4 * s, Y(1.68)], [0.03, Y(1.52)]];
+    add('m', side(big, 0.034, steel));
+    add('m', side([[0.0, Y(1.38)], [-0.3 * s, Y(1.44)], [-0.36 * s, Y(1.22)], [-0.3 * s, Y(1.0)], [0.0, Y(1.06)]], 0.034, steel));
+    add('m', at(cyl(0.055, 0.055, 0.66 * s, gold, 8), 0, 1.22, 0));
+    add('m', at(cone(0.05, 0.3, steel, 6), 0, Y(1.62) + 0.1, 0));
+    add('g', side([[0.5 * s, Y(0.96)], [0.6 * s, Y(1.22)], [0.5 * s, Y(1.5)], [0.54 * s, Y(1.22)]], 0.04, glow));
+    add('g', at(sph(0.04, glow, 6, 5), 0, 1.22, 0.06));
+    tip = [0, 1.22, 0.6 * s]; base = [0, 0.95, 0]; two = true; grip = [0, 0.5, 0];
   } else if (type === 'fan') {
-    const R = 0.56 + tier * 0.05, pts = [[0, 0]];
-    for (let i = 0; i <= 10; i++) { const a = (32 + i * 11.6) * PI / 180; pts.push([Math.cos(a) * R, Math.sin(a) * R]); }
+    // 鉄扇: 刃付きの骨+光る縁
+    const R = 0.62 + tier * 0.06, pts = [[0, 0]], inner = [[0, 0]];
+    for (let i = 0; i <= 12; i++) { const a = (30 + i * 10) * PI / 180; pts.push([Math.cos(a) * R, Math.sin(a) * R]); inner.push([Math.cos(a) * R * 0.55, Math.sin(a) * R * 0.55]); }
     add('c', at(extrude(pts, 0.012, P.c1), 0, 0, 0, 0, -PI / 2, 0));
-    const inner = [[0, 0]]; for (let i = 0; i <= 10; i++) { const a = (32 + i * 11.6) * PI / 180; inner.push([Math.cos(a) * R * 0.55, Math.sin(a) * R * 0.55]); }
     add('c', at(extrude(inner, 0.016, P.c2), 0, 0, 0, 0, -PI / 2, 0));
-    for (let i = 0; i <= 5; i++) { const a = (32 + i * 23.2) * PI / 180; add('m', at(box(0.02, R, 0.012, gold), 0, Math.sin(a) * R * 0.5, Math.cos(a) * R * 0.5, -(a - PI / 2), 0, 0)); }
-    add('g', at(torus(R, 0.013, glow, 4, 14, 116 * PI / 180), 0, 0, 0, 0, -PI / 2, 32 * PI / 180));
-    add('m', at(sph(0.03, gold, 6, 5), 0, 0, 0));
+    for (let i = 0; i <= 6; i++) {
+      const a = (30 + i * 20) * PI / 180;
+      add('m', at(box(0.02, R, 0.012, gold), 0, Math.sin(a) * R * 0.5, Math.cos(a) * R * 0.5, -(a - PI / 2), 0, 0));
+      add('m', at(flat(at(cone(0.035, 0.16, steel, 4), 0, 0, 0, 0, PI / 4, 0), 0.4), 0, Math.sin(a) * (R + 0.07), Math.cos(a) * (R + 0.07), -(a - PI / 2), 0, 0));
+    }
+    add('g', at(torus(R, 0.016, glow, 4, 16, 120 * PI / 180), 0, 0, 0, 0, -PI / 2, 30 * PI / 180));
+    add('g', at(torus(R * 0.55, 0.01, glow, 4, 12, 120 * PI / 180), 0, 0, 0, 0, -PI / 2, 30 * PI / 180));
+    add('m', at(sph(0.035, gold, 6, 5), 0, 0, 0));
     tip = [0, R, 0]; base = [0, 0.12, 0]; dual = true;
   } else if (type === 'scythe') {
-    add('c', at(cyl(0.022, 0.026, 2.15, '#1b1620', 8), 0, 0.45, 0));
-    add('m', at(cone(0.03, 0.12, steel, 6), 0, -0.68, 0, PI, 0, 0));
-    const pts = [], bs = 1 + tier * 0.08;
-    for (let i = 0; i <= 8; i++) { const a = (96 - i * 10) * PI / 180; pts.push([Math.cos(a) * 0.9 * bs, 0.55 + Math.sin(a) * 0.9 * bs]); }
-    pts.push([0.99 * bs, 0.55 + 0.08 * bs]);
-    for (let i = 8; i >= 0; i--) { const a = (98 - i * 10.5) * PI / 180; pts.push([Math.cos(a) * 0.72 * bs, 0.6 + Math.sin(a) * 0.74 * bs]); }
-    add('m', at(extrude(pts, 0.022, steel), 0, 0, 0, 0, -PI / 2, 0));
-    add('m', at(cyl(0.045, 0.04, 0.2, gold, 8), 0, 1.42, 0));
-    add('m', at(cone(0.035, 0.2, gold, 6), 0, 1.62, 0));
-    for (let i = 1; i <= 7; i++) { const a = (96 - i * 10) * PI / 180; add('g', at(sph(0.02, glow, 5, 4), 0, 0.575 + Math.sin(a) * 0.81 * bs, Math.cos(a) * 0.81 * bs)); }
-    add('g', at(sph(0.035, glow, 6, 5), 0, 1.42, 0.05));
-    tip = [0, 0.63, 0.97 * bs]; base = [0, 1.46, 0]; two = true; grip = [0, 0.5, 0];
+    // 大鎌: 長く鋭い刃+棘
+    add('c', at(cyl(0.023, 0.027, 2.25, '#15111a', 8), 0, 0.45, 0));
+    add('m', at(cone(0.035, 0.2, steel, 6), 0, -0.76, 0, PI, 0, 0));
+    for (let i = 0; i < 3; i++) add('m', at(cyl(0.032, 0.032, 0.03, gold, 8), 0, 0.0 + i * 0.12, 0));
+    const pts = [], bs = 1.12 + tier * 0.1;
+    for (let i = 0; i <= 10; i++) { const a = (98 - i * 9.5) * PI / 180; pts.push([Math.cos(a) * 0.95 * bs, 0.55 + Math.sin(a) * 0.95 * bs]); }
+    pts.push([1.12 * bs, 0.5]);
+    for (let i = 10; i >= 0; i--) { const a = (100 - i * 10) * PI / 180; pts.push([Math.cos(a) * 0.74 * bs, 0.62 + Math.sin(a) * 0.76 * bs]); }
+    add('m', side(pts, 0.024, steel));
+    add('m', side([[-0.02, 1.4], [-0.24, 1.56], [-0.06, 1.5]], 0.03, steel));
+    add('m', at(cyl(0.05, 0.045, 0.24, gold, 8), 0, 1.44, 0));
+    add('m', at(cone(0.04, 0.26, gold, 6), 0, 1.68, 0));
+    for (let i = 1; i <= 9; i++) { const a = (98 - i * 9.5) * PI / 180; add('g', at(sph(0.022, glow, 5, 4), 0, 0.585 + Math.sin(a) * 0.85 * bs, Math.cos(a) * 0.85 * bs)); }
+    add('g', at(sph(0.04, glow, 6, 5), 0, 1.44, 0.055));
+    tip = [0, 0.55, 1.1 * bs]; base = [0, 1.48, 0]; two = true; grip = [0, 0.5, 0];
   }
   return { parts, tip, base, two, dual, grip };
 }
