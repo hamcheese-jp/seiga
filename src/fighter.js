@@ -8,6 +8,7 @@ import { MS } from './moves.js';
 import { ELEMENTS } from './data.js';
 import { FX, Trail } from './fx.js';
 import { Audio } from './audio.js';
+import { Voice } from './voice.js';
 import { Input } from './input.js';
 import { clamp, rnd, angTo, angDamp, damp, D2R } from './util.js';
 
@@ -152,13 +153,15 @@ export class Fighter {
     const list = kind === 'n' ? this.ms.n : this.ms.c;
     this.kind = kind; this.chain = idx; this._aim();
     this._startMove(list[idx], 'atk');
+    // 掛け声: 通常攻撃はときどき、チャージ攻撃は毎回
+    if (kind === 'c') Voice.play(Voice.idFor(this), 'heavy', { gap: 0.4 }); else Voice.play(Voice.idFor(this), 'atk', { chance: idx === 0 ? 0.55 : 0.35, gap: 0.55 });
   }
   _startMove(m, state) {
     this.state = state; this.move = m; this.mt = 0; this.hitI = 0; this.sfxI = 0; this.turnI = 0; this.st = 0;
     this.rig.play(m); this.trailOn = false; this.ghost = !!m.ghost; this.faceYaw = null;
     if (m.tele) {
       this.teleT = m.dk[0].t + 0.1;
-      if (this.B.nearCam(this.x, this.z, 45)) { Audio.sfx('tele'); FX.glow(this.x, 1.6, this.z, 4, 0.5, 0.3, 3.2, 0.3); }
+      if (this.B.nearCam(this.x, this.z, 45)) { Audio.sfx('tele'); FX.glow(this.x, 1.6, this.z, 4, 0.5, 0.3, 3.2, 0.3); if (this.team === 1) Voice.play(Voice.idFor(this), m.tele > 1 ? 'sp' : 'heavy', { chance: this.boss ? 0.9 : 0.35, gap: 2 }); }
       if (m.tele > 1) { const h = m.hits[m.hits.length - 1]; if (h && h.r) FX.ring(this.x + Math.sin(this.yaw) * (h.fwd || 0), this.z + Math.cos(this.yaw) * (h.fwd || 0), [3.2, 0.35, 0.2], h.r * 0.92, h.r, Math.max(0.3, h.t), 0.1, 0.9); }
     }
   }

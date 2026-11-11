@@ -386,3 +386,23 @@ MS.boss_final = {
   },
   plans: [{ seq: ['n0', 'n1', 'n2', 'n3'], max: 4.4, w: 5 }, { seq: ['n0', 'n1'], max: 4.4, w: 2 }, { seq: ['warp'], min: 3, max: 20, w: 4 }, { seq: ['orbs'], min: 2, max: 20, w: 3 }, { seq: ['reap'], max: 9, w: 2, p2: true }, { seq: ['nova'], max: 9, w: 2, p2: true }],
 };
+
+// ================= 帝国の将(プレイヤー用) =================
+// 星牙使いの技を土台に、ボスの大技をチャージ技に組み込む
+const pl = (mv) => { const o = { ...mv, armor: true }; delete o.tele; return o; };
+const B1 = MS.boss_axe.m, B2 = MS.boss_twin.m, B3 = MS.boss_spear.m, B4 = MS.boss_hammer.m, B5 = MS.boss_final.m;
+MS.p_barga = { spName: '鉄壁轟断',
+  n: [B1.n0, B1.n1, MS.gandou.n[2], MS.gandou.n[3], MS.gandou.n[4], pl(B1.n2)],
+  c: [pl(B1.rush), MS.gandou.c[1], MS.gandou.c[2], MS.gandou.c[3], pl(B1.nova), MS.gandou.c[5]], sp: MS.gandou.sp };
+MS.p_zahar = { spName: '砂塵千刃',
+  n: [B2.n0, B2.n1, B2.n2, B2.n3, MS.raika.n[4], MS.raika.n[5]],
+  c: [pl(B2.dash), MS.raika.c[1], MS.raika.c[2], MS.raika.c[3], MS.raika.c[4], pl(B2.storm)], sp: MS.raika.sp };
+MS.p_volg = { spName: '氷狼牙陣',
+  n: [B3.n0, B3.n1, B3.n2, MS.setsuna.n[3], MS.setsuna.n[4], MS.setsuna.n[5]],
+  c: [pl(B3.dash), MS.setsuna.c[1], MS.setsuna.c[2], pl(B3.heavy), pl(B3.spikes), MS.setsuna.c[5]], sp: MS.setsuna.sp };
+MS.p_ignas = { spName: '獄炎噴火',
+  n: [B4.n0, B4.n1, pl(B4.n2), MS.gandou.n[3], MS.gandou.n[4], MS.gandou.n[5]],
+  c: [MS.gandou.c[0], MS.gandou.c[1], pl(B4.erupt), pl(B4.heavy), MS.gandou.c[4], pl(B4.nova)], sp: MS.gandou.sp };
+MS.p_zenova = { spName: '覇星墜天',
+  n: [B5.n0, B5.n1, B5.n2, B5.n3, MS.yomi.n[4], MS.yomi.n[5]],
+  c: [pl(B5.warp), MS.yomi.c[1], pl(B5.orbs), MS.yomi.c[3], pl(B5.reap), MS.yomi.c[5]], sp: MS.yomi.sp };

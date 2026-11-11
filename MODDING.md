@@ -1,4 +1,4 @@
-# 星牙戦記 拡張ガイド — 武将・武器・ステージ・曲の増やし方
+# 蒼星のセイガ 拡張ガイド — 星牙使い(プレイヤーキャラ)・武器・ステージ・曲の増やし方
 
 このゲームはデータ定義を書き足すだけで要素を増やせる構成になっています。
 ファイルを編集したら、`sw.js` 先頭の `CACHE` の番号を上げてからGitHubへアップロードしてください。
@@ -111,7 +111,14 @@ node tools/serve.mjs
 → http://localhost:5173/tools/portrait.html を開くと全員分を自動で撮影・保存(`?only=reiga` で1人だけ)。
 キャラの表情・照明は `tools/portrait.html` の `LIST` で調整できます。ミコトの元モデルは `dev/mikoto.vrm`(VRoid: `mikoto.vroid`)。
 
-## 8. その他
+## 8. 声を追加・変更する
+
+- 台詞と話者は [src/voicedata.js](src/voicedata.js) の `VOICES`(キャラごとに atk / heavy / sp / awake / hurt / start / ko など)
+- VOICEVOX を起動した状態で `node tools/make-voices.mjs` を実行すると、足りない声だけ assets/voice/ に作ります(`--force` で全部作り直し)
+- 話者を追加したら `CREDITS` にも名前を足してください(VOICEVOXの利用規約でクレジット表記が必要)
+- 帝国の将は `HEROES` に `foe: true, vrm: 'boss1'` で登録され、章をクリアすると「星の記憶」として使えるようになります
+
+## 9. その他
 
 - **武器の特性**: `data.js` の `TRAITS` に追加(効果の実装は `calcStats` と `battle.js` を検索)
 - **実績**: `data.js` の `ACHIEVEMENTS` に追加。`t: (S) => 条件` を書くだけ

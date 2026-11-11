@@ -6,11 +6,13 @@ import { Save, Cloud } from './save.js';
 import { UI } from './ui.js';
 import { Lobby } from './lobby.js';
 import { Battle } from './battle.js';
-import { STAGE, HEROES } from './data.js';
+import { STAGE, HEROES, HERO } from './data.js';
 import { preloadVrm, probeVrm, VRM_KEYS } from './vrmchar.js';
 import { preloadSoldier } from './vat.js';
 import { preloadNature } from './nature.js';
 import { Story, STORY } from './story.js';
+import { Voice, VOICES } from './voice.js';
+import { BOSS_VOICE } from './voicedata.js';
 
 const App = {
   mode: 'menu', battle: null, lobby: null, paused: false, last: 0, busy: false,
@@ -19,10 +21,10 @@ const App = {
     Save.load();
     const s = Save.data.settings;
     GFX.init(document.getElementById('gl'), s.quality);
-    Audio.vol.bgm = s.bgm; Audio.vol.sfx = s.sfx;
+    Audio.vol.bgm = s.bgm; Audio.vol.sfx = s.sfx; Audio.vol.voice = s.voice;
     Input.init();
     UI.init(this);
-    probeVrm();
+    probeVrm(); Voice.init();
     this.lobby = new Lobby(); this.lobby.setHero(UI.sel.hero);
     UI.show('title');
     const boot = document.getElementById('boot');
@@ -58,7 +60,8 @@ const App = {
       UI.show('load'); UI.fade(false);
       setTimeout(async () => {
         // VRMは自分の武将・敵将・その章のボスだけ先読み(味方武将などは合戦中に順次読み込む)
-        const st = STAGE[sel.stage] || {}, need = [sel.hero, 'enemyOfficer', ...(st.officers || []).filter((o) => o.boss && o.look).map((o) => o.look)].filter((k) => VRM_KEYS.includes(k));
+        const st = STAGE[sel.stage] || {}, need = [(HERO[sel.hero] && HERO[sel.hero].vrm) || sel.hero, 'enemyOfficer', ...(st.officers || []).filter((o) => o.boss && o.look).map((o) => o.look)].filter((k) => VRM_KEYS.includes(k) || /^boss/.test(k));
+        Audio.resume(); Voice.preload([sel.hero, 'officer', ...(st.officers || []).filter((o) => o.boss && o.look).map((o) => BOSS_VOICE[o.look])], (st.events || []).filter((e) => e.say).map((e) => e.say[1]));
         await Promise.race([Promise.all([preloadVrm(need), preloadSoldier(), preloadNature()]), new Promise((r) => setTimeout(r, 15000))]);
         try {
           if (this.battle) { this.battle.dispose(); this.battle = null; }

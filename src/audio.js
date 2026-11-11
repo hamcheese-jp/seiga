@@ -18,7 +18,7 @@ const SONGS = {
 const BGM_FILES = { title: 'title', plains: 'battle', desert: 'battle3', snow: 'battle4', volcano: 'battle2', castle: 'castle', boss: 'boss', rage: 'rage', result: 'result' };
 
 export const Audio = {
-  ctx: null, vol: { bgm: 0.6, sfx: 0.8 }, intensity: 0.4,
+  ctx: null, vol: { bgm: 0.6, sfx: 0.8, voice: 0.9 }, intensity: 0.4,
   _song: null, _songName: '', _step: 0, _next: 0, _timer: 0, _last: {},
 
   init() {
@@ -32,6 +32,7 @@ export const Audio = {
     this.master.connect(this.out).connect(c.destination);
     this.sfxG = c.createGain(); this.bgmG = c.createGain();
     this.sfxG.connect(this.master); this.bgmG.connect(this.master);
+    this.voiceG = c.createGain(); this.voiceG.connect(this.master);
     // 残響(簡易ディレイ)
     this.dly = c.createDelay(0.6); this.dly.delayTime.value = 0.27;
     const fb = c.createGain(); fb.gain.value = 0.3;
@@ -45,10 +46,71 @@ export const Audio = {
     document.addEventListener('visibilitychange', () => { if (!this.ctx) return; if (document.hidden) this.ctx.suspend(); else this.ctx.resume(); });
   },
   resume() { this.init(); if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); },
-  setVol(bgm, sfx) {
-    if (bgm !== undefined) this.vol.bgm = bgm; if (sfx !== undefined) this.vol.sfx = sfx;
+  setVol(bgm, sfx, voice) {
+    if (bgm !== undefined) this.vol.bgm = bgm; if (sfx !== undefined) this.vol.sfx = sfx; if (voice !== undefined) this.vol.voice = voice;
     if (!this.ctx) return;
-    this.sfxG.gain.value = this.vol.sfx * 0.9; this.bgmG.gain.value = this.vol.bgm * 0.5;
+    this.sfxG.gain.value = this.vol.sfx * 0.9; this.bgmG.gain.value = this.vol.bgm * 0.5; this.voiceG.gain.value = this.vol.voice * 1.1;
+  },
+  // 声などの録音済み音を鳴らす
+  playBuf(buf, v = 1, rate = 1, pan = 0) {
+    const c = this.ctx; if (!c || !buf || c.state !== 'running') return null;
+    const s = c.createBufferSource(), g = c.createGain(); s.buffer = buf; s.playbackRate.value = rate; g.gain.value = v;
+    let node = s.connect(g);
+    if (pan && c.createStereoPanner) { const p = c.createStereoPanner(); p.pan.value = pan; node = node.connect(p); }
+    node.connect(this.voiceG); s.start(); return s;
+  },
+  // ---- 金属がぶつかる音(打撃に重ねる) ----
+  _clang(v, t, f0 = 1900, dest = this.sfxG) {
+    const r = 0.9 + Math.random() * 0.2;
+    for (const [m, a, d] of [[1, 1, 0.22], [2.76, 0.6, 0.16], [5.4, 0.35, 0.1], [8.93, 0.2, 0.07]]) this._tone('sine', f0 * m * r, f0 * m * r * 0.995, d, v * a, dest, t, 0.001);
+    this._noise(0.05, v * 0.7, 'highpass', 5000, 8000, 0.8, dest, t);
+  },
+  // ---- 戦場の環境音: 軍勢のどよめき・遠くの剣戟・鬨の声 ----
+  ambience(on, theme) {
+    const c = this.ctx; if (!c) return;
+    if (!on) { if (this.amb) { const a = this.amb; a.lvl.gain.setTargetAtTime(0, c.currentTime, 0.4); setTimeout(() => { try { a.src.stop(); a.wsrc.stop(); a.lfo.stop(); } catch (_) { /* noop */ } }, 1500); this.amb = null; } return; }
+    if (this.amb) return;
+    const lvl = c.createGain(); lvl.gain.value = 0; lvl.connect(this.sfxG);
+    const src = c.createBufferSource(); src.buffer = this.nbuf; src.loop = true;
+    const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 480; bp.Q.value = 0.8;
+    const pk = c.createBiquadFilter(); pk.type = 'peaking'; pk.frequency.value = 1000; pk.Q.value = 1.4; pk.gain.value = 7;
+    const mod = c.createGain(); mod.gain.value = 0.6;
+    const lfo = c.createOscillator(), lg = c.createGain(); lfo.frequency.value = 0.17; lg.gain.value = 0.35; lfo.connect(lg).connect(mod.gain); lfo.start();
+    src.connect(bp).connect(pk).connect(mod).connect(lvl); src.start();
+    // 風(雪原・砂漠では強め)
+    const wsrc = c.createBufferSource(); wsrc.buffer = this.nbuf; wsrc.loop = true; wsrc.playbackRate.value = 0.5;
+    const wf = c.createBiquadFilter(); wf.type = 'lowpass'; wf.frequency.value = theme === 'snow' || theme === 'desert' ? 700 : 380;
+    const wg = c.createGain(); wg.gain.value = theme === 'snow' || theme === 'desert' ? 0.5 : 0.22; wsrc.connect(wf).connect(wg).connect(lvl); wsrc.start();
+    this.amb = { lvl, src, wsrc, lfo, bp, t: 0 };
+  },
+  // level: 0〜1(周りの敵の多さ)
+  ambTick(dt, level) {
+    const a = this.amb, c = this.ctx; if (!a || !c || c.state !== 'running') return;
+    a.lvl.gain.setTargetAtTime(0.1 + level * 0.32, c.currentTime, 0.6);
+    a.bp.frequency.setTargetAtTime(420 + level * 260, c.currentTime, 0.8);
+    const t = c.currentTime, d = this.sfxG;
+    // 遠くの剣戟
+    if (Math.random() < dt * (1.5 + level * 7)) {
+      const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 2400 + Math.random() * 1800; f.connect(d);
+      this._clang(0.03 + Math.random() * 0.05 * (0.4 + level), t, 1500 + Math.random() * 900, f);
+    }
+    // 鬨の声(何人もの「おおー」)
+    if (Math.random() < dt * (0.05 + level * 0.18)) this._warcry(0.05 + level * 0.07, t);
+    // 太鼓
+    a.t += dt; if (a.t > 2.4 - level) { a.t = 0; if (Math.random() < 0.5 + level * 0.4) { this._tone('sine', 90, 45, 0.3, 0.12 + level * 0.12, d, t); this._tone('sine', 85, 42, 0.28, 0.08 + level * 0.1, d, t + 0.32); } }
+  },
+  _warcry(v, t) {
+    const c = this.ctx, g = c.createGain(), f1 = c.createBiquadFilter(), f2 = c.createBiquadFilter(), lp = c.createBiquadFilter();
+    f1.type = 'bandpass'; f1.frequency.value = 650; f1.Q.value = 3; f2.type = 'bandpass'; f2.frequency.value = 1100; f2.Q.value = 4;
+    lp.type = 'lowpass'; lp.frequency.value = 1800;
+    const dur = 1.2 + Math.random() * 0.8;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.35); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    f1.connect(g); f2.connect(g); g.connect(lp).connect(this.sfxG);
+    for (let i = 0; i < 7; i++) {
+      const o = c.createOscillator(); o.type = 'sawtooth'; const f = 120 + Math.random() * 110;
+      o.frequency.setValueAtTime(f * 0.9, t); o.frequency.linearRampToValueAtTime(f * 1.06, t + 0.4); o.frequency.linearRampToValueAtTime(f * 0.95, t + dur);
+      o.connect(i % 2 ? f1 : f2); o.start(t + Math.random() * 0.15); o.stop(t + dur + 0.1);
+    }
   },
 
   // ---- 基本発音 ----
@@ -77,8 +139,9 @@ export const Audio = {
     switch (name) {
       case 'swing': this._noise(0.13, 0.22 * p, 'bandpass', 700 * r, 2600 * r, 1.2, d, t, 0.02); break;
       case 'swingH': this._noise(0.22, 0.3, 'bandpass', 300 * r, 1500 * r, 1.0, d, t, 0.04); break;
-      case 'hit': this._noise(0.07, 0.42 * p, 'lowpass', 2600 * r, 500, 0.7, d, t); this._tone('sine', 170 * r, 60, 0.09, 0.4 * p, d, t); this._noise(0.05, 0.16 * p, 'highpass', 4200, 6000, 0.7, d, t); break;
-      case 'hitH': this._noise(0.16, 0.6, 'lowpass', 2200 * r, 240, 0.7, d, t); this._tone('sine', 120 * r, 38, 0.22, 0.7, d, t); this._tone('square', 90, 40, 0.1, 0.12, d, t); break;
+      case 'hit': this._noise(0.07, 0.42 * p, 'lowpass', 2600 * r, 500, 0.7, d, t); this._tone('sine', 170 * r, 60, 0.09, 0.4 * p, d, t); this._noise(0.05, 0.16 * p, 'highpass', 4200, 6000, 0.7, d, t); if (Math.random() < 0.35) this._clang(0.07 * p, t, 2000 + Math.random() * 700); break;
+      case 'hitH': this._noise(0.16, 0.6, 'lowpass', 2200 * r, 240, 0.7, d, t); this._tone('sine', 120 * r, 38, 0.22, 0.7, d, t); this._tone('square', 90, 40, 0.1, 0.12, d, t); this._clang(0.12, t, 1500 + Math.random() * 500); this._noise(0.3, 0.2, 'lowpass', 600, 80, 0.7, d, t + 0.02); break;
+      case 'clash': this._clang(0.22, t, 1700 + Math.random() * 600); this._noise(0.08, 0.3, 'bandpass', 3000, 1200, 1, d, t); break;
       case 'ko': this._tone('sine', 240 * r, 70, 0.14, 0.3, d, t); this._noise(0.1, 0.25, 'bandpass', 1400, 500, 1, d, t); break;
       case 'explode': this._noise(0.6, 0.75, 'lowpass', 1400, 70, 0.6, d, t); this._tone('sine', 95, 28, 0.5, 0.8, d, t); break;
       case 'quake': this._noise(0.5, 0.6, 'lowpass', 500, 50, 0.8, d, t); this._tone('sine', 70, 26, 0.45, 0.85, d, t); break;

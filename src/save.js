@@ -1,5 +1,5 @@
 // セーブデータ: 端末内(localStorage)に常時保存し、設定すれば Googleスプレッドシートへ同期する
-import { HEROES, START_HEROES, starterWeapon, ACHIEVEMENTS, expNeed, MAX_LV, UNLOCKS, HERO } from './data.js';
+import { HEROES, START_HEROES, starterWeapon, ACHIEVEMENTS, expNeed, MAX_LV, UNLOCKS, FOE_UNLOCKS, HERO } from './data.js';
 import { CLOUD_URL } from './config.js';
 
 const KEY = 'seiga_save_v1';
@@ -7,16 +7,17 @@ const genId = () => { const a = new Uint8Array(12); crypto.getRandomValues(a); r
 
 export function newSave() {
   return {
-    v: 1, id: genId(), name: '名もなき武将', gold: 500, heroes: {}, weapons: [], stages: {}, unlockedHeroes: START_HEROES.slice(), ach: {},
+    v: 1, id: genId(), name: '名もなき星牙使い', gold: 500, heroes: {}, weapons: [], stages: {}, unlockedHeroes: START_HEROES.slice(), ach: {},
     stats: { totalKO: 0, battles: 0, wins: 0, maxKO: 0, maxCombo: 0, officers: 0, perfect: 0, flawless: 0, playTime: 0 },
     endless: { ko: 0, wave: 0 }, story: {},
-    settings: { quality: 'auto', bgm: 0.6, sfx: 0.8, camSens: 1, autoCam: true, vibe: true, fps: false, cloudUrl: '', btnScale: 1, btnLayout: null },
+    settings: { quality: 'auto', bgm: 0.6, sfx: 0.8, voice: 0.9, camSens: 1, autoCam: true, vibe: true, fps: false, cloudUrl: '', btnScale: 1, btnLayout: null },
     last: { hero: 'reiga', stage: 's1', diff: 1 }, t: 0,
   };
 }
 function fix(s) {
   const d = newSave();
   for (const k in d) if (s[k] === undefined) s[k] = d[k];
+  if (s.name === '名もなき武将') s.name = d.name;
   for (const k in d.stats) if (s.stats[k] === undefined) s.stats[k] = d.stats[k];
   for (const k in d.settings) if (s.settings[k] === undefined) s.settings[k] = d.settings[k];
   for (const h of HEROES) {
@@ -86,6 +87,8 @@ export const Save = {
       cur.time = Math.min(cur.time, Math.round(r.time));
       const u = UNLOCKS[r.stage.id];
       if (u && !S.unlockedHeroes.includes(u)) { S.unlockedHeroes.push(u); out.unlock = HERO[u]; }
+      const fu = FOE_UNLOCKS[r.stage.id];
+      if (fu && !S.unlockedHeroes.includes(fu)) { S.unlockedHeroes.push(fu); out.unlockFoe = HERO[fu]; }
     }
     out.ach = this.checkAch();
     this.persist();

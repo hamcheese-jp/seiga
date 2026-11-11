@@ -1,4 +1,4 @@
-# 星牙戦記 SEIGA — Star Fang Chronicle
+# 蒼星のセイガ SEIGA — Fangs of the Azure Star
 
 大軍をなぎ倒し、拠点を奪い合う **一騎当千タクティカルアクション**。
 スマホのブラウザでそのまま動き、ホーム画面に追加すればアプリとして遊べます(PWA)。
@@ -6,13 +6,13 @@
 
 ![合戦画面](docs/screenshot-battle.jpg)
 
-| スマホ(横向き) | 武将選択 |
+| スマホ(横向き) | 星牙使い選択 |
 |---|---|
-| ![スマホ画面](docs/screenshot-mobile.jpg) | ![武将選択](docs/screenshot-hero.jpg) |
+| ![スマホ画面](docs/screenshot-mobile.jpg) | ![星牙使い選択](docs/screenshot-hero.jpg) |
 
 ## 特徴
 
-- **6人の武将**(大太刀・長槍・双剣・大槌・双扇・大鎌)。通常攻撃6段・チャージ技6種・奥義・覚醒
+- **6人の星牙使い**(大太刀・長槍・双剣・大槌・双扇・大鎌)。通常攻撃6段・チャージ技6種・奥義・覚醒
 - **属性**: 炎(炎上)/ 氷(凍結)/ 雷(連鎖)/ 地(気絶)/ 風(打ち上げ)/ 闇(吸収)
 - **5つの章+無限戦場**。拠点を制圧して敵本陣の結界を解き、総大将を討つ
 - **やりこみ要素**: Lv99までの成長、武器収集(★1〜★5+神器・17種の特性)、鍛錬、錬成、実績26種、難易度5段階
@@ -153,6 +153,7 @@ tools/                開発用サーバーなど
 ## クレジット
 
 - 音楽: 魔王魂(https://maou.audio/) — CC BY 4.0
+- 音声: VOICEVOX(https://voicevox.hiroshiba.jp/)— 玄野武宏・冥鳴ひまり・白上虎太郎・青山龍星・春日部つむぎ・小夜/SAYO・麒ヶ島宗麟・雀松朱司・剣崎雌雄・†聖騎士 紅桜†・離途・九州そら・栗田まろん
   - 民族32「初詣」/ 民族33「和bravery heart」/ 民族27「和の輪」/ ネオロック73「夕日の沈む丘へ」/ オーケストラ20「裸足の勇者」/ オーケストラ23「be proudly」/ オーケストラ24「crisis」/ オーケストラ25「神々の試練」/ オーケストラ26「戦いの跡」
 - [three-vrm](https://github.com/pixiv/three-vrm): MIT License(`vendor/THREE-VRM-LICENSE.txt`)
 - 雑兵・背景の3D素材: [Quaternius](https://quaternius.com/)(Ultimate Animated Character Pack / Stylized Nature MegaKit)— CC0

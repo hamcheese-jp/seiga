@@ -16,6 +16,7 @@ input, select { font: inherit; }
 #boot { position: fixed; inset: 0; z-index: 50; background: radial-gradient(ellipse at center, #141a3c, #04050c 75%); display: grid; place-items: center; transition: opacity .6s; }
 #boot.out { opacity: 0; pointer-events: none; }
 .boot-in { text-align: center; }
+.boot-logo small, .logo small, .op-logo small { font-size: .55em; letter-spacing: .05em; }
 .boot-logo { font-family: var(--serif); font-weight: 900; font-size: clamp(40px, 12vmin, 90px); letter-spacing: .14em; background: linear-gradient(#fffbe8 10%, #f3cf6d 45%, #a8701c 80%); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .boot-msg { margin-top: 14px; font-size: 13px; letter-spacing: .3em; opacity: .8; animation: blink 1s infinite alternate; }
 #fade { position: fixed; inset: 0; z-index: 40; background: #000; opacity: 0; pointer-events: none; transition: opacity .35s; }
@@ -210,6 +211,7 @@ p { margin: 4px 0; font-size: clamp(11px, 3vmin, 13px); line-height: 1.55; }
 .cols.hero > .l { flex: 1.15; justify-content: flex-end; }
 .heroes { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; }
 .hsel { border: 1px solid rgba(255, 255, 255, .25); border-radius: 3px; padding: 5px 2px; text-align: center; background: rgba(8, 12, 30, .82); position: relative; overflow: hidden; }
+.hsel.foe { border-color: rgba(255, 90, 90, .55); background: linear-gradient(rgba(60, 10, 16, .85), rgba(8, 12, 30, .82)); }
 .hsel b { display: block; font-family: var(--serif); font-size: clamp(11px, 3vmin, 14px); }
 .hsel i { display: block; font-style: normal; font-size: 9px; opacity: .85; }
 .hsel.on { border-color: var(--gold); box-shadow: 0 0 12px rgba(243, 207, 109, .5); background: linear-gradient(rgba(100, 74, 16, .9), rgba(20, 16, 10, .9)); }

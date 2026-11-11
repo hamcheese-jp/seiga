@@ -1,8 +1,8 @@
 // ゲームデータ: 属性 / 武将 / 難易度 / ステージ / 武器 / 実績
 import { clamp, lerp } from './util.js';
 
-export const GAME_TITLE = '星牙戦記';
-export const GAME_SUB = 'SEIGA — Star Fang Chronicle';
+export const GAME_TITLE = '蒼星<small>の</small>セイガ';
+export const GAME_SUB = 'SEIGA — Fangs of the Azure Star';
 
 export const ELEMENTS = {
   fire:    { n: '炎', css: '#ff6a2a', glow: [4.6, 1.3, 0.25], sfx: 'fire',    d: '炎上: 継続ダメージ' },
@@ -45,7 +45,6 @@ export const HEROES = [
     look: { scale: 0.97, sw: 0.225, bulk: 0.9, fem: true, hair: 'long', gear: 'demon', cape: 'long', pauldron: 1, tasset: 'none', tails: 3, tailLen: 0.34,
       pal: { skin: '#eadde0', hair: '#191122', c1: '#4e2270', c2: '#16121e', c3: '#b04cff', metal: '#5a5468', gold: '#9a7ae0', eye: '#b02ad0', cape: '#241634', boot: '#17131c' } } },
 ];
-export const HERO = Object.fromEntries(HEROES.map((h) => [h.id, h]));
 export const STAR_LABELS = ['攻撃', '範囲', '速度', '耐久'];
 
 // 敵味方の一般武将・ボスの見た目
@@ -65,6 +64,27 @@ export const LOOKS = {
   boss5: { scale: 1.28, bulk: 1.2, sw: 0.285, headScale: 1.05, hair: 'long', gear: 'crown demon', cape: 'long', pauldron: 2, tasset: 'plate', tails: 3,
     pal: { skin: '#d8ccd8', hair: '#e8e2f6', c1: '#1a1230', c2: '#0c0a16', c3: '#d8b24a', metal: '#3c3866', gold: '#f2ce5a', glow: [4.6, 0.6, 2.6], eye: '#e01a5a', cape: '#2a0f3c' } },
 };
+// ---- 帝国の将: 章をクリアすると「星の記憶」として使えるようになる(見た目は vrm/boss*.vrm) ----
+const foeLook = (k, glow) => ({ ...LOOKS[k], pal: { ...LOOKS[k].pal, glow } });
+HEROES.push(
+  { id: 'barga', name: 'バルガ', title: '鉄壁の猛将', wtype: 'axe', wname: '大戦斧', elem: 'earth', foe: true, vrm: 'boss1', ms: 'p_barga',
+    desc: '覇星帝国の猛将。星牙に刻まれた記憶から、鉄壁の巨躯と大戦斧の剛撃を借り受ける。',
+    base: { hp: 1500, atk: 42, def: 44, spd: 6.4, aspd: 0.88 }, stars: [5, 4, 1, 5], heavy: true, look: foeLook('boss1', [3.9, 2.1, 0.4]) },
+  { id: 'zahar', name: 'ザハル', title: '砂塵の蠍', wtype: 'twin', wname: '毒双剣', elem: 'wind', foe: true, vrm: 'boss2', ms: 'p_zahar',
+    desc: '砂賊の頭目。砂嵐を呼ぶ双剣の連撃と、背後を突く奇襲が持ち味。',
+    base: { hp: 900, atk: 30, def: 20, spd: 9.0, aspd: 1.15 }, stars: [3, 3, 5, 2], look: foeLook('boss2', [0.6, 3.7, 1.7]) },
+  { id: 'volg', name: 'ヴォルグ', title: '氷狼将', wtype: 'spear', wname: '氷狼槍', elem: 'ice', foe: true, vrm: 'boss3', ms: 'p_volg',
+    desc: '北の雪原を狩り場とした将。地を走る氷の牙で、獲物を逃さない。',
+    base: { hp: 1100, atk: 36, def: 28, spd: 7.8, aspd: 1.0 }, stars: [4, 5, 3, 3], look: foeLook('boss3', [0.5, 2.1, 4.4]) },
+  { id: 'ignas', name: 'イグナス', title: '炎獄将', wtype: 'hammer', wname: '獄炎槌', elem: 'fire', foe: true, vrm: 'boss4', ms: 'p_ignas',
+    desc: '焔獄火山の主。大地を割って溶岩を噴き上げる、破壊の化身。',
+    base: { hp: 1450, atk: 46, def: 36, spd: 6.5, aspd: 0.9 }, stars: [5, 5, 1, 4], heavy: true, look: foeLook('boss4', [4.6, 1.3, 0.25]) },
+  { id: 'zenova', name: 'ゼノヴァ', title: '覇星帝', wtype: 'scythe', wname: '覇星鎌', elem: 'dark', foe: true, vrm: 'boss5', ms: 'p_zenova',
+    desc: '覇星帝国の皇帝。闇の宝珠と瞬間移動を操る、最強の星の記憶。',
+    base: { hp: 1250, atk: 44, def: 32, spd: 7.8, aspd: 1.0 }, stars: [5, 5, 4, 4], steal: 1.0, look: foeLook('boss5', [3.3, 0.5, 4.5]) },
+);
+export const HERO = Object.fromEntries(HEROES.map((h) => [h.id, h]));
+
 export const OFFICER_NAMES = ['ドルガ', 'ベイル', 'カザン', 'ゴウラ', 'ザイード', 'ムゲン', 'バルド', 'ジオル', 'ラゴウ', 'ヘイガン', 'ウルガ', 'ダイモン', 'ゼクス', 'ボルグ', 'ガイエン', 'シグロ', 'ハザク', 'ロウガ'];
 export const ALLY_NAMES = ['カイセイ', 'ホクト', 'アマギ', 'ミナト', 'セイラン', 'トウマ'];
 
@@ -143,7 +163,7 @@ export const STAGES = [
   },
   {
     id: 's2', no: '第二章', name: '紅砂峡谷の戦い', lv: 7, theme: 'desert', size: 320, par: 480, koGoal: 600,
-    intro: '補給路を断つべく、蒼星軍は夕陽に染まる峡谷へ。砂塵の中に盗賊将軍ザハルが潜む。',
+    intro: '補給路を断つべく、蒼星軍は夕陽に染まる峡谷へ。砂塵の中に、帝国と手を組んだ砂賊の頭目ザハルが潜む。',
     nodes: [[-108, -102, 19], [-68, -58, 12], [-110, -8, 13], [-18, -84, 13], [-24, -24, 16], [28, 12, 14], [-62, 46, 13], [62, -46, 13], [72, 42, 12], [28, 88, 13], [106, 102, 21]],
     links: [[0, 1, 7], [1, 2, 6], [1, 3, 6], [1, 4, 7], [2, 6, 6], [3, 7, 6], [4, 5, 7], [4, 6, 6], [4, 7, 6], [5, 8, 6], [5, 9, 6], [6, 9, 6], [7, 8, 6], [8, 10, 7], [9, 10, 7]],
     bases: [{ n: 0, t: 0, name: '蒼星軍本陣', troops: 138, main: true }, { n: 2, t: 0, name: '西の岩陣', troops: 69 }, { n: 3, t: 0, name: '南の岩陣', troops: 69 },
@@ -251,6 +271,7 @@ export const WEAPON_NAMES = {
   hammer: ['木槌', '鉄槌「岩砕」', '名槌「地鳴」', '宝槌「金剛」', '神槌「大地」', '神器「崑崙」'],
   fan: ['舞扇', '鉄扇「青嵐」', '名扇「疾風」', '宝扇「翠嵐」', '神扇「天つ風」', '神器「鳳凰」'],
   scythe: ['草刈鎌', '大鎌「宵闇」', '名鎌「朧」', '宝鎌「黄泉路」', '神鎌「冥月」', '神器「常夜」'],
+  axe: ['手斧', '戦斧「岩割」', '名斧「山崩」', '宝斧「鉄壁」', '神斧「天轟」', '神器「巨神」'],
 };
 export const TRAITS = {
   atk:    { n: '剛力', d: '攻撃力 +{v}%', min: 4, max: 30 },
@@ -342,14 +363,14 @@ export const ACHIEVEMENTS = [
   { id: 'combo1000', n: '千連撃', d: '1000連撃を達成', gold: 3000, t: (S) => S.stats.maxCombo >= 1000 },
   { id: 'off50', n: '将星墜とし', d: '敵将を累計50人撃破', gold: 1500, t: (S) => S.stats.officers >= 50 },
   { id: 'srank', n: '完全勝利', d: 'Sランクを獲得する', gold: 800, t: (S) => Object.values(S.stages).some((d) => Object.values(d).some((r) => r.rank === 'S')) },
-  { id: 'clearAll', n: '天下泰平', d: '全ての章をクリア', gold: 3000, t: (S) => STAGES.every((s) => S.stages[s.id] && Object.values(S.stages[s.id]).some((r) => r.clear)) },
+  { id: 'clearAll', n: '蒼星の夜明け', d: '全ての章をクリア', gold: 3000, t: (S) => STAGES.every((s) => S.stages[s.id] && Object.values(S.stages[s.id]).some((r) => r.clear)) },
   { id: 'srankAll', n: '常勝無敗', d: '全ての章でSランク', gold: 8000, t: (S) => STAGES.every((s) => S.stages[s.id] && Object.values(S.stages[s.id]).some((r) => r.rank === 'S')) },
   { id: 'chaos', n: '修羅の道', d: '難易度「修羅」以上でクリア', gold: 4000, t: (S) => Object.values(S.stages).some((d) => (d.chaos && d.chaos.clear) || (d.hell && d.hell.clear)) },
   { id: 'hell', n: '煉獄踏破', d: '難易度「煉獄」で終章をクリア', gold: 30000, t: (S) => !!(S.stages.s5 && S.stages.s5.hell && S.stages.s5.hell.clear) },
-  { id: 'heroes', n: '六星集結', d: '全ての武将を解放', gold: 2000, t: (S) => S.unlockedHeroes.length >= HEROES.length },
-  { id: 'lv30', n: '歴戦の将', d: '武将をLv30にする', gold: 1500, t: (S) => Object.values(S.heroes).some((h) => h.lv >= 30) },
-  { id: 'lv60', n: '名将', d: '武将をLv60にする', gold: 6000, t: (S) => Object.values(S.heroes).some((h) => h.lv >= 60) },
-  { id: 'lv99', n: '武の極致', d: '武将をLv99にする', gold: 30000, t: (S) => Object.values(S.heroes).some((h) => h.lv >= 99) },
+  { id: 'heroes', n: '六星集結', d: '全ての星牙使いを解放', gold: 2000, t: (S) => S.unlockedHeroes.length >= HEROES.length },
+  { id: 'lv30', n: '歴戦の星牙使い', d: '星牙使いをLv30にする', gold: 1500, t: (S) => Object.values(S.heroes).some((h) => h.lv >= 30) },
+  { id: 'lv60', n: '星牙の達人', d: '星牙使いをLv60にする', gold: 6000, t: (S) => Object.values(S.heroes).some((h) => h.lv >= 60) },
+  { id: 'lv99', n: '星牙の極致', d: '星牙使いをLv99にする', gold: 30000, t: (S) => Object.values(S.heroes).some((h) => h.lv >= 99) },
   { id: 'rar5', n: '至宝の主', d: '★5の武器を入手', gold: 3000, t: (S) => S.weapons.some((w) => w.rar >= 5) },
   { id: 'rar6', n: '神器の継承者', d: '神器を入手', gold: 10000, t: (S) => S.weapons.some((w) => w.rar >= 6) },
   { id: 'forge10', n: '鍛冶の極み', d: '武器を+10まで鍛える', gold: 3000, t: (S) => S.weapons.some((w) => w.lv >= 10) },
@@ -362,4 +383,6 @@ export const ACHIEVEMENTS = [
 
 // 武将の解放条件(章クリア)
 export const UNLOCKS = { s1: 'gandou', s2: 'fuuka', s3: 'yomi' };
+// 章をクリアすると、その章の敵将を「星の記憶」として使える
+export const FOE_UNLOCKS = { s1: 'barga', s2: 'zahar', s3: 'volg', s4: 'ignas', s5: 'zenova' };
 export const START_HEROES = ['reiga', 'setsuna', 'raika'];

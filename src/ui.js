@@ -1,13 +1,15 @@
 // 画面UI: 合戦HUD・演出テロップ・各メニュー画面(DOM)
 import { Save, Cloud } from './save.js';
 import { HEROES, HERO, ELEMENTS, STAGES, ENDLESS, STAGE, DIFFS, RARITY, RAR_MAXLV, traitText, weaponName, weaponAtk, forgeCost, sellPrice, GACHA_COST, rollWeapon, calcStats, expNeed,
-  ACHIEVEMENTS, STAR_LABELS, UNLOCKS, GAME_TITLE, GAME_SUB, MAX_LV, maxNormals, maxCharges } from './data.js';
+  ACHIEVEMENTS, STAR_LABELS, UNLOCKS, FOE_UNLOCKS, GAME_TITLE, GAME_SUB, MAX_LV, maxNormals, maxCharges } from './data.js';
 import { VERSION } from './config.js';
 import { Install } from './install.js';
 import { Audio } from './audio.js';
 import { GFX } from './gfx.js';
 import { $, $$, el, fmtTime, clamp } from './util.js';
 import { Story, STORY } from './story.js';
+import { Voice } from './voice.js';
+import { CREDITS } from './voicedata.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const SCREENS = ['title', 'home', 'stage', 'hero', 'armory', 'ach', 'rank', 'settings', 'result', 'pause', 'load', 'story'];
@@ -118,10 +120,10 @@ export const UI = {
   closeModal() { const m = $('#modal'); if (m) m.remove(); this._mok = null; },
   setting(k, t, done) {
     const set = Save.data.settings;
-    if (k === 'name') { Save.data.name = t.value.slice(0, 12) || '名もなき武将'; if (done) Save.persist(); return; }
+    if (k === 'name') { Save.data.name = t.value.slice(0, 12) || '名もなき星牙使い'; if (done) Save.persist(); return; }
     if (k === 'cloudUrl') { set.cloudUrl = t.value.trim(); if (done) { Save.persist(false); this.r_settings(); if (Cloud.enabled()) this.toast('スプレッドシート連携を有効にしました'); } return; }
     if (t.type === 'checkbox') set[k] = t.checked; else if (t.type === 'range') set[k] = +t.value; else set[k] = t.value;
-    if (k === 'bgm' || k === 'sfx') Audio.setVol(set.bgm, set.sfx);
+    if (k === 'bgm' || k === 'sfx' || k === 'voice') Audio.setVol(set.bgm, set.sfx, set.voice);
     if (k === 'quality' && done) { GFX.setQuality(set.quality); this.toast('画質を変更しました(兵数などは次の合戦から反映)'); }
     if (k === 'fps') this.E['h-fps'].textContent = '';
     if (k === 'btnScale') this.applyBtnLayout();
@@ -209,7 +211,7 @@ export const UI = {
 
   // ================= 各画面 =================
   r_title() {
-    this.html('title', `<div class="logo">${GAME_TITLE}</div><div class="logo-sub">${GAME_SUB}</div><div class="tap">画面をタップして開始</div><div class="ver">音楽:魔王魂(CC BY 4.0) ／ ver ${VERSION}</div>${this.installBtn('inst-title')}`);
+    this.html('title', `<div class="logo">${GAME_TITLE}</div><div class="logo-sub">${GAME_SUB}</div><div class="tap">画面をタップして開始</div><div class="ver">音楽:魔王魂(CC BY 4.0) ／ 音声:${CREDITS} ／ ver ${VERSION}</div>${this.installBtn('inst-title')}`);
     $('#s-title').dataset.a = 'start';
   },
   r_home() {
@@ -239,19 +241,19 @@ export const UI = {
         return `<div class="card ${s.id === cur.id ? 'on' : ''} ${open ? '' : 'lock'}" ${open ? `data-a="stage" data-v="${s.id}"` : ''}>${r && r.clear ? `<span class="rank ${r.rank}">${r.rank}</span>` : ''}<div class="a"><span class="no">${s.no}</span>${open ? s.name : '？？？'}</div><div class="b">${open ? `推奨Lv ${s.lv}` : '前の章をクリアで解放'}</div></div>`;
       }).join('')}</div>
       <div class="r"><div class="panel scroll" style="flex:1"><h3>${cur.name}</h3><p>${cur.intro}</p>
-        <p>推奨Lv <b style="color:${lv >= cur.lv ? '#9dff9d' : '#ff8a6a'}">${cur.lv}</b>(選択中の武将 Lv${lv}) / 難易度 <b style="color:${d.col}">${d.n}</b> — 報酬 ×${d.rew}</p>
+        <p>推奨Lv <b style="color:${lv >= cur.lv ? '#9dff9d' : '#ff8a6a'}">${cur.lv}</b>(選択中の星牙使い Lv${lv}) / 難易度 <b style="color:${d.col}">${d.n}</b> — 報酬 ×${d.rew}</p>
         <p class="dim-t">${rec && rec.clear ? `最高評価 ${rec.rank} / 最多撃破 ${rec.ko}人 / 最速 ${fmtTime(rec.time)}` : '未クリア'}</p>
         <p class="dim-t">目標: 敵拠点を${cur.sealNeed}つ制圧して結界を解き、総大将を討て。</p></div>
-        <div class="row" style="justify-content:flex-end"><button class="pbtn" data-a="tohero">武将選択へ</button></div></div></div>`);
+        <div class="row" style="justify-content:flex-end"><button class="pbtn" data-a="tohero">星牙使い選択へ</button></div></div></div>`);
   },
   r_hero() {
     const S = Save.data, sel = this.sel;
     const h = HERO[sel.hero], hs = S.heroes[h.id], st = calcStats(S, h.id), E = ELEMENTS[h.elem], w = st.weapon, open = S.unlockedHeroes.includes(h.id);
-    const need = Object.entries(UNLOCKS).find(([, v]) => v === h.id);
+    const need = Object.entries(UNLOCKS).find(([, v]) => v === h.id) || Object.entries(FOE_UNLOCKS).find(([, v]) => v === h.id);
     const info = sel.stage === 'endless' ? ENDLESS.name : `${STAGE[sel.stage].name} / ${DIFFS[sel.diff].n}`;
-    this.html('hero', `${this.head('武将選択', sel.stage === 'endless' ? 'home' : 'stage', `<div class="dim-t" style="font-size:12px;text-shadow:0 1px 3px #000">${info}</div>`)}
+    this.html('hero', `${this.head('星牙使い選択', sel.stage === 'endless' ? 'home' : 'stage', `<div class="dim-t" style="font-size:12px;text-shadow:0 1px 3px #000">${info}</div>`)}
       <div class="cols hero"><div class="l"><div class="heroes">${HEROES.map((x) => { const u = S.unlockedHeroes.includes(x.id);
-        return `<div class="hsel ${x.id === h.id ? 'on' : ''} ${u ? '' : 'lock'}" style="--ec:${ELEMENTS[x.elem].css}" data-a="hero" data-v="${x.id}"><b>${x.name}</b><i>${u ? 'Lv' + S.heroes[x.id].lv : '未解放'}</i></div>`; }).join('')}</div></div>
+        return `<div class="hsel ${x.id === h.id ? 'on' : ''} ${u ? '' : 'lock'} ${x.foe ? 'foe' : ''}" style="--ec:${ELEMENTS[x.elem].css}" data-a="hero" data-v="${x.id}"><b>${x.name}</b><i>${u ? 'Lv' + S.heroes[x.id].lv : '未解放'}</i></div>`; }).join('')}</div></div>
       <div class="r"><div class="panel scroll" style="flex:1">
         <div class="htitle">${h.title}</div><div class="hname">${h.name}<span class="elem" style="background:${E.css}">${E.n}</span></div>
         <p>${h.desc}</p>
@@ -319,10 +321,11 @@ export const UI = {
   r_settings() {
     const S = Save.data, s = S.settings, on = Cloud.enabled();
     this.html('settings', `${this.head('設定', 'home')}<div class="scroll" style="flex:1"><div class="panel set" style="max-width:720px;margin:0 auto">
-      <label>武将名(番付用)</label><input type="text" maxlength="12" value="${esc(S.name)}" data-s="name">
+      <label>プレイヤー名(番付用)</label><input type="text" maxlength="12" value="${esc(S.name)}" data-s="name">
       <label>画質</label><select data-s="quality">${[['auto', '自動'], ['low', '低(軽量)'], ['mid', '中'], ['high', '高'], ['ultra', '最高']].map(([v, n]) => `<option value="${v}" ${s.quality === v ? 'selected' : ''}>${n}</option>`).join('')}</select>
       <label>BGM音量</label><input type="range" min="0" max="1" step="0.05" value="${s.bgm}" data-s="bgm">
       <label>効果音音量</label><input type="range" min="0" max="1" step="0.05" value="${s.sfx}" data-s="sfx">
+      <label>ボイス音量</label><input type="range" min="0" max="1" step="0.05" value="${s.voice}" data-s="voice">
       <label>視点感度</label><input type="range" min="0.4" max="2" step="0.1" value="${s.camSens}" data-s="camSens">
       <label>視点の自動追従</label><input type="checkbox" ${s.autoCam ? 'checked' : ''} data-s="autoCam" style="justify-self:start;width:22px;height:22px">
       <label>ボタン大きさ</label><input type="range" min="0.7" max="1.4" step="0.05" value="${s.btnScale || 1}" data-s="btnScale">
@@ -362,7 +365,7 @@ export const UI = {
           <span>${h.name}</span><b>Lv${o.lv.from}${o.lv.to > o.lv.from ? ` → <span class="lvup">Lv${o.lv.to}!</span>` : ''}</b></div>
         <div class="expbar"><i style="width:${hs.lv >= MAX_LV ? 100 : hs.exp / expNeed(hs.lv) * 100}%"></i></div>
         ${maxNormals(o.lv.to) > maxNormals(o.lv.from) || maxCharges(o.lv.to) > maxCharges(o.lv.from) ? '<p class="lvup">新たな技を習得した!</p>' : ''}
-        ${o.unlock ? `<p class="lvup">新武将「${o.unlock.name}」が参戦!</p>` : ''}
+        ${o.unlock ? `<p class="lvup">新たな星牙使い「${o.unlock.name}」が参戦!</p>` : ''}${o.unlockFoe ? `<p class="lvup">星の記憶「${o.unlockFoe.name}」の力が使えるようになった!</p>` : ''}
         ${r.relic ? '<p style="color:#ff5a7a;font-weight:700">✦ 神器を授かった! ✦</p>' : ''}
         ${o.ach.map((a) => `<p style="color:var(--gold)">実績達成: ${a.n}${a.gold ? ' (+' + a.gold + '金)' : ''}</p>`).join('')}
         ${r.loot.length ? '<h3 style="margin-top:6px;font-size:14px">入手した武器</h3>' + r.loot.map((w) => `<div class="trait" style="border-color:${RARITY[w.rar].col}"><b style="color:${RARITY[w.rar].col}">${RARITY[w.rar].star}</b>${weaponName(w)} <span class="dim-t">攻+${w.atk}</span></div>`).join('') : ''}
@@ -447,7 +450,8 @@ export const UI = {
   koBanner(n) { const e = this.E.kob; e.textContent = `${n}人撃破!`; this._anim(e); },
   pop(text) { const e = el('div', 'pop', esc(text)); e.style.left = ((Math.random() - 0.5) * 80) + 'px'; this.E.pops.appendChild(e); setTimeout(() => e.remove(), 950); },
   toast(text) { const e = this.E.toast; e.textContent = text; e.classList.add('show'); clearTimeout(this._tt); this._tt = setTimeout(() => e.classList.remove('show'), 2400); },
-  say(name, text) {
+  say(name, text, generic) {
+    Voice.say(name, text, generic);
     const e = el('div', 'say', `<b>${esc(name)}</b>${esc(text)}`); this.E['h-say'].appendChild(e); this._says.push({ e, t: 6.5 });
     while (this._says.length > 3) { const s = this._says.shift(); s.e.remove(); }
   },

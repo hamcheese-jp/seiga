@@ -44,6 +44,8 @@ export const STORY = {
       { c: 'boss1', f: 'b', t: 'ぐ……ぬう……。この鉄壁が、たった一騎に……。' },
       { c: 'boss1', t: 'だが覚えておけ……陛下の「覇星」は、もう目を覚ましておる……!' },
       { c: 'mikoto', f: 'b', t: '覇星……? 七つ目の星の伝承は、ただのおとぎ話のはず……。' },
+      { c: 'mikoto', t: 'それに……今、バルガの星の力が、皆さんの星牙に流れ込みました。星牙は、打ち倒した者の戦い方を「星の記憶」として刻むのです。' },
+      { c: 'mikoto', t: '星の記憶をたどれば、敵将の力さえ借りて戦えるはずです。' },
       { c: 'gandou', t: 'おう、見事な戦いぶりだったな! 俺はガンドウ。帝国に村を焼かれた者だ。' },
       { c: 'gandou', f: 'b', t: 'この大槌、あんたらのために振るわせてくれ。帝国の奴らには借りがある!' },
       { c: '@', t: {
@@ -160,7 +162,7 @@ export const STORY = {
         yomi: '……うん。綺麗。……みんなと見られて、よかった。',
       } },
       { t: '六つの星牙は再び大地に眠り、蒼星の国に平和が戻った。' },
-      { t: '人々は後に、この戦いをこう語り継ぐ——「星牙戦記」と。' },
+      { t: '人々は六人の星牙使いを讃え、こう呼んだ——「蒼星のセイガ」と。' },
       { t: '— 完 —   (無限戦場や高難易度で、さらなる腕試しを!)' },
     ] },
   },
@@ -183,6 +185,8 @@ export const Story = {
   async play(scene, hero, done) {
     if (!scene || this.busy) { if (done) done(); return; }
     this.busy = true;
+    // 帝国の将で遊んでいる時も、物語の主人公は星牙使い(レイガ)
+    if (!hero || !CAST[hero] || (HERO[hero] && HERO[hero].foe)) hero = 'reiga';
     const who = (c) => (c === '@' ? hero : c);
     const ids = [...new Set(scene.lines.filter((l) => l.c).map((l) => who(l.c) + (l.f === 'b' ? '_b' : '')))];
     const root = document.createElement('div'); root.id = 'story';
@@ -341,6 +345,9 @@ export const Story = {
     clear(); tint = [120, 90, 220]; tintA = 0.3;
     put(`<div class="op-boss ally"><img src="${IMG('mikoto', '_full')}" alt=""><div class="op-name"><small>蒼星軍 軍師</small>ミコト</div></div>`);
     say('星読みの軍師ミコトのもと、六人の星牙使いが立ち上がる。');
+    if (await step(3400)) return;
+    clear(); tint = [90, 140, 255]; tintA = 0.3;
+    say('蒼き星の国を守る、六つの牙。<br>人は彼らを——<b>「蒼星のセイガ」</b>と呼ぶ。');
     if (await step(3600)) return;
     // --- 6. 集結 → タイトル ---
     clear(); tint = [255, 200, 110]; tintA = 0.25;
@@ -349,7 +356,7 @@ export const Story = {
     if (await step(1600)) return;
     flash = 0.9; Audio.sfx('special');
     root.classList.add('logo');
-    say('<div class="op-logo">星牙戦記</div><div class="op-logo-s">一騎当千の戦いが、いま始まる</div>', 'logo');
+    say('<div class="op-logo">蒼星<small>の</small>セイガ</div><div class="op-logo-s">一騎当千の戦いが、いま始まる</div>', 'logo');
     if (await step(4800)) return;
     end();
   },

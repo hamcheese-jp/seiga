@@ -11,8 +11,9 @@ const fileFor = (id) => (TEST ? 'dev/sample.vrm' : (VRM_FILES[id] || (avail[id] 
 const bufs = new Map();
 
 // VRMを置けるキャラの一覧(vrm/<キー>.vrm を置くだけで差し替わる)
-export const VRM_KEYS = [...HEROES.map((h) => h.id), 'enemyOfficer', 'boss1', 'boss2', 'boss3', 'boss4', 'boss5'];
+export const VRM_KEYS = [...HEROES.filter((h) => !h.vrm).map((h) => h.id), 'enemyOfficer', 'boss1', 'boss2', 'boss3', 'boss4', 'boss5'];
 const avail = {};
+const HERO_VRM = Object.fromEntries(HEROES.filter((h) => h.vrm).map((h) => [h.id, h.vrm]));
 let _probe = null;
 export function probeVrm() {
   if (!_probe) _probe = Promise.all(VRM_KEYS.map((id) => VRM_FILES[id] ? (avail[id] = true)
@@ -20,7 +21,7 @@ export function probeVrm() {
   return _probe;
 }
 
-export const hasVrm = (id) => !!(id && fileFor(id));
+export const hasVrm = (id) => !!(id && fileFor(HERO_VRM[id] || id));
 function fetchBuf(id) {
   const f = fileFor(id);
   if (!f) return Promise.resolve(null);
@@ -28,9 +29,10 @@ function fetchBuf(id) {
   return bufs.get(f);
 }
 // 合戦前などに先読み
-export const preloadVrm = (ids) => probeVrm().then(() => Promise.all(ids.filter(hasVrm).map(fetchBuf)));
+export const preloadVrm = (ids) => probeVrm().then(() => Promise.all(ids.map((i) => HERO_VRM[i] || i).filter(hasVrm).map(fetchBuf)));
 
 export async function loadVrm(id) {
+  if (HERO_VRM[id]) id = HERO_VRM[id];
   await probeVrm();
   const buf = await fetchBuf(id);
   if (!buf) return null;

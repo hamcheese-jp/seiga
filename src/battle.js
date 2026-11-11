@@ -9,6 +9,7 @@ import { Audio } from './audio.js';
 import { Input } from './input.js';
 import { HERO, HEROES, ELEMENTS, LOOKS, OFFICER_NAMES, DIFFS, THEMES, calcStats, rollWeapon } from './data.js';
 import { MS } from './moves.js';
+import { Voice } from './voice.js';
 import { clamp, rnd, pick, damp, angWrap, lerp, D2R, ease } from './util.js';
 
 const PI = Math.PI;
@@ -30,7 +31,7 @@ class Base {
     if (this.troops > 0) {
       if (this.alive < want) { const n = Math.min(4, this.troops, want - this.alive); for (let k = 0; k < n; k++) if (this._spawn(false)) this.troops--; }
     } else if (!this.captain && this.alive <= 2 && !(this.main && this.team === 1)) {
-      if (this._spawn(true) && near) { B.ui.say('伝令', this.team === 1 ? `${this.name}の兵長が出てきました! 討てば制圧です!` : `${this.name}の兵長が最後の守りについています!`); if (this.team === 1) Audio.sfx('tele'); }
+      if (this._spawn(true) && near) { B.ui.say('伝令', this.team === 1 ? `${this.name}の兵長が出てきました! 討てば制圧です!` : `${this.name}の兵長が最後の守りについています!`, this.team === 1 ? 'capE' : 'capA'); if (this.team === 1) Audio.sfx('tele'); }
     }
   }
   _spawn(captain) {
@@ -44,7 +45,7 @@ class Base {
   onDead(s, src) {
     this.alive = Math.max(0, this.alive - 1);
     if (s === this.captain) { this.captain = null; this.B.captureBase(this, 1 - s.team, src); }
-    else if (this.team === 0 && this.warnT <= 0 && src && src.team === 1 && this.troops < this.max * 0.6) { this.warnT = 30; this.B.ui.say('伝令', `${this.name}が敵の攻撃を受けています!`); }
+    else if (this.team === 0 && this.warnT <= 0 && src && src.team === 1 && this.troops < this.max * 0.6) { this.warnT = 30; this.B.ui.say('伝令', `${this.name}が敵の攻撃を受けています!`, 'attacked'); }
   }
 }
 
@@ -74,7 +75,7 @@ export class Battle {
     this.bases = this.def.bases.map((bd, i) => new Base(this, bd, i));
     this.sealed = this.def.sealNeed > 0; this.boss = null;
     const names = OFFICER_NAMES.slice().sort(() => Math.random() - 0.5); let ni = 0;
-    const allies = HEROES.filter((h) => h.id !== hero.id).sort(() => Math.random() - 0.5);
+    const allies = HEROES.filter((h) => h.id !== hero.id && !h.foe).sort(() => Math.random() - 0.5);
     for (const od of this.def.officers) {
       const nd = this.stage.nodes[od.n]; let f;
       if (od.ally !== undefined) this._allyHero(allies[od.ally], nd.x + rnd(-3, 3), nd.z + 3);
@@ -448,7 +449,7 @@ export class Battle {
   }
   onFighterDamaged(f, d, src, power) {
     if (f.isPlayer) {
-      this.dmgTaken += d; this.ui.hurt(); GFX.shake(power > 0 ? 0.3 : 0.1); Audio.sfx('hurt', power > 0 ? 1 : 0.5);
+      this.dmgTaken += d; this.ui.hurt(); GFX.shake(power > 0 ? 0.3 : 0.1); Audio.sfx('hurt', power > 0 ? 1 : 0.5); Voice.play(Voice.idFor(f), 'hurt', { chance: power > 0 ? 0.9 : 0.3, gap: 1.2 });
       if (power > 0) this.hitStop = Math.max(this.hitStop, 0.03);
       this._vibe(power > 0 ? 40 : 12);
       this.combo = Math.floor(this.combo * (power > 0 ? 0.5 : 1));
@@ -463,28 +464,30 @@ export class Battle {
       if (byP) {
         this.offKO++; this.exp += f.expVal; this.gold += f.boss ? 600 : 150;
         this.slowT = f.boss ? 1.6 : 0.55; this.slowScale = 0.22; GFX.doFlash(0.35);
-        this.ui.banner(f.boss ? '敵総大将 撃破' : '敵将 討ち取ったり', (f.title ? f.title + ' ' : '') + f.name, 'gold');
+        this.ui.banner(f.boss ? '敵総大将 撃破' : '敵将 撃破', (f.title ? f.title + ' ' : '') + f.name, 'gold');
+        setTimeout(() => Voice.play(Voice.idFor(this.player), 'ko', { force: true }), 500);
         this.drop('hp', f.x, f.z, 30);
         if (Math.random() < (f.boss ? 1 : 0.5)) this.drop('weapon', f.x, f.z, this._lootWeapon(f.boss ? 2 : 1));
         if (this.mission && this.mission.target === f) { this.missionsDone++; this.gold += 300; this.morale = clamp(this.morale + 10, -100, 100); this.ui.banner('戦功達成', this.mission.title, 'good'); this.mission = null; this.ui.mission(null); }
-      } else { this.ui.say('伝令', `味方が敵将${f.name}を討ち取りました!`); if (this.mission && this.mission.target === f) { this.mission = null; this.ui.mission(null); } }
+      } else { this.ui.say('伝令', `味方が敵将${f.name}を撃破しました!`, 'allyKO'); if (this.mission && this.mission.target === f) { this.mission = null; this.ui.mission(null); } }
+      if (near && !f.boss) Voice.play(Voice.idFor(f), 'dead', { chance: 0.6, gap: 0 });
       if (f === this.boss) this._win();
     } else {
       this.morale = clamp(this.morale - 6, -100, 100);
-      this.ui.say(f.name, '無念…ここは退く!'); Audio.sfx('warn');
+      this.ui.say(f.name, '無念…ここは退く!'); Audio.sfx('warn'); Voice.play(Voice.idFor(f), 'retreat', { force: true });
       if (f.isHero) this.respawn.push({ id: f.heroId, t: 50 });
     }
   }
   onSpecial(f) {
     const near = f.isPlayer || this.nearCam(f.x, f.z, 40);
-    if (near) { Audio.sfx('special'); FX.nova(f.x, f.z, 3, f.col); }
+    if (near) { Audio.sfx('special'); FX.nova(f.x, f.z, 3, f.col); Voice.play(Voice.idFor(f), 'sp', { force: true }); }
     if (f.isPlayer) {
       this.spCam = 1.1; this.slowT = 0.32; this.slowScale = 0.12; GFX.radial = 0.6; GFX.doFlash(0.3, ELEMENTS[f.elem].css);
       this.ui.cutin((f.awake > 0 ? '真・' : '') + f.ms.spName, f.name, ELEMENTS[f.elem].css);
     } else if (near) this.ui.say(f.name, `奥義——${f.ms.spName}!`);
   }
   onAwaken(f) {
-    Audio.sfx('awaken'); GFX.doFlash(0.45, ELEMENTS[f.elem].css); GFX.radial = 0.8; GFX.shake(0.7); this.slowT = 0.3; this.slowScale = 0.15;
+    Audio.sfx('awaken'); Voice.play(Voice.idFor(f), 'awake', { force: true }); GFX.doFlash(0.45, ELEMENTS[f.elem].css); GFX.radial = 0.8; GFX.shake(0.7); this.slowT = 0.3; this.slowScale = 0.15;
     this.ui.cutin('覚醒', f.name, ELEMENTS[f.elem].css);
     this.doHit(f, { shape: 'circle', r: 6.5, fwd: 0, dmg: 1.2, kb: 9, lift: 6, shake: 0.5, stop: 0.06, fx: ['nova', 'ring'], heavy: true }, null);
   }
@@ -498,7 +501,7 @@ export class Battle {
   onBossPhase2(f) {
     if (this.bossBgm) Audio.bgm('rage');
     this.ui.say(f.name, BOSS_LINES[f.lookId] || 'まだだ…まだ終わらぬ!'); this.ui.banner('激昂', f.name + ' の攻撃が激しくなった', 'bad');
-    FX.nova(f.x, f.z, 6, [4, 0.5, 0.3]); GFX.shake(0.8); Audio.sfx('awaken');
+    FX.nova(f.x, f.z, 6, [4, 0.5, 0.3]); GFX.shake(0.8); Audio.sfx('awaken'); Voice.play(Voice.idFor(f), 'rage', { force: true });
   }
 
   _spawnOfficer(sp, mul = 1) {
@@ -614,7 +617,7 @@ export class Battle {
     if (this.hitStop > 0) { this.hitStop -= dtR; ts = 0.05; }
     else if (this.slowT > 0) { this.slowT -= dtR; ts = this.slowScale; }
     const dt = Math.min(dtR, 0.05) * ts, play = this.state === 'play';
-    if (this.state === 'intro' && this.stateT > 2.9) { this.state = 'play'; Input.clear(); this.ui.banner('出陣', this.endless ? '限界まで戦え' : '敵総大将を討て', 'gold'); Audio.sfx('drum'); }
+    if (this.state === 'intro' && this.stateT > 2.9) { this.state = 'play'; Input.clear(); this.ui.banner('出陣', this.endless ? '限界まで戦え' : '敵総大将を討て', 'gold'); Audio.sfx('drum'); Voice.play(Voice.idFor(this.player), 'start', { force: true }); Audio.ambience(true, this.def.theme); }
     if ((this.state === 'win' && this.stateT > 4.2) || (this.state === 'lose' && this.stateT > 3.6)) { if (!this.sent) { this.sent = true; this.cfg.onEnd(this.result(this.state === 'win')); } }
     if (play) this.time += dt;
     this.horde.rebuild();
@@ -643,7 +646,7 @@ export class Battle {
         const r = this.respawn[i]; r.t -= dt; if (r.t > 0) continue;
         this.respawn.splice(i, 1);
         const main = this.bases.find((b) => b.main && b.team === 0);
-        if (main) { const f = this._allyHero(HERO[r.id], main.x + rnd(-3, 3), main.z + 4); this._assign(f); this.ui.say(f.name, '待たせたな、戦線に復帰する!'); }
+        if (main) { const f = this._allyHero(HERO[r.id], main.x + rnd(-3, 3), main.z + 4); this._assign(f); this.ui.say(f.name, '待たせたな、戦線に復帰する!'); Voice.play(Voice.idFor(f), 'back', { force: true }); }
       }
       if (this.comboT > 0) { this.comboT -= dt; if (this.comboT <= 0) this.combo = 0; }
       // 注目対象(近くの敵将)
@@ -653,9 +656,10 @@ export class Battle {
         for (const f of F) { if (f.team === 0 || !f.alive) continue; const dx = f.x - p.x, dz = f.z - p.z, d2 = (dx * dx + dz * dz) * (f.boss ? 0.5 : 1); if (d2 < bd) { bd = d2; best = f; } }
         this.focus = best;
         this.curBase = null; for (const b of this.bases) { const dx = b.x - p.x, dz = b.z - p.z; if (dx * dx + dz * dz < (b.R + 2) * (b.R + 2)) { this.curBase = b; break; } }
-        if (best && best.boss && !best.sealed && !this.bossBgm) { this.bossBgm = true; Audio.bgm('boss'); this.ui.say(best.name, 'よくぞここまで来た。だが、ここが貴様の墓場だ。'); }
+        if (best && best.boss && !best.sealed && !this.bossBgm) { this.bossBgm = true; Audio.bgm('boss'); this.ui.say(best.name, 'よくぞここまで来た。だが、ここが貴様の墓場だ。'); Voice.play(Voice.idFor(best), 'intro', { force: true }); }
         Audio.intensity = clamp(0.35 + this.combo / 160 + (this.bossBgm ? 0.35 : 0) + (this.player.awake > 0 ? 0.3 : 0), 0, 1);
       }
+      Audio.ambTick(dt, clamp(Audio.intensity, 0, 1));
     }
     this.horde.update(dt);
     for (let i = F.length - 1; i >= 0; i--) if (F[i].gone) { F[i].dispose(); F.splice(i, 1); }
@@ -706,6 +710,7 @@ export class Battle {
   }
 
   dispose() {
+    Audio.ambience(false);
     for (const f of this.fighters) f.dispose();
     this.horde.dispose(); this.stage.dispose(); FX.clear();
     if (this.dome) { GFX.scene.remove(this.dome); this.dome.geometry.dispose(); this.dome.material.dispose(); }
