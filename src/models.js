@@ -15,6 +15,16 @@ export const RESTS = {
   fan:    { az: -42, el: -52, bend: 70, wr: 100, azL: 42, elL: -52, bendL: 70, wrL: 100 },
   scythe: { az: -30, el: -52, bend: 50, wr: 125, azL: 30, elL: -60, bendL: 50, wrL: 100 },
 };
+// 立ち止まっている時の構え(武器ごと)
+export const IDLES = {
+  sword:  { stance: 0.5, crouch: 0.08, lean: 10, tw: -25, head: 20, az: -25, el: -62, bend: 25, wr: 25, azL: 45, elL: -62, bendL: 50 },
+  spear:  { stance: 0.5, crouch: 0.08, lean: 6, tw: -30, head: 24, az: -20, el: -40, bend: 60, wr: 70 },
+  twin:   { stance: 0.55, crouch: 0.12, lean: 14, tw: -10, head: 8, az: -40, el: -45, bend: 70, wr: 40, azL: 40, elL: -45, bendL: 70, wrL: 40 },
+  hammer: { stance: 0.6, crouch: 0.1, lean: 6, tw: -10, head: 10, az: -12, el: -50, bend: 15, wr: 175 },
+  axe:    { stance: 0.6, crouch: 0.1, lean: 6, tw: -10, head: 10, az: -12, el: -50, bend: 15, wr: 175 },
+  fan:    { stance: 0.4, crouch: 0.04, lean: 2, tw: -15, head: 12, az: -70, el: -20, bend: 80, wr: 90, azL: 60, elL: 30, bendL: 100, wrL: 80 },
+  scythe: { stance: 0.45, crouch: 0.05, lean: 4, tw: -25, head: 20, az: -30, el: -55, bend: 45, wr: 75 },
+};
 const REST_COMMON = { tw: 0, lean: 2, side: 0, crouch: 0, stance: 0.1, y: 0, spin: 0, flip: 0, head: 0 };
 
 class Builder {
@@ -68,7 +78,7 @@ function buildWeapon(type, tier, P) {
   let tip, base, two = false, dual = false, grip = [0, -0.4, 0];
   if (type === 'sword') {
     // 大太刀: 幅広の刀身・峰・光る刃・翼の鍔
-    const len = 1.3 + tier * 0.1, w = 0.1 + tier * 0.012, b0 = 0.2;
+    const len = 0.92 + tier * 0.07, w = 0.085 + tier * 0.01, b0 = 0.2;
     add('c', at(cyl(0.022, 0.025, 0.34, '#1a1210', 8), 0, 0, 0));
     for (let i = 0; i < 4; i++) add('m', at(cyl(0.027, 0.027, 0.018, gold, 8), 0, -0.12 + i * 0.08, 0));
     add('m', at(sph(0.038, gold, 8, 6), 0, -0.19, 0)); add('g', at(sph(0.022, glow, 6, 5), 0, -0.225, 0));
@@ -108,7 +118,7 @@ function buildWeapon(type, tier, P) {
     tip = [0, 0.12 + len, -0.02]; base = [0, 0.18, 0]; dual = true;
   } else if (type === 'hammer') {
     // 大槌: 巨大な頭+棘+光る紋
-    const hs = 1.12 + tier * 0.12;
+    const hs = 0.82 + tier * 0.09;
     add('c', at(cyl(0.03, 0.032, 1.8, '#2e1f16', 8), 0, 0.45, 0));
     add('m', at(cyl(0.045, 0.045, 0.1, gold, 8), 0, -0.44, 0));
     for (let i = 0; i < 3; i++) add('m', at(cyl(0.036, 0.036, 0.03, gold, 8), 0, 0.1 + i * 0.12, 0));
@@ -359,9 +369,9 @@ export function buildHero(look, wtype, tier = 0) {
   J.root.scale.setScalar(L.scale);
 
   return {
-    root: J.root, J, M, dang, scale: L.scale, wtype, two: W.two, dual: W.dual,
+    root: J.root, J, M, dang, scale: L.scale, wtype, two: W.two, dual: W.dual, armor: L.armor || '', pal: P,
     tip: new THREE.Vector3(...W.tip), base: new THREE.Vector3(...W.base), grip: new THREE.Vector3(...W.grip),
-    rest: { ...RESTS[wtype], ...REST_COMMON }, height: 1.95 * L.scale, glow: P.glow,
+    rest: { ...RESTS[wtype], ...REST_COMMON }, idle: IDLES[wtype], height: 1.95 * L.scale, glow: P.glow,
     wMeshes,
     restTan: W.two ? new THREE.Vector3(0.75, 0, 0.66).normalize() : new THREE.Vector3(0, 0, 1),
   };

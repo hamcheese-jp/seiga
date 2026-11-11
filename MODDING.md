@@ -109,13 +109,16 @@ node tools/bake-soldier.mjs <キャラ.fbx> assets/soldier.bin
 node tools/serve.mjs
 ```
 → http://localhost:5173/tools/portrait.html を開くと全員分を自動で撮影・保存(`?only=reiga` で1人だけ)。
-キャラの表情・照明は `tools/portrait.html` の `LIST` で調整できます。ミコトの元モデルは `dev/mikoto.vrm`(VRoid: `mikoto.vroid`)。
+キャラの表情・照明は `tools/portrait.html` の `LIST` で調整できます。
+オープニングで使う技の決めポーズ(`<キャラ>_act.webp`)は http://localhost:5173/tools/pose.html?all=1 で撮影します。技と瞬間は `POSES` で、`?id=reiga&move=c0&t=0.12&yaw=60` で1枚ずつ試せます。ミコトの元モデルは `dev/mikoto.vrm`(VRoid: `mikoto.vroid`)。
 
 ## 8. 声を追加・変更する
 
 - 台詞と話者は [src/voicedata.js](src/voicedata.js) の `VOICES`(キャラごとに atk / heavy / sp / awake / hurt / start / ko など)
 - VOICEVOX を起動した状態で `node tools/make-voices.mjs` を実行すると、足りない声だけ assets/voice/ に作ります(`--force` で全部作り直し)
 - 話者を追加したら `CREDITS` にも名前を足してください(VOICEVOXの利用規約でクレジット表記が必要)
+- 鎧: `HEROES[].look.armor` に 'heavy'(両肩・籠手・腰当て・すね当て)か 'light'(左肩・籠手)を書くと、VRoidキャラに鎧が付きます
+- 立ち止まった時の構えは [src/models.js](src/models.js) の `IDLES`(武器種ごと)
 - 帝国の将は `HEROES` に `foe: true, vrm: 'boss1'` で登録され、章をクリアすると「星の記憶」として使えるようになります
 
 ## 9. その他

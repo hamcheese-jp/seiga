@@ -7,7 +7,7 @@ export const VOICES = {
     hurt: ['ぐっ!', 'ちっ!'], start: 'いくぞ!', ko: '敵将、撃破!', retreat: 'すまない、一度退く!', back: '待たせた、戦線に戻る!' } },
   setsuna: { s: 14, h: 14, p: { intonation: 1.2 }, lines: {
     atk: ['はっ!', 'やっ!', 'えいっ!'], heavy: ['凍てつきなさい!', 'はあっ!'], sp: '舞え、氷華絶槍!', awake: '氷の星牙よ、今こそ!',
-    hurt: ['きゃっ!', 'くぅっ!'], start: '参ります!', ko: '敵将、討ち果たしました!', retreat: '申し訳ありません、退きます!', back: 'お待たせしました、戻ります!' } },
+    hurt: ['きゃっ!', 'くぅっ!'], start: '参ります!', ko: '敵将、倒しました!', retreat: '申し訳ありません、退きます!', back: 'お待たせしました、戻ります!' } },
   raika: { s: 12, h: 34, p: {}, lines: {
     atk: ['おらっ!', 'よっ!', 'せいっ!'], heavy: ['いっけぇ!', '遅えよ!'], sp: '走れ雷、千雷乱舞!', awake: '全開でいくぜぇ!',
     hurt: ['いってぇ!', 'うわっ!'], start: '一番乗りだ!', ko: '敵将、撃破だぜ!', retreat: 'くそっ、いったん下がる!', back: 'おまたせ! 復活だぜ!' } },
@@ -42,10 +42,10 @@ export const VOICES = {
 // ボスの見た目キー → 声
 export const BOSS_VOICE = { boss1: 'barga', boss2: 'zahar', boss3: 'volg', boss4: 'ignas', boss5: 'zenova' };
 // 合戦中の通信(ui.say)の話し手 → 声
-export const SAY_VOICE = { '軍師ミコト': { s: 16, p: {} }, '伝令': { s: 67, p: { speed: 1.1 } } };
+export const SAY_VOICE = { '軍師ミコト': { s: 16, p: {} }, '斥候': { s: 67, p: { speed: 1.1 } } };
 // 名前の入る通信は、決まった言い回しで声を当てる
 export const SAY_GENERIC = {
-  capE: '兵長が出てきました! 討てば制圧です!', capA: '兵長が最後の守りについています!', attacked: '味方の拠点が攻撃を受けています!', allyKO: '味方が敵将を撃破しました!',
+  capE: '守備隊長が出てきました! 倒せば制圧です!', capA: '守備隊長が最後の守りについています!', attacked: '味方の拠点が攻撃を受けています!', allyKO: '味方が敵将を撃破しました!',
 };
 export const CREDITS = 'VOICEVOX:玄野武宏・冥鳴ひまり・白上虎太郎・青山龍星・春日部つむぎ・小夜/SAYO・麒ヶ島宗麟・雀松朱司・剣崎雌雄・†聖騎士 紅桜†・離途・九州そら・栗田まろん';
 // 台詞 → ファイル名(短いハッシュ)

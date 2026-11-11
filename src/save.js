@@ -57,7 +57,7 @@ export const Save = {
     if (h.lv >= MAX_LV) h.exp = 0;
     return { from, to: h.lv };
   },
-  // 実績チェック。新規達成の一覧を返す
+  // 称号チェック。新規達成の一覧を返す
   checkAch() {
     const S = this.data, got = [];
     for (const a of ACHIEVEMENTS) { if (S.ach[a.id]) continue; let ok = false; try { ok = a.t(S); } catch (_) { ok = false; } if (ok) { S.ach[a.id] = 1; S.gold += a.gold; got.push(a); } }

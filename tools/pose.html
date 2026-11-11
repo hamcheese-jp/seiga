@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>決めポーズ撮影ツール</title>
+<!-- 使い方: node tools/serve.mjs → http://localhost:5173/tools/pose.html?id=reiga&move=sp&t=0.5&yaw=30
+     move: sp(奥義) / c0〜c5(チャージ技) / n0〜n5(通常攻撃)、t: 技の何秒目か、yaw: カメラの向き(度)、save=1 で assets/portraits/<id>_act.webp に保存
+     all=1 で POSES の全員分をまとめて撮影・保存 -->
+<style>body { margin: 0; background: #223; color: #ddd; font: 13px sans-serif; } canvas { background: repeating-conic-gradient(#556 0 25%, #445 0 50%) 0 0/20px 20px; height: 88vh; } #log { white-space: pre; padding: 4px 8px; }</style>
+<script type="importmap">{ "imports": { "three": "../vendor/three.module.min.js" } }</script>
+</head>
+<body>
+<div id="log"></div>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
+import { VRMLoaderPlugin, VRMUtils } from '../vendor/three-vrm.module.min.js';
+import { GFX } from '../src/gfx.js';
+import { buildHero } from '../src/models.js';
+import { Rig } from '../src/rig.js';
+import { MS } from '../src/moves.js';
+import { HERO, ELEMENTS } from '../src/data.js';
+import { VrmBody } from '../src/vrmchar.js';
+
+// 各キャラの決めポーズ(技・時刻・カメラ)
+const POSES = {
+  reiga: { move: 'c0', t: 0.12, yaw: 60, pitch: 4 },
+  setsuna: { move: 'c0', t: 0.15, yaw: 60, pitch: 4 },
+  raika: { move: 'c1', t: 0.25, yaw: 30, pitch: 2 },
+  gandou: { move: 'c4', t: 0.4, yaw: 40, pitch: 6 },
+  fuuka: { move: 'c3', t: 0.14, yaw: 30, pitch: 4 },
+  yomi: { move: 'c3', t: 0.2, yaw: 35, pitch: 6 },
+  zenova: { move: 'c4', t: 0.35, yaw: 25, pitch: 2 },
+};
+const Q = new URLSearchParams(location.search);
+const log = (s) => { document.getElementById('log').textContent += s + '\n'; };
+if (!GFX.uRim) GFX.uRim = { value: 0 };
+
+const W = 800, H = 800;
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1); renderer.setSize(W, H); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.setClearColor(0, 0);
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const cam = new THREE.PerspectiveCamera(24, 1, 0.1, 60);
+const key = new THREE.DirectionalLight(0xffffff, 2.4); key.position.set(-1.5, 2.5, 3); scene.add(key);
+const back = new THREE.DirectionalLight(0xffffff, 2.2); back.position.set(1.5, 1.5, -3); scene.add(back);
+scene.add(new THREE.AmbientLight(0xffffff, 1.1));
+
+async function loadVrm(url) {
+  const loader = new GLTFLoader(); loader.register((p) => new VRMLoaderPlugin(p));
+  const gltf = await loader.loadAsync('../' + url);
+  const vrm = gltf.userData.vrm;
+  VRMUtils.removeUnnecessaryVertices(gltf.scene);
+  if (vrm.meta && vrm.meta.metaVersion === '0') VRMUtils.rotateVRM0(vrm);
+  return vrm;
+}
+const pickMove = (ms, k) => (k === 'sp' ? ms.sp : k[0] === 'c' ? ms.c[+k.slice(1)] : ms.n[+k.slice(1)]);
+
+async function shoot(id, o, save) {
+  const h = HERO[id], E = ELEMENTS[h.elem];
+  const model = buildHero({ ...h.look, pal: { ...h.look.pal, glow: E.glow } }, h.wtype, 2);
+  scene.add(model.root);
+  const rig = new Rig(model);
+  const f = h.vrm || id, orig = `vrm/${f}.orig.vrm`;
+  let vrm; try { vrm = await loadVrm(orig); } catch (_) { vrm = await loadVrm(`vrm/${f}.vrm`); }
+  const vb = new VrmBody(model, vrm);
+  vb.rim([E.glow[0] * 0.5, E.glow[1] * 0.5, E.glow[2] * 0.5], h.foe ? 1 : 0);
+  back.color.setRGB(E.glow[0] / 5, E.glow[1] / 5, E.glow[2] / 5);
+  const em = vrm.expressionManager; if (em) { em.setValue('angry', h.look.fem ? 0.3 : 0.55); }
+  // 技を途中まで再生
+  const mv = pickMove(MS[h.ms || id], o.move);
+  for (let i = 0; i < 30; i++) rig.update(1 / 60);
+  rig.play(mv); rig.mt = 0;
+  const dt = 1 / 120;
+  for (let t = 0; t < o.t; t += dt) { rig.mt += dt; rig.update(dt); }
+  model.root.updateMatrixWorld(true);
+  // 全体が収まるように構図を決める
+  const box = new THREE.Box3().setFromObject(model.root), c = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
+  const r = Math.max(sz.x, sz.y, sz.z) * 0.62, d = r / Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
+  const yaw = THREE.MathUtils.degToRad(o.yaw), pit = THREE.MathUtils.degToRad(o.pitch || 0);
+  cam.position.set(c.x + Math.sin(yaw) * Math.cos(pit) * d, c.y + Math.sin(pit) * d, c.z + Math.cos(yaw) * Math.cos(pit) * d);
+  cam.lookAt(c);
+  renderer.render(scene, cam);
+  log(`${id} ${o.move} t=${o.t} yaw=${o.yaw}`);
+  if (save) {
+    const blob = await new Promise((res) => renderer.domElement.toBlob(res, 'image/webp', 0.88));
+    const rr = await fetch('/__save?f=' + encodeURIComponent(`assets/portraits/${id}_act.webp`), { method: 'POST', body: blob });
+    log(`  保存 ${Math.round(blob.size / 1024)}KB ${rr.ok ? 'OK' : 'NG'}`);
+  }
+  return () => { scene.remove(model.root); VRMUtils.deepDispose(vrm.scene); };
+}
+
+if (Q.has('all')) {
+  for (const [id, o] of Object.entries(POSES)) { const done = await shoot(id, o, true); done(); }
+} else {
+  const id = Q.get('id') || 'reiga', base = POSES[id] || { move: 'sp', t: 0.4, yaw: 30 };
+  const o = { move: Q.get('move') || base.move, t: +(Q.get('t') || base.t), yaw: +(Q.get('yaw') || base.yaw), pitch: +(Q.get('pitch') || base.pitch || 0) };
+  await shoot(id, o, Q.has('save'));
+}
+window.__done = true;
+</script>
+</body>
+</html>

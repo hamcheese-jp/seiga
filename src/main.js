@@ -70,7 +70,7 @@ const App = {
           UI.hudStart(this.battle);
           this.mode = 'battle'; this.paused = false;
           UI.show('');
-        } catch (e) { console.error(e); UI.toast('合戦の開始に失敗しました'); try { this.toMenu('home'); } catch (e2) { console.error(e2); } }
+        } catch (e) { console.error(e); UI.toast('戦いの開始に失敗しました'); try { this.toMenu('home'); } catch (e2) { console.error(e2); } }
         this.busy = false;
       }, 120);
     }, 380);

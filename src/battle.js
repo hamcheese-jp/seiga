@@ -31,7 +31,7 @@ class Base {
     if (this.troops > 0) {
       if (this.alive < want) { const n = Math.min(4, this.troops, want - this.alive); for (let k = 0; k < n; k++) if (this._spawn(false)) this.troops--; }
     } else if (!this.captain && this.alive <= 2 && !(this.main && this.team === 1)) {
-      if (this._spawn(true) && near) { B.ui.say('伝令', this.team === 1 ? `${this.name}の兵長が出てきました! 討てば制圧です!` : `${this.name}の兵長が最後の守りについています!`, this.team === 1 ? 'capE' : 'capA'); if (this.team === 1) Audio.sfx('tele'); }
+      if (this._spawn(true) && near) { B.ui.say('斥候', this.team === 1 ? `${this.name}の守備隊長が出てきました! 倒せば制圧です!` : `${this.name}の守備隊長が最後の守りについています!`, this.team === 1 ? 'capE' : 'capA'); if (this.team === 1) Audio.sfx('tele'); }
     }
   }
   _spawn(captain) {
@@ -45,7 +45,7 @@ class Base {
   onDead(s, src) {
     this.alive = Math.max(0, this.alive - 1);
     if (s === this.captain) { this.captain = null; this.B.captureBase(this, 1 - s.team, src); }
-    else if (this.team === 0 && this.warnT <= 0 && src && src.team === 1 && this.troops < this.max * 0.6) { this.warnT = 30; this.B.ui.say('伝令', `${this.name}が敵の攻撃を受けています!`, 'attacked'); }
+    else if (this.team === 0 && this.warnT <= 0 && src && src.team === 1 && this.troops < this.max * 0.6) { this.warnT = 30; this.B.ui.say('斥候', `${this.name}が敵の攻撃を受けています!`, 'attacked'); }
   }
 }
 
@@ -185,7 +185,7 @@ export class Battle {
   _objective() {
     if (this.endless) this.ui.objective(`第${Math.max(1, this.wave)}波 — 生き残れ`);
     else if (this.sealed) this.ui.objective(`敵拠点を制圧し結界を解け(${this.capEnemy}/${this.def.sealNeed})`);
-    else this.ui.objective(`敵総大将「${this.boss.name}」を討て`);
+    else this.ui.objective(`敵将軍「${this.boss.name}」を倒せ`);
   }
 
   captureBase(base, team, src) {
@@ -204,15 +204,15 @@ export class Battle {
       if (this.sealed && this.capEnemy >= this.def.sealNeed) this._unseal();
     } else {
       Audio.sfx('warn'); this.ui.banner('拠点陥落', base.name, 'bad');
-      if (base.main) { this._lose('本陣が陥落した…'); return; }
+      if (base.main) { this._lose('本拠が陥落した…'); return; }
     }
     this._objective(); this._orders();
   }
   _unseal() {
     this.sealed = false; if (this.boss) this.boss.sealed = false;
     if (this.dome) { FX.nova(this.sealPos.x, this.sealPos.z, 9, [3.5, 0.5, 0.3]); GFX.scene.remove(this.dome); this.dome.geometry.dispose(); this.dome.material.dispose(); this.dome = null; }
-    Audio.sfx('explode'); this.ui.banner('結界消滅', '敵総大将を討て!', 'gold');
-    this.ui.say('軍師ミコト', '結界が消えました! 今こそ敵本陣へ!');
+    Audio.sfx('explode'); this.ui.banner('結界消滅', '敵将軍を倒せ!', 'gold');
+    this.ui.say('軍師ミコト', '結界が消えました! 今こそ敵の本拠へ!');
   }
   sealBlock(f, src) {
     if (this.rt - this.sealMsgT < 2.5) return;
@@ -457,19 +457,19 @@ export class Battle {
   }
   onFighterDead(f, src) {
     const byP = src === this.player, near = this.nearCam(f.x, f.z, 60);
-    if (f.isPlayer) { this._lose('討ち死に…'); return; }
+    if (f.isPlayer) { this._lose('力尽きた…'); return; }
     if (near) { FX.nova(f.x, f.z, 3.5, f.col); Audio.sfx('explode', 0.8); GFX.shake(0.4); }
     if (f.team === 1) {
       this.morale = clamp(this.morale + (f.boss ? 30 : 5), -100, 100);
       if (byP) {
         this.offKO++; this.exp += f.expVal; this.gold += f.boss ? 600 : 150;
         this.slowT = f.boss ? 1.6 : 0.55; this.slowScale = 0.22; GFX.doFlash(0.35);
-        this.ui.banner(f.boss ? '敵総大将 撃破' : '敵将 撃破', (f.title ? f.title + ' ' : '') + f.name, 'gold');
+        this.ui.banner(f.boss ? '敵将軍 撃破' : '敵将 撃破', (f.title ? f.title + ' ' : '') + f.name, 'gold');
         setTimeout(() => Voice.play(Voice.idFor(this.player), 'ko', { force: true }), 500);
         this.drop('hp', f.x, f.z, 30);
         if (Math.random() < (f.boss ? 1 : 0.5)) this.drop('weapon', f.x, f.z, this._lootWeapon(f.boss ? 2 : 1));
-        if (this.mission && this.mission.target === f) { this.missionsDone++; this.gold += 300; this.morale = clamp(this.morale + 10, -100, 100); this.ui.banner('戦功達成', this.mission.title, 'good'); this.mission = null; this.ui.mission(null); }
-      } else { this.ui.say('伝令', `味方が敵将${f.name}を撃破しました!`, 'allyKO'); if (this.mission && this.mission.target === f) { this.mission = null; this.ui.mission(null); } }
+        if (this.mission && this.mission.target === f) { this.missionsDone++; this.gold += 300; this.morale = clamp(this.morale + 10, -100, 100); this.ui.banner('特命達成', this.mission.title, 'good'); this.mission = null; this.ui.mission(null); }
+      } else { this.ui.say('斥候', `味方が敵将${f.name}を撃破しました!`, 'allyKO'); if (this.mission && this.mission.target === f) { this.mission = null; this.ui.mission(null); } }
       if (near && !f.boss) Voice.play(Voice.idFor(f), 'dead', { chance: 0.6, gap: 0 });
       if (f === this.boss) this._win();
     } else {
@@ -521,7 +521,7 @@ export class Battle {
         if (e.mission) { this.mission = { title: e.mission, target: f, t: 160 }; this.ui.mission(e.mission); }
       }
     }
-    if (this.mission) { this.mission.t -= dt; if (this.mission.t <= 0) { this.ui.toast('戦功失敗…'); this.mission = null; this.ui.mission(null); } }
+    if (this.mission) { this.mission.t -= dt; if (this.mission.t <= 0) { this.ui.toast('特命失敗…'); this.mission = null; this.ui.mission(null); } }
   }
   _waves(dt) {
     const cap = this.horde.cap;
@@ -570,7 +570,7 @@ export class Battle {
         this.horde.spawn(1, rnd() < 0.35 ? 1 : 0, g.x + Math.sin(a) * d, g.z + Math.cos(a) * d, { ...this.solStats(1), squad: this.player, ox: Math.sin(a) * 3, oz: Math.cos(a) * 3, aggro: 300 });
       }
       if (w % 5 === 0) { const b = pick([['boss1', 'boss_axe', 'axe'], ['boss2', 'boss_twin', 'twin'], ['boss3', 'boss_spear', 'spear'], ['boss4', 'boss_hammer', 'hammer'], ['boss5', 'boss_final', 'scythe']]);
-        this._enemyOfficer({ n: 1 + ((w / 5) | 0) % 4, boss: true, look: b[0], ms: b[1], wtype: b[2], hp: 2.2, title: '猛将', squad: 6 }, pick(OFFICER_NAMES)); Audio.sfx('warn'); this.ui.say('伝令', '強敵が現れました!'); }
+        this._enemyOfficer({ n: 1 + ((w / 5) | 0) % 4, boss: true, look: b[0], ms: b[1], wtype: b[2], hp: 2.2, title: '猛将', squad: 6 }, pick(OFFICER_NAMES)); Audio.sfx('warn'); this.ui.say('斥候', '強敵が現れました!'); }
       else if (w % 2 === 0) this._spawnOfficer({ n: 1 + (w % 4), ms: pick(['off_sword', 'off_spear', 'off_axe']), order: 'hunt', squad: 5 }, 1);
       this.ui.banner(`第${w}波`, w % 5 === 0 ? '強敵襲来' : '', w % 5 === 0 ? 'bad' : 'gold'); Audio.sfx('drum');
       const p = this.player; if (w > 1) { p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.08); this.gold += 40 + w * 10; }
@@ -617,7 +617,7 @@ export class Battle {
     if (this.hitStop > 0) { this.hitStop -= dtR; ts = 0.05; }
     else if (this.slowT > 0) { this.slowT -= dtR; ts = this.slowScale; }
     const dt = Math.min(dtR, 0.05) * ts, play = this.state === 'play';
-    if (this.state === 'intro' && this.stateT > 2.9) { this.state = 'play'; Input.clear(); this.ui.banner('出陣', this.endless ? '限界まで戦え' : '敵総大将を討て', 'gold'); Audio.sfx('drum'); Voice.play(Voice.idFor(this.player), 'start', { force: true }); Audio.ambience(true, this.def.theme); }
+    if (this.state === 'intro' && this.stateT > 2.9) { this.state = 'play'; Input.clear(); this.ui.banner('出撃', this.endless ? '限界まで戦え' : '敵将軍を倒せ', 'gold'); Audio.sfx('drum'); Voice.play(Voice.idFor(this.player), 'start', { force: true }); Audio.ambience(true, this.def.theme); }
     if ((this.state === 'win' && this.stateT > 4.2) || (this.state === 'lose' && this.stateT > 3.6)) { if (!this.sent) { this.sent = true; this.cfg.onEnd(this.result(this.state === 'win')); } }
     if (play) this.time += dt;
     this.horde.rebuild();

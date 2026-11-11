@@ -1,6 +1,6 @@
 // サービスワーカー: 全ファイルをキャッシュしてオフラインでも遊べるようにする
 // ※ ゲームを更新したら CACHE の番号を上げてください(古いキャッシュが破棄されます)
-const CACHE = 'seiga-v1.3.0';
+const CACHE = 'seiga-v1.4.0';
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css', 'vendor/three.module.min.js',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png',

@@ -1,4 +1,4 @@
-// ゲームデータ: 属性 / 武将 / 難易度 / ステージ / 武器 / 実績
+// ゲームデータ: 属性 / 武将 / 難易度 / ステージ / 武器 / 称号
 import { clamp, lerp } from './util.js';
 
 export const GAME_TITLE = '蒼星<small>の</small>セイガ';
@@ -17,7 +17,7 @@ export const HEROES = [
   { id: 'reiga', name: 'レイガ', title: '焔牙の剣士', wtype: 'sword', wname: '大太刀', elem: 'fire',
     desc: '攻守に優れた万能型。炎をまとう斬撃で敵陣を切り裂く。',
     base: { hp: 1050, atk: 34, def: 28, spd: 7.6, aspd: 1.0 }, stars: [4, 3, 3, 3],
-    look: { scale: 1.0, sw: 0.26, bulk: 1.02, hair: 'spiky', gear: 'band', cape: 'scarf', pauldron: 1, tasset: 'plate', tails: 2,
+    look: { armor: 'light', scale: 1.0, sw: 0.26, bulk: 1.02, hair: 'spiky', gear: 'band', cape: 'scarf', pauldron: 1, tasset: 'plate', tails: 2,
       pal: { skin: '#f0c8a0', hair: '#5a1c14', c1: '#cc262c', c2: '#2c2a3a', c3: '#d8a43c', metal: '#8c94a8', gold: '#e8b84e', eye: '#3a1208', cape: '#d82a2e' } } },
   { id: 'setsuna', name: 'セツナ', title: '氷華の槍姫', wtype: 'spear', wname: '長槍', elem: 'ice',
     desc: '長い間合いで敵を寄せつけない。氷の槍技は広範囲を凍てつかせる。',
@@ -32,7 +32,7 @@ export const HEROES = [
   { id: 'gandou', name: 'ガンドウ', title: '砕地の豪傑', wtype: 'hammer', wname: '大槌', elem: 'earth',
     desc: '一撃の重さは随一。攻撃中は怯まず、大地ごと敵を叩き潰す。',
     base: { hp: 1400, atk: 44, def: 40, spd: 6.6, aspd: 0.9 }, stars: [5, 4, 1, 5], heavy: true,
-    look: { scale: 1.2, sw: 0.3, bulk: 1.42, headScale: 1.02, hair: 'bald', beard: true, gear: 'horn', cape: '', pauldron: 2, tasset: 'plate', tails: 1, arms: 'bare', fur: true,
+    look: { armor: 'heavy', scale: 1.2, sw: 0.3, bulk: 1.42, headScale: 1.02, hair: 'bald', beard: true, gear: 'horn', cape: '', pauldron: 2, tasset: 'plate', tails: 1, arms: 'bare', fur: true,
       pal: { skin: '#c89064', hair: '#3b2a1c', c1: '#8a5c30', c2: '#2c2520', c3: '#d38a2c', metal: '#a08a66', gold: '#d9a23a', eye: '#2a1608' } } },
   { id: 'fuuka', name: 'フウカ', title: '翠嵐の舞姫', wtype: 'fan', wname: '双扇', elem: 'wind',
     desc: '風の刃を放つ遠距離型。舞うように敵を寄せ集め、まとめて吹き飛ばす。',
@@ -53,7 +53,7 @@ export const LOOKS = {
     pal: { skin: '#d9a982', hair: '#1a1210', c1: '#7c1418', c2: '#1c181a', c3: '#b8862a', metal: '#585c6e', gold: '#c9982e', glow: [3.5, 0.5, 0.3], eye: '#200808', cape: '#5c0e12' } },
   allyOfficer: { scale: 1.06, bulk: 1.1, sw: 0.265, headScale: 1.1, hair: 'bald', gear: 'kabuto', cape: 'short', pauldron: 1, tasset: 'plate', tails: 0,
     pal: { skin: '#e2b48c', hair: '#1a1210', c1: '#1e4a9a', c2: '#161a26', c3: '#c8d4e8', metal: '#566078', gold: '#d8e2f2', glow: [0.5, 1.6, 4.0], eye: '#081020', cape: '#16387a' } },
-  boss1: { scale: 1.3, bulk: 1.45, sw: 0.31, headScale: 1.0, hair: 'bald', beard: true, gear: 'kabuto horn hornbig', cape: 'long', pauldron: 2, tasset: 'plate', tails: 0,
+  boss1: { armor: 'heavy', scale: 1.3, bulk: 1.45, sw: 0.31, headScale: 1.0, hair: 'bald', beard: true, gear: 'kabuto horn hornbig', cape: 'long', pauldron: 2, tasset: 'plate', tails: 0,
     pal: { skin: '#c99672', hair: '#281410', c1: '#6a1014', c2: '#181416', c3: '#c08a2a', metal: '#4c4e5c', gold: '#d2a030', glow: [4.5, 0.7, 0.2], eye: '#3a0808', cape: '#4a0a0e' } },
   boss2: { scale: 1.1, bulk: 1.0, sw: 0.255, headScale: 1.1, hair: 'short', gear: 'hood mask', cape: 'scarf', pauldron: 0, tasset: 'none', tails: 3, arms: 'bare',
     pal: { skin: '#b9825a', hair: '#201810', c1: '#8a3a1e', c2: '#2a1c14', c3: '#e8c070', metal: '#6a5a44', gold: '#e8c070', glow: [4.2, 2.4, 0.4], eye: '#2a1408', cape: '#b0562a' } },
@@ -65,17 +65,17 @@ export const LOOKS = {
     pal: { skin: '#d8ccd8', hair: '#e8e2f6', c1: '#1a1230', c2: '#0c0a16', c3: '#d8b24a', metal: '#3c3866', gold: '#f2ce5a', glow: [4.6, 0.6, 2.6], eye: '#e01a5a', cape: '#2a0f3c' } },
 };
 // ---- 帝国の将: 章をクリアすると「星の記憶」として使えるようになる(見た目は vrm/boss*.vrm) ----
-const foeLook = (k, glow) => ({ ...LOOKS[k], pal: { ...LOOKS[k].pal, glow } });
+const foeLook = (k, glow, armor = '') => ({ ...LOOKS[k], armor, pal: { ...LOOKS[k].pal, glow } });
 HEROES.push(
   { id: 'barga', name: 'バルガ', title: '鉄壁の猛将', wtype: 'axe', wname: '大戦斧', elem: 'earth', foe: true, vrm: 'boss1', ms: 'p_barga',
     desc: '覇星帝国の猛将。星牙に刻まれた記憶から、鉄壁の巨躯と大戦斧の剛撃を借り受ける。',
-    base: { hp: 1500, atk: 42, def: 44, spd: 6.4, aspd: 0.88 }, stars: [5, 4, 1, 5], heavy: true, look: foeLook('boss1', [3.9, 2.1, 0.4]) },
+    base: { hp: 1500, atk: 42, def: 44, spd: 6.4, aspd: 0.88 }, stars: [5, 4, 1, 5], heavy: true, look: foeLook('boss1', [3.9, 2.1, 0.4], 'heavy') },
   { id: 'zahar', name: 'ザハル', title: '砂塵の蠍', wtype: 'twin', wname: '毒双剣', elem: 'wind', foe: true, vrm: 'boss2', ms: 'p_zahar',
     desc: '砂賊の頭目。砂嵐を呼ぶ双剣の連撃と、背後を突く奇襲が持ち味。',
     base: { hp: 900, atk: 30, def: 20, spd: 9.0, aspd: 1.15 }, stars: [3, 3, 5, 2], look: foeLook('boss2', [0.6, 3.7, 1.7]) },
   { id: 'volg', name: 'ヴォルグ', title: '氷狼将', wtype: 'spear', wname: '氷狼槍', elem: 'ice', foe: true, vrm: 'boss3', ms: 'p_volg',
     desc: '北の雪原を狩り場とした将。地を走る氷の牙で、獲物を逃さない。',
-    base: { hp: 1100, atk: 36, def: 28, spd: 7.8, aspd: 1.0 }, stars: [4, 5, 3, 3], look: foeLook('boss3', [0.5, 2.1, 4.4]) },
+    base: { hp: 1100, atk: 36, def: 28, spd: 7.8, aspd: 1.0 }, stars: [4, 5, 3, 3], look: foeLook('boss3', [0.5, 2.1, 4.4], 'light') },
   { id: 'ignas', name: 'イグナス', title: '炎獄将', wtype: 'hammer', wname: '獄炎槌', elem: 'fire', foe: true, vrm: 'boss4', ms: 'p_ignas',
     desc: '焔獄火山の主。大地を割って溶岩を噴き上げる、破壊の化身。',
     base: { hp: 1450, atk: 46, def: 36, spd: 6.5, aspd: 0.9 }, stars: [5, 5, 1, 4], heavy: true, look: foeLook('boss4', [4.6, 1.3, 0.25]) },
@@ -142,12 +142,12 @@ export const THEMES = TH;
 export const STAGES = [
   {
     id: 's1', no: '第一章', name: '翠嵐平原の戦い', lv: 1, theme: 'plains', size: 300, par: 420, koGoal: 400,
-    intro: '覇星帝国の先鋒が国境の平原へ侵攻。蒼星軍は迎撃のため出陣する。',
+    intro: '覇星帝国の先鋒が国境の平原へ侵攻。蒼星軍は迎え撃つべく出撃する。',
     nodes: [[0, -105, 20], [0, -62, 13], [-62, -40, 15], [62, -40, 15], [0, -5, 22], [-70, 25, 15], [70, 25, 15], [0, 52, 14], [0, 102, 22], [-48, 76, 13], [48, 76, 13]],
     links: [[0, 1, 7], [1, 2, 6], [1, 3, 6], [1, 4, 8], [2, 5, 6], [3, 6, 6], [2, 4, 6], [3, 4, 6], [4, 5, 6], [4, 6, 6], [4, 7, 8], [5, 9, 6], [6, 10, 6], [9, 7, 6], [10, 7, 6], [7, 8, 8]],
-    bases: [{ n: 0, t: 0, name: '蒼星軍本陣', troops: 138, main: true }, { n: 2, t: 0, name: '西の陣', troops: 69 }, { n: 3, t: 0, name: '東の陣', troops: 69 },
+    bases: [{ n: 0, t: 0, name: '蒼星軍本拠', troops: 138, main: true }, { n: 2, t: 0, name: '西の野営地', troops: 69 }, { n: 3, t: 0, name: '東の野営地', troops: 69 },
       { n: 5, t: 1, name: '西砦', troops: 83 }, { n: 6, t: 1, name: '東砦', troops: 83 }, { n: 9, t: 1, name: '北西の兵糧庫', troops: 69 }, { n: 10, t: 1, name: '北東の兵糧庫', troops: 69 },
-      { n: 8, t: 1, name: '帝国軍本陣', troops: 161, main: true }],
+      { n: 8, t: 1, name: '帝国軍本拠', troops: 161, main: true }],
     sealNeed: 3, start: 0, clash: [1, 7, 4],
     officers: [
       { t: 1, n: 5, ms: 'off_sword', order: 'hold' }, { t: 1, n: 6, ms: 'off_spear', order: 'hold' },
@@ -156,8 +156,8 @@ export const STAGES = [
       { t: 0, n: 2, ally: 0, order: 'attack' }, { t: 0, n: 3, ally: 1, order: 'attack' },
     ],
     events: [
-      { at: 3, say: ['軍師ミコト', '敵の砦を三つ落とせば、本陣を守る結界が解けます。まずは拠点の制圧を!'] },
-      { at: 70, say: ['伝令', '敵の増援部隊が中央から迫っています!'], spawn: { n: 7, ms: 'off_spear', order: 'attack', squad: 10 }, mission: '敵増援の将を討て' },
+      { at: 3, say: ['軍師ミコト', '敵の砦を三つ落とせば、本拠を守る結界が解けます。まずは拠点の制圧を!'] },
+      { at: 70, say: ['斥候', '敵の増援部隊が中央から迫っています!'], spawn: { n: 7, ms: 'off_spear', order: 'attack', squad: 10 }, mission: '敵の増援部隊の将を倒せ' },
       { cap: 2, say: ['軍師ミコト', 'あと一つです! 敵の動きが慌ただしくなってきました。'] },
     ],
   },
@@ -166,7 +166,7 @@ export const STAGES = [
     intro: '補給路を断つべく、蒼星軍は夕陽に染まる峡谷へ。砂塵の中に、帝国と手を組んだ砂賊の頭目ザハルが潜む。',
     nodes: [[-108, -102, 19], [-68, -58, 12], [-110, -8, 13], [-18, -84, 13], [-24, -24, 16], [28, 12, 14], [-62, 46, 13], [62, -46, 13], [72, 42, 12], [28, 88, 13], [106, 102, 21]],
     links: [[0, 1, 7], [1, 2, 6], [1, 3, 6], [1, 4, 7], [2, 6, 6], [3, 7, 6], [4, 5, 7], [4, 6, 6], [4, 7, 6], [5, 8, 6], [5, 9, 6], [6, 9, 6], [7, 8, 6], [8, 10, 7], [9, 10, 7]],
-    bases: [{ n: 0, t: 0, name: '蒼星軍本陣', troops: 138, main: true }, { n: 2, t: 0, name: '西の岩陣', troops: 69 }, { n: 3, t: 0, name: '南の岩陣', troops: 69 },
+    bases: [{ n: 0, t: 0, name: '蒼星軍本拠', troops: 138, main: true }, { n: 2, t: 0, name: '西の岩場', troops: 69 }, { n: 3, t: 0, name: '南の岩場', troops: 69 },
       { n: 5, t: 1, name: '中央関門', troops: 92 }, { n: 6, t: 1, name: '北西の砦', troops: 78 }, { n: 7, t: 1, name: '南東の砦', troops: 78 }, { n: 9, t: 1, name: '北の物見台', troops: 78 },
       { n: 10, t: 1, name: '砂賊の根城', troops: 161, main: true }],
     sealNeed: 3, start: 0, clash: [1, 5, 4],
@@ -178,8 +178,8 @@ export const STAGES = [
     ],
     events: [
       { at: 3, say: ['軍師ミコト', '峡谷は道が狭い分、敵も密集します。まとめて薙ぎ払ってください!'] },
-      { at: 60, say: ['ザハル', 'クク…背後ががら空きだぞ、蒼星軍。'], spawn: { n: 7, ms: 'off_sword', order: 'attack', squad: 12 }, mission: '奇襲部隊の将を討て' },
-      { at: 170, say: ['伝令', '敵の第二陣が出撃しました!'], spawn: { n: 9, ms: 'off_axe', wtype: 'axe', order: 'attack', squad: 12 } },
+      { at: 60, say: ['ザハル', 'クク…背後ががら空きだぞ、蒼星軍。'], spawn: { n: 7, ms: 'off_sword', order: 'attack', squad: 12 }, mission: '奇襲部隊の将を倒せ' },
+      { at: 170, say: ['斥候', '敵の第二部隊が出撃しました!'], spawn: { n: 9, ms: 'off_axe', wtype: 'axe', order: 'attack', squad: 12 } },
     ],
   },
   {
@@ -187,9 +187,9 @@ export const STAGES = [
     intro: '凍てつく北の雪原。氷狼将ヴォルグが氷湖の砦を拠点に、蒼星軍を包囲せんとする。',
     nodes: [[0, -118, 20], [-46, -82, 12], [46, -82, 12], [-92, -46, 14], [92, -46, 14], [-108, 16, 13], [108, 16, 13], [-72, 72, 14], [72, 72, 14], [0, 86, 13], [0, 128, 21], [0, 0, 16]],
     links: [[0, 1, 7], [0, 2, 7], [1, 2, 5], [1, 3, 6], [2, 4, 6], [3, 5, 6], [4, 6, 6], [5, 7, 6], [6, 8, 6], [7, 9, 6], [8, 9, 6], [9, 10, 8], [3, 11, 4.5], [4, 11, 4.5], [11, 9, 4.5]],
-    bases: [{ n: 0, t: 0, name: '蒼星軍本陣', troops: 138, main: true }, { n: 3, t: 0, name: '南西の陣', troops: 69 }, { n: 4, t: 0, name: '南東の陣', troops: 69 },
+    bases: [{ n: 0, t: 0, name: '蒼星軍本拠', troops: 138, main: true }, { n: 3, t: 0, name: '南西の野営地', troops: 69 }, { n: 4, t: 0, name: '南東の野営地', troops: 69 },
       { n: 11, t: 1, name: '氷湖の砦', troops: 101 }, { n: 5, t: 1, name: '西の氷壁', troops: 83 }, { n: 6, t: 1, name: '東の氷壁', troops: 83 }, { n: 7, t: 1, name: '北西の狼砦', troops: 83 }, { n: 8, t: 1, name: '北東の狼砦', troops: 83 },
-      { n: 10, t: 1, name: '氷狼軍本陣', troops: 175, main: true }],
+      { n: 10, t: 1, name: '氷狼軍本拠', troops: 175, main: true }],
     sealNeed: 4, start: 0, clash: [1, 11, 3],
     officers: [
       { t: 1, n: 11, ms: 'off_axe', wtype: 'axe', order: 'hold', hp: 1.3 }, { t: 1, n: 5, ms: 'off_spear', order: 'hold' }, { t: 1, n: 6, ms: 'off_sword', order: 'hold' },
@@ -199,8 +199,8 @@ export const STAGES = [
     ],
     events: [
       { at: 3, say: ['軍師ミコト', '中央の氷湖の砦を押さえれば、どの戦線にもすぐ駆けつけられます。'] },
-      { at: 80, say: ['ヴォルグ', '群れで狩れ。獲物は弱ったところから喰らうものだ。'], spawn: { n: 5, ms: 'off_sword', order: 'attack', squad: 12 }, mission: '西から迫る狩猟隊を討て' },
-      { at: 200, say: ['伝令', '東からも敵の別働隊です!'], spawn: { n: 6, ms: 'off_spear', order: 'attack', squad: 12 } },
+      { at: 80, say: ['ヴォルグ', '群れで狩れ。獲物は弱ったところから喰らうものだ。'], spawn: { n: 5, ms: 'off_sword', order: 'attack', squad: 12 }, mission: '西から迫る狩猟隊を倒せ' },
+      { at: 200, say: ['斥候', '東からも敵の別働隊です!'], spawn: { n: 6, ms: 'off_spear', order: 'attack', squad: 12 } },
     ],
   },
   {
@@ -208,7 +208,7 @@ export const STAGES = [
     intro: '帝国の兵器工廠がある火山地帯。炎獄将イグナスの溶岩兵団が三方から押し寄せる。',
     nodes: [[0, -122, 20], [-72, -76, 13], [0, -70, 14], [72, -76, 13], [-96, -10, 13], [0, -10, 16], [96, -10, 13], [-60, 56, 13], [60, 56, 13], [0, 62, 14], [0, 118, 22]],
     links: [[0, 1, 6], [0, 2, 7], [0, 3, 6], [1, 2, 5], [2, 3, 5], [1, 4, 6], [2, 5, 7], [3, 6, 6], [4, 5, 5], [5, 6, 5], [4, 7, 6], [6, 8, 6], [5, 9, 7], [7, 9, 5], [8, 9, 5], [9, 10, 8]],
-    bases: [{ n: 0, t: 0, name: '蒼星軍本陣', troops: 147, main: true }, { n: 1, t: 0, name: '左翼の陣', troops: 69 }, { n: 2, t: 0, name: '中央の陣', troops: 74 }, { n: 3, t: 0, name: '右翼の陣', troops: 69 },
+    bases: [{ n: 0, t: 0, name: '蒼星軍本拠', troops: 147, main: true }, { n: 1, t: 0, name: '左翼の野営地', troops: 69 }, { n: 2, t: 0, name: '中央の野営地', troops: 74 }, { n: 3, t: 0, name: '右翼の野営地', troops: 69 },
       { n: 4, t: 1, name: '西の溶鉱炉', troops: 92 }, { n: 5, t: 1, name: '中央工廠', troops: 106 }, { n: 6, t: 1, name: '東の溶鉱炉', troops: 92 }, { n: 7, t: 1, name: '北西の火口砦', troops: 87 }, { n: 8, t: 1, name: '北東の火口砦', troops: 87 },
       { n: 10, t: 1, name: '炎獄の玉座', troops: 184, main: true }],
     sealNeed: 4, start: 0, clash: [2, 5, 5],
@@ -220,9 +220,9 @@ export const STAGES = [
       { t: 0, n: 1, ally: 0, order: 'attack' }, { t: 0, n: 3, ally: 1, order: 'attack' },
     ],
     events: [
-      { at: 3, say: ['軍師ミコト', '敵は三方から同時に攻めてきます。本陣を落とされぬよう、戦況図に注意を!'] },
-      { at: 90, say: ['イグナス', '灰になるまで焼き尽くせ!'], spawn: { n: 5, ms: 'off_axe', wtype: 'axe', order: 'attack', squad: 14 }, mission: '中央突破を図る敵将を討て' },
-      { at: 210, say: ['伝令', '敵の決死隊が本陣を目指しています!'], spawn: { n: 9, ms: 'off_sword', order: 'attack', squad: 14 } },
+      { at: 3, say: ['軍師ミコト', '敵は三方から同時に攻めてきます。本拠を落とされぬよう、戦況図に注意を!'] },
+      { at: 90, say: ['イグナス', '灰になるまで焼き尽くせ!'], spawn: { n: 5, ms: 'off_axe', wtype: 'axe', order: 'attack', squad: 14 }, mission: '中央突破を図る敵将を倒せ' },
+      { at: 210, say: ['斥候', '敵の決死隊が本拠を目指しています!'], spawn: { n: 9, ms: 'off_sword', order: 'attack', squad: 14 } },
     ],
   },
   {
@@ -230,7 +230,7 @@ export const STAGES = [
     intro: '決戦の夜。星降る帝城の最奥で、覇星帝ゼノヴァが待ち受ける。',
     nodes: [[0, -128, 20], [0, -82, 14], [-66, -72, 14], [66, -72, 14], [-102, -16, 13], [0, -26, 18], [102, -16, 13], [-62, 36, 14], [62, 36, 14], [0, 46, 14], [0, 86, 12], [0, 128, 23]],
     links: [[0, 1, 8], [1, 2, 6], [1, 3, 6], [1, 5, 7], [2, 4, 6], [3, 6, 6], [2, 5, 5], [3, 5, 5], [4, 5, 5], [5, 6, 5], [4, 7, 6], [6, 8, 6], [5, 9, 7], [7, 9, 5], [8, 9, 5], [9, 10, 7], [10, 11, 8], [7, 10, 5], [8, 10, 5]],
-    bases: [{ n: 0, t: 0, name: '蒼星軍本陣', troops: 152, main: true }, { n: 2, t: 0, name: '西の外郭', troops: 74 }, { n: 3, t: 0, name: '東の外郭', troops: 74 },
+    bases: [{ n: 0, t: 0, name: '蒼星軍本拠', troops: 152, main: true }, { n: 2, t: 0, name: '西の外郭', troops: 74 }, { n: 3, t: 0, name: '東の外郭', troops: 74 },
       { n: 5, t: 1, name: '中央広場', troops: 115 }, { n: 4, t: 1, name: '西の櫓', troops: 92 }, { n: 6, t: 1, name: '東の櫓', troops: 92 }, { n: 7, t: 1, name: '西の兵舎', troops: 97 }, { n: 8, t: 1, name: '東の兵舎', troops: 97 }, { n: 9, t: 1, name: '内門', troops: 106 },
       { n: 11, t: 1, name: '覇星の玉座', troops: 207, main: true }],
     sealNeed: 5, start: 0, clash: [1, 9, 5],
@@ -243,14 +243,14 @@ export const STAGES = [
     ],
     events: [
       { at: 3, say: ['軍師ミコト', 'これが最後の戦いです。五つの拠点を落とし、玉座への道を開いてください!'] },
-      { at: 75, say: ['ゼノヴァ', '星は墜ちる定め。貴様らもまた、我が覇道の礎となれ。'], spawn: { n: 9, ms: 'off_axe', wtype: 'axe', order: 'attack', squad: 14 }, mission: '親衛隊長を討て' },
-      { at: 190, say: ['伝令', '帝国親衛隊が出撃! 本陣が狙われています!'], spawn: { n: 10, ms: 'off_sword', order: 'attack', squad: 16 } },
-      { at: 320, say: ['伝令', '敵の総攻撃です!'], spawn: { n: 10, ms: 'off_spear', order: 'attack', squad: 16 } },
+      { at: 75, say: ['ゼノヴァ', '星は墜ちる定め。貴様らもまた、我が覇道の礎となれ。'], spawn: { n: 9, ms: 'off_axe', wtype: 'axe', order: 'attack', squad: 14 }, mission: '親衛隊長を倒せ' },
+      { at: 190, say: ['斥候', '帝国親衛隊が出撃! 本拠が狙われています!'], spawn: { n: 10, ms: 'off_sword', order: 'attack', squad: 16 } },
+      { at: 320, say: ['斥候', '敵の総攻撃です!'], spawn: { n: 10, ms: 'off_spear', order: 'attack', squad: 16 } },
     ],
   },
 ];
 export const ENDLESS = {
-  id: 'endless', no: '特別', name: '無限戦場・千人組手', lv: 1, theme: 'castle', size: 240, par: 9999, koGoal: 9999, endless: true,
+  id: 'endless', no: '特別', name: '星海の試練', lv: 1, theme: 'castle', size: 240, par: 9999, koGoal: 9999, endless: true,
   intro: '果てなき敵の波。力尽きるまで戦い、撃破数を競え。',
   nodes: [[0, 0, 52], [0, -78, 11], [78, 0, 11], [0, 78, 11], [-78, 0, 11]],
   links: [[0, 1, 9], [0, 2, 9], [0, 3, 9], [0, 4, 9]],
@@ -351,12 +351,12 @@ export function calcStats(save, heroId) {
   };
 }
 
-// ---- 実績 ----
+// ---- 称号 ----
 export const ACHIEVEMENTS = [
-  { id: 'first', n: '初陣', d: 'はじめて合戦に勝利する', gold: 300, t: (S) => S.stats.wins >= 1 },
-  { id: 'ko500', n: '五百人斬り', d: '一度の合戦で500人撃破', gold: 500, t: (S) => S.stats.maxKO >= 500 },
-  { id: 'ko1000', n: '一騎当千', d: '一度の合戦で1000人撃破', gold: 1500, t: (S) => S.stats.maxKO >= 1000 },
-  { id: 'ko2000', n: '万夫不当', d: '一度の合戦で2000人撃破', gold: 5000, t: (S) => S.stats.maxKO >= 2000 },
+  { id: 'first', n: '初勝利', d: 'はじめて戦いに勝利する', gold: 300, t: (S) => S.stats.wins >= 1 },
+  { id: 'ko500', n: '五百人斬り', d: '一度の戦いで500人撃破', gold: 500, t: (S) => S.stats.maxKO >= 500 },
+  { id: 'ko1000', n: '一騎当千', d: '一度の戦いで1000人撃破', gold: 1500, t: (S) => S.stats.maxKO >= 1000 },
+  { id: 'ko2000', n: '万夫不当', d: '一度の戦いで2000人撃破', gold: 5000, t: (S) => S.stats.maxKO >= 2000 },
   { id: 'tot10k', n: '戦場の鬼', d: '累計10,000人撃破', gold: 2000, t: (S) => S.stats.totalKO >= 10000 },
   { id: 'tot100k', n: '修羅の化身', d: '累計100,000人撃破', gold: 20000, t: (S) => S.stats.totalKO >= 100000 },
   { id: 'combo300', n: '連撃の使い手', d: '300連撃を達成', gold: 600, t: (S) => S.stats.maxCombo >= 300 },
@@ -376,8 +376,8 @@ export const ACHIEVEMENTS = [
   { id: 'forge10', n: '鍛冶の極み', d: '武器を+10まで鍛える', gold: 3000, t: (S) => S.weapons.some((w) => w.lv >= 10) },
   { id: 'perfect', n: '見切りの達人', d: '見切り(直前回避)を累計30回', gold: 1500, t: (S) => S.stats.perfect >= 30 },
   { id: 'nodmg', n: '無傷の勝利', d: '被ダメージ1割以下で勝利', gold: 2500, t: (S) => S.stats.flawless >= 1 },
-  { id: 'end10', n: '百戦錬磨', d: '無限戦場で第10波に到達', gold: 2000, t: (S) => S.endless.wave >= 10 },
-  { id: 'end25', n: '不死身', d: '無限戦場で第25波に到達', gold: 12000, t: (S) => S.endless.wave >= 25 },
+  { id: 'end10', n: '百戦錬磨', d: '星海の試練で第10波に到達', gold: 2000, t: (S) => S.endless.wave >= 10 },
+  { id: 'end25', n: '不死身', d: '星海の試練で第25波に到達', gold: 12000, t: (S) => S.endless.wave >= 25 },
   { id: 'rich', n: '大富豪', d: '所持金50,000を達成', gold: 0, t: (S) => S.gold >= 50000 },
 ];
 

@@ -336,6 +336,7 @@ p { margin: 4px 0; font-size: clamp(11px, 3vmin, 13px); line-height: 1.55; }
 .op-boss { position: absolute; left: 50%; bottom: 9vh; height: 82vh; transform: translateX(-50%); animation: opRise 2.4s cubic-bezier(.2, .8, .3, 1); }
 .op-boss .op-name { writing-mode: vertical-rl; top: 6%; right: -1vw; }
 .op-boss .op-name small { display: inline; margin-left: .8em; }
+.op-boss.act { height: 92vh; bottom: 4vh; }
 .op-boss img { height: 100%; filter: drop-shadow(0 0 28px rgba(255, 30, 60, .7)) brightness(.95); }
 .op-boss.ally img { filter: drop-shadow(0 0 24px rgba(170, 140, 255, .6)); }
 @keyframes opRise { from { opacity: 0; transform: translate(-50%, 6%) scale(.96); filter: brightness(0); } }
@@ -349,19 +350,25 @@ p { margin: 4px 0; font-size: clamp(11px, 3vmin, 13px); line-height: 1.55; }
 .op-four span small { display: block; font-size: .6em; color: #ff9a8a; }
 @keyframes opSlide { from { opacity: 0; transform: skewX(-6deg) translateY(-30%); } }
 .op-hero { position: absolute; inset: 9vh 0; overflow: hidden; }
-.op-hero img { position: absolute; left: 50%; bottom: 0; height: 100%; transform: translateX(-62%); filter: drop-shadow(0 0 22px var(--c)); animation: opHero 1.7s cubic-bezier(.15, .8, .3, 1) both; }
-.op-hero.r img { transform: translateX(-38%); animation-name: opHeroR; }
-@keyframes opHero { from { opacity: 0; transform: translateX(-110%); } 30% { opacity: 1; } to { transform: translateX(-62%); } }
-@keyframes opHeroR { from { opacity: 0; transform: translateX(10%); } 30% { opacity: 1; } to { transform: translateX(-38%); } }
+.op-hero img { position: absolute; left: 50%; top: 50%; height: 118%; transform: translate(-58%, -50%); filter: drop-shadow(0 0 18px var(--c)) drop-shadow(0 0 40px var(--c)); animation: opHero 1.7s cubic-bezier(.12, .85, .25, 1) both; }
+.op-hero.r img { transform: translate(-42%, -50%); animation-name: opHeroR; }
+@keyframes opHero { 0% { opacity: 0; transform: translate(-95%, -50%) scale(1.5) rotate(-6deg); filter: blur(6px) brightness(3); } 22% { opacity: 1; filter: blur(0) brightness(1.6) drop-shadow(0 0 30px var(--c)); } 100% { transform: translate(-58%, -50%) scale(1.04) rotate(0); } }
+@keyframes opHeroR { 0% { opacity: 0; transform: translate(0%, -50%) scale(1.5) rotate(6deg); filter: blur(6px) brightness(3); } 22% { opacity: 1; filter: blur(0) brightness(1.6) drop-shadow(0 0 30px var(--c)); } 100% { transform: translate(-42%, -50%) scale(1.04) rotate(0); } }
 .op-kan { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-family: var(--serif); font-weight: 900; font-size: 62vmin; color: var(--c); opacity: .22; filter: blur(1px); animation: opKan 1.7s ease-out both; }
 @keyframes opKan { from { transform: translate(-50%, -50%) scale(1.5); opacity: 0; } 25% { opacity: .3; } }
 .op-hero .op-name { right: auto; left: 63%; top: 38%; transform: none; animation: opName2 .8s .25s both; }
 .op-hero.r .op-name { left: auto; right: 63%; text-align: right; }
 @keyframes opName2 { from { opacity: 0; letter-spacing: .6em; } }
+.op-speed { position: absolute; inset: -50%; background: repeating-conic-gradient(from 0deg, transparent 0 1.6deg, color-mix(in srgb, var(--c) 55%, transparent) 1.6deg 2.1deg, transparent 2.1deg 5deg); -webkit-mask: radial-gradient(circle, transparent 18%, #000 60%); mask: radial-gradient(circle, transparent 18%, #000 60%); opacity: .5; animation: opSpeed 1.7s linear both; }
+@keyframes opSpeed { from { transform: rotate(0) scale(1.2); opacity: .9; } to { transform: rotate(8deg) scale(1); opacity: .35; } }
+.op-slash { position: absolute; left: -10%; right: -10%; top: 48%; height: 6px; background: linear-gradient(90deg, transparent, #fff 30%, var(--c) 60%, transparent); box-shadow: 0 0 24px 6px var(--c); transform: rotate(-24deg) scaleX(0); transform-origin: 0 50%; animation: opSlash .5s .18s cubic-bezier(.2, .9, .3, 1) both; z-index: 2; }
+.op-hero.r .op-slash { transform: rotate(24deg) scaleX(0); transform-origin: 100% 50%; animation-name: opSlashR; }
+@keyframes opSlash { 0% { transform: rotate(-24deg) scaleX(0); opacity: 1; } 60% { transform: rotate(-24deg) scaleX(1); opacity: 1; } 100% { transform: rotate(-24deg) scaleX(1); opacity: 0; } }
+@keyframes opSlashR { 0% { transform: rotate(24deg) scaleX(0); opacity: 1; } 60% { transform: rotate(24deg) scaleX(1); opacity: 1; } 100% { transform: rotate(24deg) scaleX(1); opacity: 0; } }
 .op-hero::after { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 40%, rgba(255, 255, 255, .5) 50%, transparent 60%); animation: opSweep .9s ease-out both; }
 @keyframes opSweep { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
-.op-all { position: absolute; left: 0; right: 0; bottom: 9vh; height: 70vh; display: flex; justify-content: center; align-items: flex-end; }
-.op-all img { width: min(19vw, 36vh); height: auto; max-height: 100%; margin: 0 -1.2vw; animation: opUp .8s var(--d) both cubic-bezier(.2, .8, .3, 1); filter: drop-shadow(0 0 10px rgba(255, 220, 140, .4)); }
+.op-all { position: absolute; left: 0; right: 0; bottom: 4vh; height: 80vh; display: flex; justify-content: center; align-items: flex-end; }
+.op-all img { width: min(34vw, 64vh); height: auto; max-height: 120%; margin: 0 -8vw; animation: opUp .8s var(--d) both cubic-bezier(.2, .8, .3, 1); filter: drop-shadow(0 0 10px rgba(255, 220, 140, .4)); }
 @keyframes opUp { from { opacity: 0; transform: translateY(15%); } }
 @media (orientation: portrait) {
   .op-four { flex-wrap: wrap; } .op-four div { flex: 0 0 44%; max-width: none; height: 46%; }

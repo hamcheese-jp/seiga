@@ -88,6 +88,9 @@ export class Rig {
         tp.y = -0.02 * run + Math.abs(Math.cos(this.phase)) * 0.05 * run;
         tp.el = R.el + s * 7 * run + br * 1.5; tp.stance = R.stance * (1 - Math.min(1, run));
         if (!two) { tp.elL = R.elL - s * 30 * run + 8 * run + br; tp.azL = R.azL - 10 * run; tp.bendL = R.bendL + 28 * run; }
+        // 立ち止まっている時は武器ごとの「構え」へ(走り出すと元の姿勢に戻る)
+        const I = this.model.idle;
+        if (I) { const w = 1 - clamp(run * 1.6, 0, 1); for (const k in I) tp[k] += (I[k] + (k === 'el' || k === 'elL' ? br * 1.5 : 0) - tp[k]) * w; }
       } else if (mode === 'hit') { tp.lean = -22; tp.tw = 20; tp.el = -22; tp.az = -72; tp.bend = 80; tp.elL = -22; tp.azL = 72; tp.head = -12; tp.stance = 0.35; rate = 30; armRate = 30; }
       else if (mode === 'air') { tp.flip = -105; tp.el = 12; tp.az = -80; tp.elL = 12; tp.azL = 80; tp.bend = 30; tp.bendL = 30; rate = 9; }
       else if (mode === 'down') { tp.flip = -90; tp.y = 0.14; tp.el = -8; tp.az = -78; tp.elL = -8; tp.azL = 78; tp.bend = 15; tp.bendL = 15; rate = 16; }

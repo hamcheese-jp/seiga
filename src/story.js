@@ -1,5 +1,5 @@
 // 物語: オープニングムービーと、各章の前後の会話シーン
-//   立ち絵は assets/portraits/<キャラ>.webp(_b = 表情差分 / _full = 全身)。tools/portrait.html でVRMから撮影
+//   立ち絵は assets/portraits/<キャラ>.webp(_b = 表情差分 / _full = 全身 / _act = 技の決めポーズ)。tools/portrait.html・tools/pose.html でVRMから撮影
 //   会話の書き方: { c: キャラ, t: 台詞 } / c: '@' は選んだ武将(t を武将IDごとに書き分けられる) / f: 'b' で表情差分 / c 省略でナレーション
 import { Audio } from './audio.js';
 import { HERO } from './data.js';
@@ -28,7 +28,7 @@ export const STORY = {
     pre: { bg: 'plains', title: '第一章 翠嵐平原の戦い', lines: [
       { t: '蒼星暦七百二十年、春。国境の翠嵐平原に、覇星帝国の大軍が姿を現した。' },
       { c: 'mikoto', t: '帝国の先鋒、およそ二万。率いるのは「鉄壁の猛将」バルガです。' },
-      { c: 'mikoto', t: '本陣は星読みの結界に守られています。周りの砦を三つ落とせば、結界は解けるはず。' },
+      { c: 'mikoto', t: '敵の本拠は星読みの結界に守られています。周りの砦を三つ落とせば、結界は解けるはず。' },
       { c: '@', t: {
         reiga: '三つだな。まとめて斬り開く。ミコト、背中は任せた。',
         setsuna: '承知しました。蒼星の地を、一歩たりとも踏ませはしません。',
@@ -124,7 +124,7 @@ export const STORY = {
         fuuka: 'あっつーい! でも風で吹き飛ばしちゃうもんね!',
         yomi: '……炎は、闇を照らせない。',
       } },
-      { c: 'mikoto', f: 'b', t: '敵は三方から来ます! 本陣を落とされないよう、戦況図をよく見て!' },
+      { c: 'mikoto', f: 'b', t: '敵は三方から来ます! 本拠を落とされないよう、戦況図をよく見て!' },
     ] },
     post: { bg: 'volcano', lines: [
       { c: 'boss4', f: 'b', t: 'ぐああ……! 炎が……俺の炎が、消える……!' },
@@ -163,7 +163,7 @@ export const STORY = {
       } },
       { t: '六つの星牙は再び大地に眠り、蒼星の国に平和が戻った。' },
       { t: '人々は六人の星牙使いを讃え、こう呼んだ——「蒼星のセイガ」と。' },
-      { t: '— 完 —   (無限戦場や高難易度で、さらなる腕試しを!)' },
+      { t: '— 完 —   (星海の試練や高難易度で、さらなる腕試しを!)' },
     ] },
   },
 };
@@ -249,7 +249,7 @@ export const Story = {
     const root = document.createElement('div'); root.id = 'op';
     root.innerHTML = `<canvas class="op-cv"></canvas><div class="op-stage"></div><div class="op-bar t"></div><div class="op-bar b"></div><div class="op-sub"></div><button class="st-skip">スキップ ▶▶</button>`;
     document.body.appendChild(root);
-    const urls = [...heroes.map((h) => IMG(h, '_full')), IMG('boss5', '_full'), IMG('boss5', '_b'), IMG('mikoto', '_full'), ...[1, 2, 3, 4].map((n) => IMG('boss' + n, '_b'))];
+    const urls = [...heroes.map((h) => IMG(h, '_act')), IMG('zenova', '_act'), IMG('boss5', '_full'), IMG('boss5', '_b'), IMG('mikoto', '_full'), ...[1, 2, 3, 4].map((n) => IMG('boss' + n, '_b'))];
     await pre(urls);
     requestAnimationFrame(() => root.classList.add('on'));
     Audio.bgm('boss');
@@ -316,7 +316,7 @@ export const Story = {
     for (let k = 0; k < 30; k++) { if (skip) return; redStar = k / 30; tintA = k / 30 * 0.5; await wait(40); }
     say('そして今——<b class="red">七つ目の星</b>を名乗る男が現れた。');
     if (await step(2600)) return;
-    put(`<div class="op-boss"><img src="${IMG('boss5', '_full')}" alt=""><div class="op-name"><small>覇星帝国 皇帝</small>覇星帝ゼノヴァ</div></div>`);
+    put(`<div class="op-boss act"><img src="${IMG('zenova', '_act')}" alt=""><div class="op-name"><small>覇星帝国 皇帝</small>覇星帝ゼノヴァ</div></div>`);
     Audio.sfx('dark');
     if (await step(2600)) return;
     say('「六つの星牙を喰らい、この空ごと大地を墜とす。<br>それが我が覇道だ」', 'quote');
@@ -337,7 +337,7 @@ export const Story = {
     for (const [k, h] of heroes.entries()) {
       const c = ELC[h], info = CAST[h];
       tint = c; tintA = 0.35;
-      put(`<div class="op-hero ${k % 2 ? 'r' : ''}" style="--c:rgb(${c})"><div class="op-kan">${KAN[h]}</div><img src="${IMG(h, '_full')}" alt=""><div class="op-name"><small>${info.t}</small>${info.n}</div></div>`);
+      put(`<div class="op-hero ${k % 2 ? 'r' : ''}" style="--c:rgb(${c})"><div class="op-speed"></div><div class="op-kan">${KAN[h]}</div><div class="op-slash"></div><img src="${IMG(h, '_act')}" alt=""><div class="op-name"><small>${info.t}</small>${info.n}</div></div>`);
       flash = 0.5; Audio.sfx(SFX[h]);
       if (await step(1700)) return;
     }
@@ -351,7 +351,7 @@ export const Story = {
     if (await step(3600)) return;
     // --- 6. 集結 → タイトル ---
     clear(); tint = [255, 200, 110]; tintA = 0.25;
-    put(`<div class="op-all">${heroes.map((h, k) => `<img src="${IMG(h, '_full')}" style="--d:${k * 0.1}s" alt="">`).join('')}</div>`);
+    put(`<div class="op-all">${heroes.map((h, k) => `<img src="${IMG(h, '_act')}" style="--d:${k * 0.1}s" alt="">`).join('')}</div>`);
     say('', '');
     if (await step(1600)) return;
     flash = 0.9; Audio.sfx('special');

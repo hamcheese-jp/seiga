@@ -14,8 +14,8 @@ import { CREDITS } from './voicedata.js';
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const SCREENS = ['title', 'home', 'stage', 'hero', 'armory', 'ach', 'rank', 'settings', 'result', 'pause', 'load', 'story'];
 const TIPS = ['通常攻撃の途中でチャージ攻撃を押すと、段数に応じた強力な技に派生します。', '敵将の武器が赤く光ったら強攻撃の合図。回避でかわそう。', '攻撃が当たる直前に回避すると「見切り」が発動し、奥義ゲージが大きく溜まります。',
-  '敵拠点は兵を倒し続けると兵長が出現。兵長を倒せば制圧できます。', '拠点を制圧すると体力が回復し、味方の士気が上がります。', '覚醒中は攻撃力・攻撃速度が上がり、怯まなくなります。覚醒中の奥義は「真・奥義」に強化。',
-  '武器には特性が付きます。鍛錬で攻撃力を上げ、自分好みの一振りを探しましょう。', '高難易度ほど良い武器が手に入りやすくなります。', '攻撃ボタンは押しっぱなしでも連続攻撃できます。'];
+  '敵拠点は兵を倒し続けると守備隊長が出現。守備隊長を倒せば制圧できます。', '拠点を制圧すると体力が回復し、味方の士気が上がります。', '覚醒中は攻撃力・攻撃速度が上がり、怯まなくなります。覚醒中の奥義は「真・奥義」に強化。',
+  '武器には特性が付きます。強化で攻撃力を上げ、自分好みの一振りを探しましょう。', '高難易度ほど良い武器が手に入りやすくなります。', '攻撃ボタンは押しっぱなしでも連続攻撃できます。'];
 
 export const UI = {
   app: null, cur: '', sel: { hero: 'reiga', stage: 's1', diff: 1 }, armHero: null, armSel: null, rankBoard: null, lastResult: null,
@@ -67,7 +67,7 @@ export const UI = {
       case 'sortie': {
         if (!S.unlockedHeroes.includes(sel.hero)) { Audio.sfx('deny'); break; }
         Audio.sfx('ok'); S.last = { ...sel }; Save.persist(false);
-        // 初めての章は、出陣前に物語を再生
+        // 初めての章は、出撃前に物語を再生
         const sc = STORY[sel.stage], k = sel.stage + '.pre';
         if (sc && sc.pre && !S.story[k]) { this.show('scene'); Story.play(sc.pre, sel.hero, () => { S.story[k] = 1; Save.persist(false); this.app.startBattle(sel); }); break; }
         this.app.startBattle(sel); break;
@@ -84,7 +84,7 @@ export const UI = {
       case 'equip': { Audio.sfx('ok'); S.heroes[this.armHero].weapon = this.armSel; Save.persist(); this.app.lobbyHero(this.armHero, true); this.r_armory(); break; }
       case 'forge': { const w = S.weapons.find((x) => x.uid === this.armSel), c = forgeCost(w);
         if (S.gold < c || w.lv >= RAR_MAXLV[w.rar]) { Audio.sfx('deny'); break; }
-        S.gold -= c; w.lv++; Audio.sfx('levelup'); this.toast(`${weaponName(w)} に鍛え上げた!`); Save.checkAch().forEach((x) => this.toast(`実績達成: ${x.n}`)); Save.persist(); this.r_armory(); break; }
+        S.gold -= c; w.lv++; Audio.sfx('levelup'); this.toast(`${weaponName(w)} に鍛え上げた!`); Save.checkAch().forEach((x) => this.toast(`称号獲得: ${x.n}`)); Save.persist(); this.r_armory(); break; }
       case 'sell': { const w = S.weapons.find((x) => x.uid === this.armSel);
         if (!w || Object.values(S.heroes).some((h) => h.weapon === w.uid)) { Audio.sfx('deny'); break; }
         S.gold += sellPrice(w); S.weapons.splice(S.weapons.indexOf(w), 1); this.armSel = null; Audio.sfx('pickup'); Save.persist(); this.r_armory(); break; }
@@ -95,7 +95,7 @@ export const UI = {
       case 'gacha': {
         if (S.gold < GACHA_COST) { Audio.sfx('deny'); this.toast('金が足りません'); break; }
         S.gold -= GACHA_COST; const w = rollWeapon(HERO[this.armHero].wtype, this.gachaPower(), 20, 2); S.weapons.push(w); this.armSel = w.uid;
-        Audio.sfx(w.rar >= 4 ? 'capture' : 'treasure'); this.toast(`${RARITY[w.rar].star} ${weaponName(w)} を錬成した!`); Save.checkAch().forEach((x) => this.toast(`実績達成: ${x.n}`)); Save.persist(); this.r_armory(); break; }
+        Audio.sfx(w.rar >= 4 ? 'capture' : 'treasure'); this.toast(`${RARITY[w.rar].star} ${weaponName(w)} を錬成した!`); Save.checkAch().forEach((x) => this.toast(`称号獲得: ${x.n}`)); Save.persist(); this.r_armory(); break; }
       case 'board': Audio.sfx('ui'); this.rankBoard = v; this.r_rank(); break;
       case 'again': Audio.sfx('ok'); this.app.startBattle(sel); break;
       case 'resume': Audio.sfx('ui'); this.app.resume(); break;
@@ -124,7 +124,7 @@ export const UI = {
     if (k === 'cloudUrl') { set.cloudUrl = t.value.trim(); if (done) { Save.persist(false); this.r_settings(); if (Cloud.enabled()) this.toast('スプレッドシート連携を有効にしました'); } return; }
     if (t.type === 'checkbox') set[k] = t.checked; else if (t.type === 'range') set[k] = +t.value; else set[k] = t.value;
     if (k === 'bgm' || k === 'sfx' || k === 'voice') Audio.setVol(set.bgm, set.sfx, set.voice);
-    if (k === 'quality' && done) { GFX.setQuality(set.quality); this.toast('画質を変更しました(兵数などは次の合戦から反映)'); }
+    if (k === 'quality' && done) { GFX.setQuality(set.quality); this.toast('画質を変更しました(兵の数などは次の戦いから反映)'); }
     if (k === 'fps') this.E['h-fps'].textContent = '';
     if (k === 'btnScale') this.applyBtnLayout();
     if (done) Save.persist(false);
@@ -218,12 +218,12 @@ export const UI = {
     const S = Save.data, h = HERO[this.sel.hero];
     this.html('home', `<div class="head"><div class="who">${esc(S.name)}</div><div class="sp"></div>${this.installBtn('inst-home')}<div class="goldv">${S.gold.toLocaleString()}</div></div>
       <div class="home-menu">
-        <button class="mbtn main" data-a="go" data-v="stage">出陣<small>章を選んで合戦へ</small></button>
-        <button class="mbtn" ${Save.stageCleared('s1') ? 'data-a="go" data-v="endless"' : 'style="opacity:.45"'}>無限戦場<small>${Save.stageCleared('s1') ? `最高 ${S.endless.ko}人撃破 / 第${S.endless.wave}波` : '第一章クリアで解放'}</small></button>
-        <button class="mbtn" data-a="go" data-v="armory">武器庫<small>装備・鍛錬・錬成</small></button>
+        <button class="mbtn main" data-a="go" data-v="stage">出撃<small>章を選んで戦いへ</small></button>
+        <button class="mbtn" ${Save.stageCleared('s1') ? 'data-a="go" data-v="endless"' : 'style="opacity:.45"'}>星海の試練<small>${Save.stageCleared('s1') ? `最高 ${S.endless.ko}人撃破 / 第${S.endless.wave}波` : '第一章クリアで解放'}</small></button>
+        <button class="mbtn" data-a="go" data-v="armory">装備<small>武器の装備・強化・錬成</small></button>
         <button class="mbtn" data-a="go" data-v="story">物語<small>オープニング・各章の物語</small></button>
-        <button class="mbtn" data-a="go" data-v="ach">実績<small>${Object.keys(S.ach).length} / ${ACHIEVEMENTS.length} 達成</small></button>
-        <button class="mbtn" data-a="go" data-v="rank">番付<small>全国ランキング</small></button>
+        <button class="mbtn" data-a="go" data-v="ach">称号<small>${Object.keys(S.ach).length} / ${ACHIEVEMENTS.length} 達成</small></button>
+        <button class="mbtn" data-a="go" data-v="rank">ランキング<small>全国ランキング</small></button>
         <button class="mbtn" data-a="go" data-v="settings">設定<small>画質・音量・データ保存</small></button>
       </div>`);
     this.app.lobbyHero(h.id);
@@ -234,7 +234,7 @@ export const UI = {
     if (!this.diffOpen(sel.diff)) sel.diff = 1;
     const cur = STAGE[sel.stage], d = DIFFS[sel.diff], rec = (S.stages[cur.id] || {})[d.id];
     const lv = S.heroes[sel.hero].lv;
-    this.html('stage', `${this.head('出陣', 'home')}
+    this.html('stage', `${this.head('出撃', 'home')}
       <div class="tabs">${DIFFS.map((x, i) => `<button class="tab ${i === sel.diff ? 'on' : ''} ${this.diffOpen(i) ? '' : 'lock'}" ${this.diffOpen(i) ? `data-a="diff" data-v="${i}"` : ''} style="color:${x.col}">${x.n}</button>`).join('')}</div>
       <div class="cols"><div class="l scroll">${STAGES.map((s, i) => {
         const open = this.stageOpen(i), r = (S.stages[s.id] || {})[d.id];
@@ -243,7 +243,7 @@ export const UI = {
       <div class="r"><div class="panel scroll" style="flex:1"><h3>${cur.name}</h3><p>${cur.intro}</p>
         <p>推奨Lv <b style="color:${lv >= cur.lv ? '#9dff9d' : '#ff8a6a'}">${cur.lv}</b>(選択中の星牙使い Lv${lv}) / 難易度 <b style="color:${d.col}">${d.n}</b> — 報酬 ×${d.rew}</p>
         <p class="dim-t">${rec && rec.clear ? `最高評価 ${rec.rank} / 最多撃破 ${rec.ko}人 / 最速 ${fmtTime(rec.time)}` : '未クリア'}</p>
-        <p class="dim-t">目標: 敵拠点を${cur.sealNeed}つ制圧して結界を解き、総大将を討て。</p></div>
+        <p class="dim-t">目標: 敵拠点を${cur.sealNeed}つ制圧して結界を解き、敵将軍を倒せ。</p></div>
         <div class="row" style="justify-content:flex-end"><button class="pbtn" data-a="tohero">星牙使い選択へ</button></div></div></div>`);
   },
   r_hero() {
@@ -263,7 +263,7 @@ export const UI = {
         <p>${h.wname}: <b style="color:${RARITY[w.rar].col}">${weaponName(w)}</b>(攻撃+${weaponAtk(w)})</p>
         <p class="dim-t">通常攻撃 ${maxNormals(hs.lv)}段 / チャージ技 ${maxCharges(hs.lv)}種${hs.lv < 10 ? '(Lvが上がると増加)' : ''}</p>` : `<p style="color:#ffb08a">${need ? STAGE[need[0]].no + '「' + STAGE[need[0]].name + '」クリアで解放' : '未解放'}</p>`}
         <p class="dim-t">${E.n}属性 — ${E.d}</p></div>
-        <div class="row"><button class="sbtn" data-a="go" data-v="armory" ${open ? '' : 'disabled'}>武器変更</button><div style="flex:1"></div><button class="pbtn" data-a="sortie" ${open ? '' : 'disabled'}>出 陣</button></div></div></div>`);
+        <div class="row"><button class="sbtn" data-a="go" data-v="armory" ${open ? '' : 'disabled'}>武器変更</button><div style="flex:1"></div><button class="pbtn" data-a="sortie" ${open ? '' : 'disabled'}>出 撃</button></div></div></div>`);
   },
   r_armory() {
     const S = Save.data; if (!this.armHero || !S.unlockedHeroes.includes(this.armHero)) this.armHero = S.unlockedHeroes.includes(this.sel.hero) ? this.sel.hero : S.unlockedHeroes[0];
@@ -272,17 +272,17 @@ export const UI = {
     const cur = list.find((w) => w.uid === this.armSel) || list.find((w) => w.uid === hs.weapon) || list[0];
     this.armSel = cur.uid; if (cur.isNew) { cur.isNew = false; }
     const eq = cur.uid === hs.weapon, mx = RAR_MAXLV[cur.rar], cost = forgeCost(cur), R = RARITY[cur.rar];
-    this.html('armory', `${this.head('武器庫', 'home')}
+    this.html('armory', `${this.head('装備', 'home')}
       <div class="tabs">${HEROES.filter((x) => S.unlockedHeroes.includes(x.id)).map((x) => `<button class="tab ${x.id === h.id ? 'on' : ''}" data-a="ahero" data-v="${x.id}">${x.name}</button>`).join('')}</div>
       <div class="cols"><div class="l scroll">${list.map((w) => `<div class="card wcard ${w.uid === cur.uid ? 'on' : ''}" style="border-left-color:${RARITY[w.rar].col}" data-a="wsel" data-v="${w.uid}"><div class="n"><div class="a" style="color:${RARITY[w.rar].col}">${weaponName(w)}${w.uid === hs.weapon ? '<span class="eq">装備中</span>' : ''}${w.isNew ? '<span class="new">NEW</span>' : ''}${w.lock ? ' 🔒' : ''}</div><div class="b">${RARITY[w.rar].star}　特性${w.traits.length}</div></div><div class="atk">攻+${weaponAtk(w)}</div></div>`).join('')}
         <p class="note">${h.wname} ${list.length}本(全武器 ${S.weapons.length}/150)</p></div>
       <div class="r"><div class="panel scroll" style="flex:1">
         <div class="dim-t" style="color:${R.col}">${R.star}　${R.n}</div><h3 style="color:${R.col}">${weaponName(cur)}</h3>
-        <div class="stat"><span>攻撃<b>+${weaponAtk(cur)}</b></span><span>鍛錬<b>${cur.lv}/${mx}</b></span></div>
+        <div class="stat"><span>攻撃<b>+${weaponAtk(cur)}</b></span><span>強化<b>${cur.lv}/${mx}</b></span></div>
         ${cur.traits.length ? cur.traits.map((t) => `<div class="trait"><b>${traitName(t.k)}</b>${traitText(t)}</div>`).join('') : '<p class="dim-t">特性なし</p>'}
-        <p class="note">合戦で敵将を倒すと武器を落とします。難易度が高いほど良質に。</p></div>
+        <p class="note">敵将を倒すと武器を落とします。難易度が高いほど良質に。</p></div>
         <div class="row"><button class="sbtn" data-a="equip" ${eq ? 'disabled' : ''}>${eq ? '装備中' : '装備'}</button>
-          <button class="sbtn" data-a="forge" ${cur.lv >= mx || S.gold < cost ? 'disabled' : ''}>鍛錬 ${cur.lv >= mx ? '(最大)' : cost + '金'}</button>
+          <button class="sbtn" data-a="forge" ${cur.lv >= mx || S.gold < cost ? 'disabled' : ''}>強化 ${cur.lv >= mx ? '(最大)' : cost + '金'}</button>
           <button class="sbtn" data-a="sell" ${eq ? 'disabled' : ''}>売却 +${sellPrice(cur)}</button>
           <button class="sbtn" data-a="lock">${cur.lock ? '保護解除' : '保護'}</button></div>
         <div class="row"><button class="pbtn" style="font-size:14px;padding:8px 14px" data-a="gacha" ${S.gold < GACHA_COST ? 'disabled' : ''}>武器錬成 ${GACHA_COST}金</button><button class="sbtn" data-a="sellall" data-v="2">★2以下を一括売却</button></div></div></div>`);
@@ -291,24 +291,24 @@ export const UI = {
     const S = Save.data, items = [['op', 'オープニング', '星牙と覇星帝の物語のはじまり', true]];
     for (const st of STAGES) {
       const sc = STORY[st.id]; if (!sc) continue;
-      items.push([st.id + '.pre', st.no + ' ' + st.name, '出陣前の物語', !!S.story[st.id + '.pre']]);
+      items.push([st.id + '.pre', st.no + ' ' + st.name, '出撃前の物語', !!S.story[st.id + '.pre']]);
       if (sc.post) items.push([st.id + '.post', st.no + ' ' + st.name, '決着の後の物語', !!S.story[st.id + '.post']]);
     }
     this.html('story', `${this.head('物語', 'home')}<div class="scroll" style="flex:1"><div style="max-width:720px;margin:0 auto">${items.map(([v, a, b, open]) => `<div class="card ${open ? '' : 'lock'}" ${open ? `data-a="replay" data-v="${v}"` : ''}><div class="a">${open ? a : '？？？'}</div><div class="b">${open ? b : 'まだ見ていない物語'}</div></div>`).join('')}</div></div>`, true);
   },
   r_ach() {
     const S = Save.data;
-    this.html('ach', `${this.head('実績', 'home')}<div class="scroll" style="flex:1"><div style="max-width:720px;margin:0 auto">${ACHIEVEMENTS.map((a) => `<div class="card ach ${S.ach[a.id] ? 'done on' : ''}"><div class="mk">${S.ach[a.id] ? '✓' : ''}</div><div><div class="a">${a.n}</div><div class="b">${a.d}</div></div><div class="g">${a.gold ? '+' + a.gold.toLocaleString() + '金' : ''}</div></div>`).join('')}
-      <div class="panel" style="margin-top:8px"><div class="rs"><span>累計撃破数</span><b>${S.stats.totalKO.toLocaleString()}</b><span>合戦回数 / 勝利</span><b>${S.stats.battles} / ${S.stats.wins}</b><span>最多撃破(1合戦)</span><b>${S.stats.maxKO}</b><span>最大連撃</span><b>${S.stats.maxCombo}</b><span>撃破した敵将</span><b>${S.stats.officers}</b><span>見切り回数</span><b>${S.stats.perfect}</b><span>総プレイ時間</span><b>${fmtTime(S.stats.playTime)}</b></div></div></div></div>`, true);
+    this.html('ach', `${this.head('称号', 'home')}<div class="scroll" style="flex:1"><div style="max-width:720px;margin:0 auto">${ACHIEVEMENTS.map((a) => `<div class="card ach ${S.ach[a.id] ? 'done on' : ''}"><div class="mk">${S.ach[a.id] ? '✓' : ''}</div><div><div class="a">${a.n}</div><div class="b">${a.d}</div></div><div class="g">${a.gold ? '+' + a.gold.toLocaleString() + '金' : ''}</div></div>`).join('')}
+      <div class="panel" style="margin-top:8px"><div class="rs"><span>累計撃破数</span><b>${S.stats.totalKO.toLocaleString()}</b><span>戦闘回数 / 勝利</span><b>${S.stats.battles} / ${S.stats.wins}</b><span>最多撃破(1回の戦い)</span><b>${S.stats.maxKO}</b><span>最大連撃</span><b>${S.stats.maxCombo}</b><span>撃破した敵将</span><b>${S.stats.officers}</b><span>見切り回数</span><b>${S.stats.perfect}</b><span>総プレイ時間</span><b>${fmtTime(S.stats.playTime)}</b></div></div></div></div>`, true);
   },
   r_rank() {
     const S = Save.data; if (!this.rankBoard) this.rankBoard = 'endless';
     const [sid, did] = this.rankBoard.split('_');
-    const boards = `<div class="tabs"><button class="tab ${sid === 'endless' ? 'on' : ''}" data-a="board" data-v="endless">無限戦場</button>${STAGES.map((s) => `<button class="tab ${s.id === sid ? 'on' : ''}" data-a="board" data-v="${s.id}_${did || 'normal'}">${s.no}</button>`).join('')}</div>
+    const boards = `<div class="tabs"><button class="tab ${sid === 'endless' ? 'on' : ''}" data-a="board" data-v="endless">星海の試練</button>${STAGES.map((s) => `<button class="tab ${s.id === sid ? 'on' : ''}" data-a="board" data-v="${s.id}_${did || 'normal'}">${s.no}</button>`).join('')}</div>
       ${sid !== 'endless' ? `<div class="tabs">${DIFFS.map((d) => `<button class="tab ${d.id === did ? 'on' : ''}" data-a="board" data-v="${sid}_${d.id}" style="color:${d.col}">${d.n}</button>`).join('')}</div>` : ''}`;
     const body = Cloud.enabled() ? '<div id="rk-list" class="panel scroll" style="flex:1"><p>読み込み中…</p></div>'
-      : '<div class="panel"><p>番付(ランキング)はスプレッドシート連携を設定すると利用できます。</p><p class="note">「設定」→「スプレッドシート連携」に Google Apps Script のURLを入力してください。手順は同梱の README.md にあります。</p></div>';
-    this.html('rank', `${this.head('番付', 'home')}${boards}${body}`, true);
+      : '<div class="panel"><p>ランキングはスプレッドシート連携を設定すると利用できます。</p><p class="note">「設定」→「スプレッドシート連携」に Google Apps Script のURLを入力してください。手順は同梱の README.md にあります。</p></div>';
+    this.html('rank', `${this.head('ランキング', 'home')}${boards}${body}`, true);
     if (!Cloud.enabled()) return;
     const board = this.rankBoard;
     Cloud.ranking(board).then((rows) => {
@@ -321,7 +321,7 @@ export const UI = {
   r_settings() {
     const S = Save.data, s = S.settings, on = Cloud.enabled();
     this.html('settings', `${this.head('設定', 'home')}<div class="scroll" style="flex:1"><div class="panel set" style="max-width:720px;margin:0 auto">
-      <label>プレイヤー名(番付用)</label><input type="text" maxlength="12" value="${esc(S.name)}" data-s="name">
+      <label>プレイヤー名(ランキング用)</label><input type="text" maxlength="12" value="${esc(S.name)}" data-s="name">
       <label>画質</label><select data-s="quality">${[['auto', '自動'], ['low', '低(軽量)'], ['mid', '中'], ['high', '高'], ['ultra', '最高']].map(([v, n]) => `<option value="${v}" ${s.quality === v ? 'selected' : ''}>${n}</option>`).join('')}</select>
       <label>BGM音量</label><input type="range" min="0" max="1" step="0.05" value="${s.bgm}" data-s="bgm">
       <label>効果音音量</label><input type="range" min="0" max="1" step="0.05" value="${s.sfx}" data-s="sfx">
@@ -333,7 +333,7 @@ export const UI = {
       <label>振動</label><input type="checkbox" ${s.vibe ? 'checked' : ''} data-s="vibe" style="justify-self:start;width:22px;height:22px">
       <label>FPS表示</label><input type="checkbox" ${s.fps ? 'checked' : ''} data-s="fps" style="justify-self:start;width:22px;height:22px">
       <h3 class="full" style="margin-top:8px">スプレッドシート連携(クラウド保存)</h3>
-      <p class="full note">セーブデータは常にこの端末に保存されます。Google Apps Script のURLを設定すると、Googleスプレッドシートにも自動保存され、別の端末へ引き継ぎ・番付参加ができます(設定手順は README.md)。</p>
+      <p class="full note">セーブデータは常にこの端末に保存されます。Google Apps Script のURLを設定すると、Googleスプレッドシートにも自動保存され、別の端末へ引き継ぎ・ランキング参加ができます(設定手順は README.md)。</p>
       <label>連携URL</label><input type="text" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(s.cloudUrl)}" data-s="cloudUrl">
       <label>状態</label><div>${on ? '<b style="color:#9dff9d">連携中</b> ' + esc(Save.cloudState) : '<span class="dim-t">未設定</span>'}</div>
       <label>引き継ぎコード</label><div class="row"><span class="code">${S.id}</span><button class="sbtn" data-a="copyid">コピー</button></div>
@@ -348,9 +348,9 @@ export const UI = {
     this.html('pause', `<div class="panel"><div class="ttl" style="border:0;text-align:center">一時停止</div>
       <button class="pbtn" data-a="resume">再開</button>
       <div class="keys" style="text-align:left"><b>攻撃</b><span>連打 or 押しっぱなしで連続攻撃</span><b>チャージ</b><span>通常攻撃の途中で押すと派生技</span><b>回避</b><span>直前回避で「見切り」発動</span><b>奥義</b><span>ゲージ満タンで発動(無敵)</span><b>覚醒</b><span>ゲージ満タンで一定時間強化</span></div>
-      <button class="sbtn" data-a="retire">退却する(合戦を中断)</button></div>`, true);
+      <button class="sbtn" data-a="retire">撤退する(戦いを中断)</button></div>`, true);
   },
-  r_load() { this.html('load', `<div class="boot-logo" style="font-size:clamp(28px,8vmin,54px)">出陣準備中</div><div class="tip">${TIPS[(Math.random() * TIPS.length) | 0]}</div>`); },
+  r_load() { this.html('load', `<div class="boot-logo" style="font-size:clamp(28px,8vmin,54px)">出撃準備中</div><div class="tip">${TIPS[(Math.random() * TIPS.length) | 0]}</div>`); },
   r_result() {
     const r = this.lastResult, o = r.out, S = Save.data, hs = S.heroes[r.heroId], h = HERO[r.heroId];
     const title = r.endless ? '戦闘終了' : r.win ? '勝 利' : '敗 北';
@@ -359,7 +359,7 @@ export const UI = {
         ${r.win && !r.endless ? `<div class="bigrank ${r.rank}">${r.rank}</div>` : ''}
         <div class="rs"><span>${r.stage.name}</span><b style="color:${r.diff.col}">${r.endless ? '第' + r.wave + '波' : r.diff.n}</b>
           <span>撃破数</span><b>${r.ko}${o.best ? ' <span class="lvup">新記録!</span>' : ''}</b><span>戦闘時間</span><b>${fmtTime(r.time)}</b><span>最大連撃</span><b>${r.maxCombo}</b>
-          <span>討ち取った敵将</span><b>${r.offKO}</b>${r.endless ? '' : `<span>制圧拠点</span><b>${r.caps}</b><span>戦功</span><b>${r.missions}</b>`}<span>見切り</span><b>${r.perfect}</b></div></div>
+          <span>倒した敵将</span><b>${r.offKO}</b>${r.endless ? '' : `<span>制圧拠点</span><b>${r.caps}</b><span>特命</span><b>${r.missions}</b>`}<span>見切り</span><b>${r.perfect}</b></div></div>
       <div class="panel scroll">
         <div class="rs"><span>獲得経験値</span><b>+${r.exp.toLocaleString()}</b><span>獲得金</span><b>+${r.gold.toLocaleString()}</b>
           <span>${h.name}</span><b>Lv${o.lv.from}${o.lv.to > o.lv.from ? ` → <span class="lvup">Lv${o.lv.to}!</span>` : ''}</b></div>
@@ -367,7 +367,7 @@ export const UI = {
         ${maxNormals(o.lv.to) > maxNormals(o.lv.from) || maxCharges(o.lv.to) > maxCharges(o.lv.from) ? '<p class="lvup">新たな技を習得した!</p>' : ''}
         ${o.unlock ? `<p class="lvup">新たな星牙使い「${o.unlock.name}」が参戦!</p>` : ''}${o.unlockFoe ? `<p class="lvup">星の記憶「${o.unlockFoe.name}」の力が使えるようになった!</p>` : ''}
         ${r.relic ? '<p style="color:#ff5a7a;font-weight:700">✦ 神器を授かった! ✦</p>' : ''}
-        ${o.ach.map((a) => `<p style="color:var(--gold)">実績達成: ${a.n}${a.gold ? ' (+' + a.gold + '金)' : ''}</p>`).join('')}
+        ${o.ach.map((a) => `<p style="color:var(--gold)">称号獲得: ${a.n}${a.gold ? ' (+' + a.gold + '金)' : ''}</p>`).join('')}
         ${r.loot.length ? '<h3 style="margin-top:6px;font-size:14px">入手した武器</h3>' + r.loot.map((w) => `<div class="trait" style="border-color:${RARITY[w.rar].col}"><b style="color:${RARITY[w.rar].col}">${RARITY[w.rar].star}</b>${weaponName(w)} <span class="dim-t">攻+${w.atk}</span></div>`).join('') : ''}
       </div></div>
       <div class="row" style="flex:none"><button class="sbtn" data-a="go" data-v="home">拠点へ戻る</button><button class="pbtn" data-a="again">もう一度</button></div>`, true);
@@ -399,7 +399,7 @@ export const UI = {
       if (tg && tg.alive) { E['h-target'].classList.remove('hide'); E['h-target'].classList.toggle('boss', tg.boss); E['tg-name'].textContent = (tg.title ? tg.title + ' ' : '') + tg.name + (tg.sealed ? '(結界)' : ''); E['tg-fill'].style.transform = `scaleX(${clamp(tg.hp / tg.maxHp, 0, 1)})`; }
       else E['h-target'].classList.add('hide');
       const b = B.curBase;
-      if (b) { E['h-base'].classList.remove('hide'); E['h-base'].classList.toggle('ally', b.team === 0); E['bs-name'].textContent = b.name + (b.captain ? ' — 兵長出現!' : ''); E['bs-fill'].style.transform = `scaleX(${clamp((b.troops + b.alive) / (b.max + 8), 0, 1)})`; }
+      if (b) { E['h-base'].classList.remove('hide'); E['h-base'].classList.toggle('ally', b.team === 0); E['bs-name'].textContent = b.name + (b.captain ? ' — 守備隊長出現!' : ''); E['bs-fill'].style.transform = `scaleX(${clamp((b.troops + b.alive) / (b.max + 8), 0, 1)})`; }
       else E['h-base'].classList.add('hide');
     }
     if (B.ko !== this._ko) { this._ko = B.ko; const e = E['ko-n']; e.textContent = B.ko; e.classList.remove('bump'); void e.offsetWidth; e.classList.add('bump'); }
@@ -407,7 +407,7 @@ export const UI = {
       this._combo = B.combo; const c = E['combo'];
       if (B.combo >= 5) { c.classList.remove('hide'); const e = E['combo-n']; e.textContent = B.combo; e.classList.remove('bump'); void e.offsetWidth; e.classList.add('bump'); } else c.classList.add('hide');
     }
-    if (f % 20 === 0) { E['timer'].textContent = fmtTime(B.time); if (B.mission) E['mission'].textContent = `戦功: ${B.mission.title}(残り${Math.ceil(B.mission.t)}秒)`; if (Save.data.settings.fps) E['h-fps'].textContent = `${GFX.fps.toFixed(0)}fps ×${GFX.scale.toFixed(2)} 兵${B.horde.n}`; }
+    if (f % 20 === 0) { E['timer'].textContent = fmtTime(B.time); if (B.mission) E['mission'].textContent = `特命: ${B.mission.title}(残り${Math.ceil(B.mission.t)}秒)`; if (Save.data.settings.fps) E['h-fps'].textContent = `${GFX.fps.toFixed(0)}fps ×${GFX.scale.toFixed(2)} 兵${B.horde.n}`; }
     if (f % 4 === 0) this._drawMap(B);
     // 発言の寿命
     for (let i = this._says.length - 1; i >= 0; i--) { const s = this._says[i]; s.t -= 1 / 60; if (s.t < 0.6) s.e.classList.add('out'); if (s.t <= 0) { s.e.remove(); this._says.splice(i, 1); } }
@@ -456,7 +456,7 @@ export const UI = {
     while (this._says.length > 3) { const s = this._says.shift(); s.e.remove(); }
   },
   objective(text) { this.E.obj.textContent = text; },
-  mission(title) { const e = this.E.mission; if (title) { e.classList.remove('hide'); e.textContent = '戦功: ' + title; } else e.classList.add('hide'); },
+  mission(title) { const e = this.E.mission; if (title) { e.classList.remove('hide'); e.textContent = '特命: ' + title; } else e.classList.add('hide'); },
   hurt() { this._anim(this.E.hurt); },
   // 合戦を抜けるとき、残っているテロップ類を消す
   clearFx() {

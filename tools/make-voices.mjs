@@ -41,9 +41,9 @@ for (const [id, v] of Object.entries(VOICES)) {
 // 合戦中の通信
 const says = new Map();
 for (const st of [...STAGES, ENDLESS]) for (const e of st.events || []) if (e.say && SAY_VOICE[e.say[0]]) says.set(vkey(e.say[1]), [e.say[0], e.say[1]]);
-says.set(vkey('結界が消えました! 今こそ敵本陣へ!'), ['軍師ミコト', '結界が消えました! 今こそ敵本陣へ!']);
-says.set(vkey('強敵が現れました!'), ['伝令', '強敵が現れました!']);
-for (const t of Object.values(SAY_GENERIC)) says.set(vkey(t), ['伝令', t]);
+says.set(vkey('結界が消えました! 今こそ敵の本拠へ!'), ['軍師ミコト', '結界が消えました! 今こそ敵の本拠へ!']);
+says.set(vkey('強敵が現れました!'), ['斥候', '強敵が現れました!']);
+for (const t of Object.values(SAY_GENERIC)) says.set(vkey(t), ['斥候', t]);
 for (const [k, [who, t]] of says) { put(`say/${k}.wav`, t, SAY_VOICE[who].s, SAY_VOICE[who].p, false); index.say.push(k); }
 
 let made = 0, bytes = 0;
