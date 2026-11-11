@@ -55,7 +55,7 @@ const App = {
     setTimeout(() => {
       UI.show('load'); UI.fade(false);
       setTimeout(async () => {
-        await Promise.race([Promise.all([preloadVrm(HEROES.map((h) => h.id)), preloadSoldier(), preloadNature()]), new Promise((r) => setTimeout(r, 15000))]);
+        await Promise.race([Promise.all([preloadVrm([...HEROES.map((h) => h.id), 'enemyOfficer', 'boss1', 'boss2', 'boss3', 'boss4', 'boss5']), preloadSoldier(), preloadNature()]), new Promise((r) => setTimeout(r, 15000))]);
         try {
           if (this.battle) { this.battle.dispose(); this.battle = null; }
           if (this.lobby) { this.lobby.dispose(); this.lobby = null; }

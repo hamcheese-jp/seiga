@@ -133,11 +133,11 @@ export class Battle {
   _enemyOfficer(od, name, mul = 1) {
     const nd = this.stage.nodes[od.n], E = this.E; let f;
     if (od.boss) {
-      f = this._add({ team: 1, boss: true, name, title: od.title, look: LOOKS[od.look], wtype: od.wtype, tier: 2, ms: od.ms, elem: BOSS_ELEM[od.look], hp: E.oHp * od.hp * mul, atk: E.oAtk * 1.25 * mul, def: E.oDef * 1.2, spd: 5.6, exp: E.oExp * 4,
+      f = this._add({ team: 1, boss: true, vrmKey: od.look, name, title: od.title, look: LOOKS[od.look], wtype: od.wtype, tier: 2, ms: od.ms, elem: BOSS_ELEM[od.look], hp: E.oHp * od.hp * mul, atk: E.oAtk * 1.25 * mul, def: E.oDef * 1.2, spd: 5.6, exp: E.oExp * 4,
         x: nd.x, z: nd.z + (this.endless ? 0 : 3), yaw: PI });
       f.lookId = od.look; f.role = this.endless ? 'hunt' : 'boss'; if (!this.endless) this.boss = f;
     } else {
-      f = this._add({ team: 1, name, look: LOOKS.enemyOfficer, wtype: od.wtype || MS_WT[od.ms], tier: 1, ms: od.ms, hp: E.oHp * (od.hp || 1) * mul, atk: E.oAtk * mul, def: E.oDef, spd: 5.2, exp: E.oExp * (od.hp || 1),
+      f = this._add({ team: 1, vrmKey: 'enemyOfficer', name, look: LOOKS.enemyOfficer, wtype: od.wtype || MS_WT[od.ms], tier: 1, ms: od.ms, hp: E.oHp * (od.hp || 1) * mul, atk: E.oAtk * mul, def: E.oDef, spd: 5.2, exp: E.oExp * (od.hp || 1),
         x: nd.x + rnd(-2, 2), z: nd.z + rnd(-2, 2), yaw: PI });
       f.role = od.order === 'attack' ? 'attack' : od.order === 'hunt' ? 'hunt' : 'hold';
       f.homeBase = this.bases.find((b) => b.node === od.n) || null;
