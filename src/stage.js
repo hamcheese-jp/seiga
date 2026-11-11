@@ -1,6 +1,7 @@
 // 戦場生成: 地形(歩行領域のSDFから丘陵を生成) / 地面テクスチャ / 樹木・岩 / 拠点 / 経路探索
 import * as THREE from 'three';
 import { GFX } from './gfx.js';
+import { natureLib, NATURE_SETS } from './nature.js';
 import { THEMES } from './data.js';
 import { clamp, smooth, makeNoise, mulberry } from './util.js';
 import { box, cyl, cone, ico, sph, at, merge, facet } from './geo.js';
@@ -199,13 +200,47 @@ diffuseColor.rgb *= gCol;`)
       this.group.add(im);
       return im;
     };
-    const kinds = th.trees || [];
-    kinds.forEach((k) => {
-      const big = k === 'mesa';
-      place(treeGeo(k), Math.round((big ? 70 : 300 / kinds.length) * sc), (d) => d > (big ? 5 : 3) && d < 85 && r() < 1.1 - d / 95, big ? 1.0 : 0.8, big ? 2.6 : 1.7);
-    });
+    // 素材モデル(木・岩・花)を配置。読み込めていなければ手作りの形で代用
+    const lib = natureLib(), set = NATURE_SETS[this.def.theme];
+    const placeModel = (name, count, test, hMin, hMax, tint) => {
+      const md = lib && lib[name]; if (!md || count <= 0) return false;
+      const mats = []; let n = 0, tries = 0;
+      while (n < count && tries++ < count * 30) {
+        const x = (r() - 0.5) * W * 0.96, z = (r() - 0.5) * W * 0.96, d = this.sdf(x, z);
+        if (!test(d, x, z)) continue;
+        const s = (hMin + r() * (hMax - hMin)) / md.h;
+        dummy.position.set(x, this.heightAt(x, z) - md.minY * s - 0.1, z); dummy.rotation.set((r() - 0.5) * 0.08, r() * 6.28, (r() - 0.5) * 0.08); dummy.scale.set(s, s * (0.9 + r() * 0.2), s);
+        dummy.updateMatrix(); mats.push(dummy.matrix.clone()); n++;
+      }
+      for (const p of md.parts) {
+        let mat = p.mat;
+        if (tint && tint[p.leaf ? 0 : 1]) { mat = mat.clone(); mat.color.set(tint[p.leaf ? 0 : 1]); this.disposables.push(mat); }
+        if (name === 'Bush_Common' && this.def.theme === 'plains' && p.leaf && lib.CommonTree_1) { const lm = lib.CommonTree_1.parts.find((q) => q.leaf); if (lm) { mat = mat === p.mat ? mat.clone() : mat; mat.map = lm.mat.map; mat.color.set('#ffffff'); if (!this.disposables.includes(mat)) this.disposables.push(mat); } }
+        const im = new THREE.InstancedMesh(p.geo, mat, n);
+        mats.forEach((mm, i) => im.setMatrixAt(i, mm));
+        im.castShadow = true; im.receiveShadow = true; im.instanceMatrix.needsUpdate = true;
+        this.group.add(im);
+      }
+      return true;
+    };
+    let usedModels = false;
+    if (lib && set) {
+      for (const [name, cnt, h0, h1, leafCol] of set.trees) {
+        const bush = name.startsWith('Bush');
+        usedModels = placeModel(name, Math.round(cnt * sc), (d) => d > (bush ? 1.5 : 3) && d < 85 && r() < 1.1 - d / 95, h0, h1, [leafCol || set.leaf, set.bark]) || usedModels;
+      }
+      if (set.flowers) placeModel('Flower_3_Group', Math.round(set.flowers * sc), (d) => d > -1 && d < 12, 0.4, 0.7);
+    }
+    if (!usedModels) {
+      const kinds = th.trees || [];
+      kinds.forEach((k) => {
+        const big = k === 'mesa';
+        place(treeGeo(k), Math.round((big ? 70 : 300 / kinds.length) * sc), (d) => d > (big ? 5 : 3) && d < 85 && r() < 1.1 - d / 95, big ? 1.0 : 0.8, big ? 2.6 : 1.7);
+      });
+    } else if ((th.trees || []).includes('mesa')) place(treeGeo('mesa'), Math.round(70 * sc), (d) => d > 5 && d < 85 && r() < 1.1 - d / 95, 1.0, 2.6);
     const rockCol = th.ground[2][0];
-    place(facet(ico(1, rockCol, 1), 0.5, mulberry(3)), Math.round(110 * sc), (d) => d > 1.6 && d < 40, 0.6, 2.6);
+    const rockOk = lib && set && ['Rock_Medium_1', 'Rock_Medium_2', 'Rock_Medium_3'].map((n) => placeModel(n, Math.round(40 * sc), (d) => d > 1.6 && d < 40, 0.8, 3.2, [null, set.rocks])).some(Boolean);
+    if (!rockOk) place(facet(ico(1, rockCol, 1), 0.5, mulberry(3)), Math.round(110 * sc), (d) => d > 1.6 && d < 40, 0.6, 2.6);
     // 地表の小物(歩行領域内)
     if (th.scatter) {
       const tuft = this.def.theme === 'snow' ? at(sph(0.3, '#f4f8fc', 6, 4), 0, 0, 0, 0, 0, 0, 1.4, 0.4, 1.2)

@@ -9,7 +9,7 @@ const port = +process.env.PORT || 5173;
 const mime = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.webmanifest': 'application/manifest+json',
-  '.mp3': 'audio/mpeg', '.vrm': 'model/gltf-binary', '.glb': 'model/gltf-binary',
+  '.mp3': 'audio/mpeg', '.vrm': 'model/gltf-binary', '.bin': 'application/octet-stream', '.glb': 'model/gltf-binary',
   '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8',
 };
 

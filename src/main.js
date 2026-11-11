@@ -8,6 +8,8 @@ import { Lobby } from './lobby.js';
 import { Battle } from './battle.js';
 import { STAGE, HEROES } from './data.js';
 import { preloadVrm } from './vrmchar.js';
+import { preloadSoldier } from './vat.js';
+import { preloadNature } from './nature.js';
 
 const App = {
   mode: 'menu', battle: null, lobby: null, paused: false, last: 0, busy: false,
@@ -53,7 +55,7 @@ const App = {
     setTimeout(() => {
       UI.show('load'); UI.fade(false);
       setTimeout(async () => {
-        await Promise.race([preloadVrm(HEROES.map((h) => h.id)), new Promise((r) => setTimeout(r, 15000))]);
+        await Promise.race([Promise.all([preloadVrm(HEROES.map((h) => h.id)), preloadSoldier(), preloadNature()]), new Promise((r) => setTimeout(r, 15000))]);
         try {
           if (this.battle) { this.battle.dispose(); this.battle = null; }
           if (this.lobby) { this.lobby.dispose(); this.lobby = null; }

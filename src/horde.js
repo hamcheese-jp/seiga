@@ -4,6 +4,7 @@ import { GFX, patchMat } from './gfx.js';
 import { soldierGeos } from './models.js';
 import { clamp, rnd, angDamp } from './util.js';
 import { FX } from './fx.js';
+import { makeSoldierMesh, setAnim } from './vat.js';
 
 export const ST = { FREE: 0, ATK: 1, HIT: 2, AIR: 3, DOWN: 4, GETUP: 5, DEAD: 6 };
 const lin = (h) => { const c = new THREE.Color(h); return [c.r, c.g, c.b]; };
@@ -23,7 +24,10 @@ export class Horde {
       m.frustumCulled = false; m.castShadow = true; m.count = 0; GFX.scene.add(m); this.meshes.push(m);
       return m;
     };
-    this.mTorso = mk(G.torso); this.mHead = mk(G.head); this.mArmL = mk(G.armL); this.mSword = mk(G.armSword); this.mSpear = mk(G.armSpear); this.mLegL = mk(G.leg); this.mLegR = mk(G.leg);
+    // 焼き付け済みの動き付きキャラがあればそれを使う(無ければ従来の簡易兵)
+    this.vat = makeSoldierMesh(cap);
+    if (this.vat) { GFX.scene.add(this.vat); this.meshes.push(this.vat); }
+    else { this.mTorso = mk(G.torso); this.mHead = mk(G.head); this.mArmL = mk(G.armL); this.mSword = mk(G.armSword); this.mSpear = mk(G.armSpear); this.mLegL = mk(G.leg); this.mLegR = mk(G.leg); }
     // 影マップ無効時の丸影
     this.blob = null;
     if (!GFX.q.shadow) {
@@ -239,6 +243,7 @@ export class Horde {
   }
 
   _write() {
+    if (this.vat) return this._writeVat();
     const L = this.list, n = this.n, B = this.B;
     const aT = this.mTorso.instanceMatrix.array, aH = this.mHead.instanceMatrix.array, aL = this.mArmL.instanceMatrix.array, aS = this.mSword.instanceMatrix.array, aP = this.mSpear.instanceMatrix.array, aLL = this.mLegL.instanceMatrix.array, aLR = this.mLegR.instanceMatrix.array;
     const cT = this.mTorso.instanceColor.array, cH = this.mHead.instanceColor.array, cL = this.mArmL.instanceColor.array, cS = this.mSword.instanceColor.array, cP = this.mSpear.instanceColor.array, cLL = this.mLegL.instanceColor.array, cLR = this.mLegR.instanceColor.array;
@@ -290,7 +295,53 @@ export class Horde {
     this.mSpear.count = np; this.mSpear.instanceMatrix.needsUpdate = true; this.mSpear.instanceColor.needsUpdate = true;
   }
 
+  // 動き付きキャラ版の書き込み
+  _writeVat() {
+    const L = this.list, n = this.n, B = this.B, m = this.vat, time = B.time;
+    const M = m.instanceMatrix.array, C = m.instanceColor.array, A = m.userData.anim.array, clips = m.userData.clips;
+    const bl = this.blob ? this.blob.instanceMatrix.array : null;
+    let nb = 0;
+    for (let i = 0; i < n; i++) {
+      const s = L[i], st = s.st, sc = s.scale;
+      let clip = 'idle', u = time * 0.24 + i * 0.37, pitch = 0, yo = 0, tumble = false;
+      const wpn = s.type === 1 ? 2 : 1;
+      if (st === ST.FREE) {
+        if (s.stun > 0) { clip = 'hit'; u = 0.45; }
+        else if (s.mv > 0.1) { clip = 'walk'; u = s.ph / 6.2832; }
+      } else if (st === ST.ATK) {
+        const wind = s.cap ? 0.6 : 0.5; clip = 'atk';
+        u = s.t < wind ? (s.t / wind) * 0.6 : 0.6 + Math.min(1, (s.t - wind) / 0.5) * 0.4;
+      } else if (st === ST.HIT) { clip = 'hit'; u = 1 - Math.max(0, s.t) / 0.35; }
+      else if (st === ST.AIR || (st === ST.DEAD && !s.landed)) { clip = 'hit'; u = 0.5; pitch = s.pitch; tumble = true; }
+      else if (st === ST.DOWN) { clip = 'die'; u = 1; }
+      else if (st === ST.DEAD) { clip = 'die'; u = 1; yo = Math.min(0, s.yo + 0.68); }
+      else if (st === ST.GETUP) { clip = 'die'; u = Math.max(0, s.t) / 0.42; }
+      setAnim(A, i * 4, clips, clip, u, wpn);
+      // 行列(Y回転→X回転→拡大)
+      const cy = Math.cos(s.yaw), sy = Math.sin(s.yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
+      const Xx = cy * sc, Xz = -sy * sc, Yx = sy * sp * sc, Yy = cp * sc, Yz = cy * sp * sc, Zx = sy * cp * sc, Zy = -sp * sc, Zz = cy * cp * sc;
+      let tx = s.x, ty = s.y + yo, tz = s.z;
+      if (tumble) { ty += 0.9 * sc; tx -= Yx * 0.9; ty -= Yy * 0.9; tz -= Yz * 0.9; }
+      const o = i * 16;
+      M[o] = Xx; M[o + 1] = 0; M[o + 2] = Xz; M[o + 3] = 0; M[o + 4] = Yx; M[o + 5] = Yy; M[o + 6] = Yz; M[o + 7] = 0;
+      M[o + 8] = Zx; M[o + 9] = Zy; M[o + 10] = Zz; M[o + 11] = 0; M[o + 12] = tx; M[o + 13] = ty; M[o + 14] = tz; M[o + 15] = 1;
+      const tc = s.cap ? CAPT[s.team] : TINT[s.team];
+      let r = tc[0], g = tc[1], b = tc[2];
+      if (s.slow > 0) { r = r * 0.4 + 0.25; g = g * 0.4 + 0.5; b = b * 0.4 + 0.9; }
+      if (s.burn > 0) { const k = 0.5 + 0.5 * Math.sin(time * 14 + i); r += 0.7 * k; g += 0.18 * k; }
+      if (s.flash > 0) { const f = s.flash * 1.3; r += f; g += f; b += f; }
+      C[i * 3] = r; C[i * 3 + 1] = g; C[i * 3 + 2] = b;
+      if (bl && s.yo > -0.9) { const k = nb * 16, bs = sc * Math.max(0.4, 1 - s.y * 0.12); bl[k] = bs; bl[k + 1] = 0; bl[k + 2] = 0; bl[k + 3] = 0; bl[k + 4] = 0; bl[k + 5] = 1; bl[k + 6] = 0; bl[k + 7] = 0; bl[k + 8] = 0; bl[k + 9] = 0; bl[k + 10] = bs; bl[k + 11] = 0; bl[k + 12] = s.x; bl[k + 13] = 0.04; bl[k + 14] = s.z; bl[k + 15] = 1; nb++; }
+    }
+    if (bl) {
+      for (const f of B.fighters) { if (!f.alive || f.hidden) continue; const k = nb * 16, bs = f.rad * 2.4; bl[k] = bs; bl[k + 1] = 0; bl[k + 2] = 0; bl[k + 3] = 0; bl[k + 4] = 0; bl[k + 5] = 1; bl[k + 6] = 0; bl[k + 7] = 0; bl[k + 8] = 0; bl[k + 9] = 0; bl[k + 10] = bs; bl[k + 11] = 0; bl[k + 12] = f.x; bl[k + 13] = 0.045; bl[k + 14] = f.z; bl[k + 15] = 1; nb++; }
+      this.blob.count = nb; this.blob.instanceMatrix.needsUpdate = true;
+    }
+    m.count = n; m.instanceMatrix.needsUpdate = true; m.instanceColor.needsUpdate = true; m.userData.anim.needsUpdate = true;
+  }
+
   dispose() {
+    if (this.vat) { this.vat.userData.vat.dispose(); this.vat.customDepthMaterial.dispose(); }
     for (const m of this.meshes) { GFX.scene.remove(m); m.geometry.dispose(); m.dispose(); }
     this.mat.dispose();
     if (this.blob) { GFX.scene.remove(this.blob); this.blob.geometry.dispose(); this.blob.material.dispose(); this.blobTex.dispose(); this.blob.dispose(); }

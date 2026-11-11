@@ -1,0 +1,2 @@
+Soldier character: "Ninja_Male" from Ultimate Animated Character Pack by Quaternius (https://quaternius.com)
+License: CC0 1.0 Universal (public domain). Baked into soldier.bin by tools/bake-soldier.mjs.
