@@ -10,6 +10,7 @@ import { STAGE, HEROES } from './data.js';
 import { preloadVrm, probeVrm, VRM_KEYS } from './vrmchar.js';
 import { preloadSoldier } from './vat.js';
 import { preloadNature } from './nature.js';
+import { Story, STORY } from './story.js';
 
 const App = {
   mode: 'menu', battle: null, lobby: null, paused: false, last: 0, busy: false,
@@ -78,7 +79,13 @@ const App = {
       else if (r.win) Cloud.score(r.stage.id + '_' + r.diff.id, { hero: r.heroId, ko: r.ko, time: Math.round(r.time), rank: r.rank, score: Math.round(r.ko * 10 + r.maxCombo * 2 + Math.max(0, r.stage.par * 2 - r.time) * 5) });
     }
     UI.fade(true);
-    setTimeout(() => { this.toMenu('result'); UI.fade(false); Audio.bgm('result'); }, 420);
+    // 初めて章を制した時は、決着の物語を挟んでから結果画面へ
+    const sc = !r.endless && r.win && STORY[r.stage.id], k = r.stage.id + '.post', S = Save.data;
+    const post = sc && sc.post && !S.story[k];
+    setTimeout(() => {
+      if (post) { this.toMenu('scene'); UI.fade(false); Audio.bgm('title'); Story.play(sc.post, r.heroId, () => { S.story[k] = 1; Save.persist(false); UI.show('result'); Audio.bgm('result'); }); return; }
+      this.toMenu('result'); UI.fade(false); Audio.bgm('result');
+    }, 420);
   },
   toMenu(screen) {
     if (this.battle) { this.battle.dispose(); this.battle = null; }

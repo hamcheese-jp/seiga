@@ -7,9 +7,10 @@ import { Install } from './install.js';
 import { Audio } from './audio.js';
 import { GFX } from './gfx.js';
 import { $, $$, el, fmtTime, clamp } from './util.js';
+import { Story, STORY } from './story.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const SCREENS = ['title', 'home', 'stage', 'hero', 'armory', 'ach', 'rank', 'settings', 'result', 'pause', 'load'];
+const SCREENS = ['title', 'home', 'stage', 'hero', 'armory', 'ach', 'rank', 'settings', 'result', 'pause', 'load', 'story'];
 const TIPS = ['通常攻撃の途中でチャージ攻撃を押すと、段数に応じた強力な技に派生します。', '敵将の武器が赤く光ったら強攻撃の合図。回避でかわそう。', '攻撃が当たる直前に回避すると「見切り」が発動し、奥義ゲージが大きく溜まります。',
   '敵拠点は兵を倒し続けると兵長が出現。兵長を倒せば制圧できます。', '拠点を制圧すると体力が回復し、味方の士気が上がります。', '覚醒中は攻撃力・攻撃速度が上がり、怯まなくなります。覚醒中の奥義は「真・奥義」に強化。',
   '武器には特性が付きます。鍛錬で攻撃力を上げ、自分好みの一振りを探しましょう。', '高難易度ほど良い武器が手に入りやすくなります。', '攻撃ボタンは押しっぱなしでも連続攻撃できます。'];
@@ -52,13 +53,30 @@ export const UI = {
     const S = Save.data, sel = this.sel;
     Audio.resume();
     switch (a) {
-      case 'start': Audio.sfx('ok'); Audio.bgm('title'); this.show('home'); this.app.cloudSync(); break;
+      case 'start': Audio.sfx('ok');
+        // 初回はオープニングムービーから
+        if (!S.story.op) { this.show('scene'); Story.opening(() => { S.story.op = 1; Save.persist(false); Audio.bgm('title'); this.show('home'); this.app.cloudSync(); }); break; }
+        Audio.bgm('title'); this.show('home'); this.app.cloudSync(); break;
       case 'go': Audio.sfx(v === 'home' || v === 'stage' ? 'back' : 'ui'); if (v === 'endless') { sel.stage = 'endless'; v = 'hero'; } if (v === 'armory') { this.armHero = sel.hero; this.armSel = null; } this.show(v); break;
       case 'stage': Audio.sfx('ui'); sel.stage = v; this.r_stage(); break;
       case 'diff': Audio.sfx('ui'); sel.diff = +v; this.r_stage(); break;
       case 'tohero': Audio.sfx('ok'); this.show('hero'); break;
       case 'hero': Audio.sfx('ui'); sel.hero = v; this.app.lobbyHero(v); this.r_hero(); break;
-      case 'sortie': if (!S.unlockedHeroes.includes(sel.hero)) { Audio.sfx('deny'); break; } Audio.sfx('ok'); S.last = { ...sel }; Save.persist(false); this.app.startBattle(sel); break;
+      case 'sortie': {
+        if (!S.unlockedHeroes.includes(sel.hero)) { Audio.sfx('deny'); break; }
+        Audio.sfx('ok'); S.last = { ...sel }; Save.persist(false);
+        // 初めての章は、出陣前に物語を再生
+        const sc = STORY[sel.stage], k = sel.stage + '.pre';
+        if (sc && sc.pre && !S.story[k]) { this.show('scene'); Story.play(sc.pre, sel.hero, () => { S.story[k] = 1; Save.persist(false); this.app.startBattle(sel); }); break; }
+        this.app.startBattle(sel); break;
+      }
+      case 'replay': {
+        Audio.sfx('ok'); this.show('scene');
+        const fin = () => { Audio.bgm('title'); this.show('story'); };
+        if (v === 'op') Story.opening(fin);
+        else { const [s, p] = v.split('.'); Story.play(STORY[s][p], this.sel.hero, fin); }
+        break;
+      }
       case 'ahero': Audio.sfx('ui'); this.armHero = v; this.armSel = null; this.app.lobbyHero(v); this.r_armory(); break;
       case 'wsel': Audio.sfx('ui'); this.armSel = v; this.r_armory(); break;
       case 'equip': { Audio.sfx('ok'); S.heroes[this.armHero].weapon = this.armSel; Save.persist(); this.app.lobbyHero(this.armHero, true); this.r_armory(); break; }
@@ -201,6 +219,7 @@ export const UI = {
         <button class="mbtn main" data-a="go" data-v="stage">出陣<small>章を選んで合戦へ</small></button>
         <button class="mbtn" ${Save.stageCleared('s1') ? 'data-a="go" data-v="endless"' : 'style="opacity:.45"'}>無限戦場<small>${Save.stageCleared('s1') ? `最高 ${S.endless.ko}人撃破 / 第${S.endless.wave}波` : '第一章クリアで解放'}</small></button>
         <button class="mbtn" data-a="go" data-v="armory">武器庫<small>装備・鍛錬・錬成</small></button>
+        <button class="mbtn" data-a="go" data-v="story">物語<small>オープニング・各章の物語</small></button>
         <button class="mbtn" data-a="go" data-v="ach">実績<small>${Object.keys(S.ach).length} / ${ACHIEVEMENTS.length} 達成</small></button>
         <button class="mbtn" data-a="go" data-v="rank">番付<small>全国ランキング</small></button>
         <button class="mbtn" data-a="go" data-v="settings">設定<small>画質・音量・データ保存</small></button>
@@ -265,6 +284,15 @@ export const UI = {
           <button class="sbtn" data-a="sell" ${eq ? 'disabled' : ''}>売却 +${sellPrice(cur)}</button>
           <button class="sbtn" data-a="lock">${cur.lock ? '保護解除' : '保護'}</button></div>
         <div class="row"><button class="pbtn" style="font-size:14px;padding:8px 14px" data-a="gacha" ${S.gold < GACHA_COST ? 'disabled' : ''}>武器錬成 ${GACHA_COST}金</button><button class="sbtn" data-a="sellall" data-v="2">★2以下を一括売却</button></div></div></div>`);
+  },
+  r_story() {
+    const S = Save.data, items = [['op', 'オープニング', '星牙と覇星帝の物語のはじまり', true]];
+    for (const st of STAGES) {
+      const sc = STORY[st.id]; if (!sc) continue;
+      items.push([st.id + '.pre', st.no + ' ' + st.name, '出陣前の物語', !!S.story[st.id + '.pre']]);
+      if (sc.post) items.push([st.id + '.post', st.no + ' ' + st.name, '決着の後の物語', !!S.story[st.id + '.post']]);
+    }
+    this.html('story', `${this.head('物語', 'home')}<div class="scroll" style="flex:1"><div style="max-width:720px;margin:0 auto">${items.map(([v, a, b, open]) => `<div class="card ${open ? '' : 'lock'}" ${open ? `data-a="replay" data-v="${v}"` : ''}><div class="a">${open ? a : '？？？'}</div><div class="b">${open ? b : 'まだ見ていない物語'}</div></div>`).join('')}</div></div>`, true);
   },
   r_ach() {
     const S = Save.data;

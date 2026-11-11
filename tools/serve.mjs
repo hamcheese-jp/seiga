@@ -10,10 +10,18 @@ const mime = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.webmanifest': 'application/manifest+json',
   '.mp3': 'audio/mpeg', '.vrm': 'model/gltf-binary', '.bin': 'application/octet-stream', '.glb': 'model/gltf-binary',
-  '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8',
+  '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8',
 };
 
 http.createServer((req, res) => {
+  // 立ち絵撮影ツール(tools/portrait.html)からの保存: assets/portraits/ の下だけ書き込める
+  if (req.method === 'POST' && req.url.startsWith('/__save?f=')) {
+    const rel = decodeURIComponent(req.url.slice(10)), f = path.join(root, rel);
+    if (!/^assets\/portraits\/[\w-]+\.(webp|png)$/.test(rel) || !f.startsWith(root)) { res.writeHead(403); return res.end(); }
+    const chunks = []; req.on('data', (c) => chunks.push(c));
+    req.on('end', () => { fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, Buffer.concat(chunks)); res.writeHead(200); res.end('ok'); });
+    return;
+  }
   let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
   if (p.endsWith('/')) p += 'index.html';
   const f = path.join(root, p);

@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>立ち絵撮影ツール</title>
+<!-- 使い方: node tools/serve.mjs → http://localhost:5173/tools/portrait.html を開く(VRMから会話用の立ち絵を assets/portraits/ に書き出す) -->
+<style>body { margin: 0; background: #333; color: #ddd; font: 14px sans-serif; } canvas { background: repeating-conic-gradient(#555 0 25%, #444 0 50%) 0 0/20px 20px; max-height: 80vh; } #log { white-space: pre; padding: 8px; }</style>
+<script type="importmap">{ "imports": { "three": "../vendor/three.module.min.js" } }</script>
+</head>
+<body>
+<div id="log">準備中…</div>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
+import { VRMLoaderPlugin, VRMUtils } from '../vendor/three-vrm.module.min.js';
+
+// [保存名, VRMファイル, 表情(普段), 表情(差分), 輪郭光の色, 敵か]
+const LIST = [
+  ['reiga', 'vrm/reiga.orig.vrm', ['relaxed', 0.25], ['angry', 0.55], [1, 0.35, 0.1], 0],
+  ['setsuna', 'vrm/setsuna.orig.vrm', ['happy', 0.25], ['sad', 0.5], [0.2, 0.6, 1], 0],
+  ['raika', 'vrm/raika.orig.vrm', ['happy', 0.45], ['angry', 0.5], [0.7, 0.45, 1], 0],
+  ['gandou', 'vrm/gandou.orig.vrm', ['happy', 0.6], ['angry', 0.6], [1, 0.6, 0.15], 0],
+  ['fuuka', 'vrm/fuuka.orig.vrm', ['happy', 0.7], ['surprised', 0.6], [0.2, 1, 0.5], 0],
+  ['yomi', 'vrm/yomi.orig.vrm', ['relaxed', 0.35], ['sad', 0.45], [0.8, 0.2, 1], 0],
+  ['mikoto', 'dev/mikoto.vrm', ['happy', 0.45], ['surprised', 0.55], [0.6, 0.45, 1], 0],
+  ['enemyOfficer', 'vrm/enemyOfficer.orig.vrm', ['angry', 0.6], ['angry', 1], [1.2, 0.05, 0.02], 1],
+  ['boss1', 'vrm/boss1.orig.vrm', ['angry', 0.7], ['angry', 1], [1.5, 0.05, 0.05], 2],
+  ['boss2', 'vrm/boss2.orig.vrm', ['happy', 0.35], ['angry', 0.8], [1.5, 0.05, 0.1], 2],
+  ['boss3', 'vrm/boss3.orig.vrm', ['relaxed', 0.3], ['angry', 0.8], [1.5, 0.05, 0.1], 2],
+  ['boss4', 'vrm/boss4.orig.vrm', ['angry', 0.8], ['angry', 1], [1.6, 0.1, 0.02], 2],
+  ['boss5', 'vrm/boss5.orig.vrm', ['relaxed', 0.4], ['happy', 0.5], [1.6, 0.05, 0.3], 2],
+];
+const only = new URLSearchParams(location.search).get('only');
+const log = (s) => { document.getElementById('log').textContent += '\n' + s; };
+
+const W = 640, H = 800;
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1); renderer.setSize(W, H); renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.setClearColor(0x000000, 0);
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const cam = new THREE.PerspectiveCamera(20, W / H, 0.1, 50);
+const key = new THREE.DirectionalLight(0xffffff, 2.6); key.position.set(-1.2, 2.2, 3); scene.add(key);
+const amb = new THREE.AmbientLight(0xffffff, 0.9); scene.add(amb);
+const back = new THREE.DirectionalLight(0xff2010, 0); back.position.set(0.5, 1.5, -3); scene.add(back);
+// 敵は下からの光と赤い逆光で威圧感を出す
+function light(lv) { if (lv) { key.position.set(0.6, -1.2, 3); key.intensity = 2.2; amb.intensity = 0.42; back.intensity = 2.5; } else { key.position.set(-1.2, 2.2, 3); key.intensity = 2.6; amb.intensity = 0.9; back.intensity = 0; } }
+
+async function load(url) {
+  const loader = new GLTFLoader(); loader.register((p) => new VRMLoaderPlugin(p));
+  const gltf = await loader.loadAsync('../' + url);
+  const vrm = gltf.userData.vrm;
+  VRMUtils.removeUnnecessaryVertices(gltf.scene);
+  if (vrm.meta && vrm.meta.metaVersion === '0') VRMUtils.rotateVRM0(vrm);
+  return vrm;
+}
+// 腕を下ろした自然な立ち姿
+function pose(vrm, enemy) {
+  const h = vrm.humanoid, b = (n) => h.getNormalizedBoneNode(n);
+  const set = (n, x, y, z) => { const o = b(n); if (o) o.rotation.set(x, y, z); };
+  set('leftUpperArm', 0.12, 0, -1.3); set('rightUpperArm', 0.12, 0, 1.3);
+  set('leftLowerArm', 0, -0.35, 0); set('rightLowerArm', 0, 0.35, 0);
+  set('leftHand', 0, 0, 0.1); set('rightHand', 0, 0, -0.1);
+  set('spine', enemy ? -0.04 : 0.02, 0, 0);
+  set('neck', enemy ? 0.08 : 0.02, 0, 0);
+  set('head', enemy ? 0.06 : -0.02, enemy ? 0 : 0.1, 0);
+  set('hips', 0, enemy ? 0.12 : -0.25, 0);
+}
+function rim(vrm, c, lv) {
+  vrm.scene.traverse((o) => {
+    if (!o.isMesh) return;
+    for (const m of [].concat(o.material)) {
+      if (m.parametricRimColorFactor) { { const k = lv ? 0.45 : 0.4; m.parametricRimColorFactor.setRGB(c[0] * k, c[1] * k, c[2] * k); } m.parametricRimFresnelPowerFactor = lv ? 3.2 : 3.5; m.parametricRimLiftFactor = 0; }
+      if (lv && m.shadeColorFactor) m.shadeColorFactor.multiplyScalar(lv > 1 ? 0.6 : 0.75);
+    }
+  });
+}
+function face(vrm, e) {
+  const em = vrm.expressionManager; if (!em) return;
+  for (const n of ['happy', 'angry', 'sad', 'relaxed', 'surprised']) em.setValue(n, 0);
+  if (e) em.setValue(e[0], e[1]);
+}
+function shot(vrm, mode) {
+  vrm.update(0);
+  vrm.scene.updateMatrixWorld(true);
+  const head = vrm.humanoid.getNormalizedBoneNode('head').getWorldPosition(new THREE.Vector3());
+  const hips = vrm.humanoid.getNormalizedBoneNode('hips').getWorldPosition(new THREE.Vector3());
+  if (mode === 'bust') {
+    // 頭の上から腰まで
+    const top = head.y + 0.2, bot = hips.y + 0.02, mid = (top + bot) / 2, span = top - bot;
+    const d = span / 2 / Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)) * 1.02;
+    cam.position.set(0.12, mid + 0.02, d); cam.lookAt(0, mid, 0);
+  } else {
+    const top = head.y + 0.22, bot = -0.03, mid = (top + bot) / 2, span = top - bot;
+    const d = span / 2 / Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)) * 1.02;
+    cam.position.set(0.15, mid, d); cam.lookAt(0, mid, 0);
+  }
+  renderer.render(scene, cam);
+  return new Promise((r) => renderer.domElement.toBlob(r, 'image/webp', 0.86));
+}
+async function save(name, blob) {
+  const r = await fetch('/__save?f=' + encodeURIComponent('assets/portraits/' + name + '.webp'), { method: 'POST', body: blob });
+  log(`${name}.webp ${Math.round(blob.size / 1024)}KB ${r.ok ? '保存' : '失敗'}`);
+}
+
+for (const [id, url, e1, e2, c, lv] of LIST) {
+  if (only && only !== id) continue;
+  try {
+    const vrm = await load(url);
+    scene.add(vrm.scene); pose(vrm, lv); rim(vrm, c, lv); light(lv);
+    face(vrm, e1); renderer.setSize(W, H); cam.aspect = W / H; cam.updateProjectionMatrix();
+    await save(id, await shot(vrm, 'bust'));
+    face(vrm, e2); await save(id + '_b', await shot(vrm, 'bust'));
+    face(vrm, e1); renderer.setSize(480, 960); cam.aspect = 0.5; cam.updateProjectionMatrix();
+    await save(id + '_full', await shot(vrm, 'full'));
+    scene.remove(vrm.scene); VRMUtils.deepDispose(vrm.scene);
+  } catch (err) { log(id + ' エラー: ' + err.message); }
+}
+renderer.setSize(W, H);
+log('完了');
+window.__done = true;
+</script>
+</body>
+</html>

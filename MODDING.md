@@ -97,7 +97,21 @@ node tools/bake-soldier.mjs <キャラ.fbx> assets/soldier.bin
 - 色は `tools/bake-soldier.mjs` 内の `PAL` で指定。`['#ffffff', 1]` にした部位が軍の色(青/赤)に染まります
 - 実行には作業フォルダに `node_modules/three`(v0.170)が必要です: `npm i three@0.170.0`
 
-## 7. その他
+## 7. 物語・オープニングを編集する
+
+- 台詞は [src/story.js](src/story.js) の `STORY` に章ごと(`pre` = 出陣前 / `post` = 勝利後)に書きます
+  - `{ c: 'mikoto', t: '台詞' }` … キャラの台詞(`f: 'b'` で表情差分)/ `c` を省くとナレーション
+  - `{ c: '@', t: { reiga: '…', setsuna: '…' } }` … 選んだ武将ごとに台詞を書き分け
+- 登場人物の名前・肩書き・色は `CAST`。オープニングの流れは `Story.opening()` の中にあります
+- 立ち絵は `assets/portraits/<キャラ>.webp`(差分 `_b`、全身 `_full`)。VRMを差し替えたら撮り直します:
+
+```bash
+node tools/serve.mjs
+```
+→ http://localhost:5173/tools/portrait.html を開くと全員分を自動で撮影・保存(`?only=reiga` で1人だけ)。
+キャラの表情・照明は `tools/portrait.html` の `LIST` で調整できます。ミコトの元モデルは `dev/mikoto.vrm`(VRoid: `mikoto.vroid`)。
+
+## 8. その他
 
 - **武器の特性**: `data.js` の `TRAITS` に追加(効果の実装は `calcStats` と `battle.js` を検索)
 - **実績**: `data.js` の `ACHIEVEMENTS` に追加。`t: (S) => 条件` を書くだけ
