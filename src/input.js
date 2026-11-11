@@ -31,6 +31,8 @@ export const Input = {
         knob.style.transform = 'translate(-50%,-50%)';
       } else if (this._camId === null) {
         this._camId = e.pointerId; this._lx = e.clientX; this._ly = e.clientY;
+        // スワイプ(素早い一振り=回避)かカメラ操作かを見極めるまで、視点移動は保留する
+        this._c0x = e.clientX; this._c0y = e.clientY; this._c0t = performance.now(); this._cCommit = false; this._cpx = 0; this._cpy = 0;
       }
       try { layer.setPointerCapture(e.pointerId); } catch (_) { /* noop */ }
     };
@@ -42,13 +44,25 @@ export const Input = {
         knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
         this._tx = dx / R; this._ty = -dy / R;
       } else if (e.pointerId === this._camId) {
-        this.camDX += e.clientX - this._lx; this.camDY += e.clientY - this._ly;
+        const dx = e.clientX - this._lx, dy = e.clientY - this._ly;
         this._lx = e.clientX; this._ly = e.clientY;
+        if (this._cCommit) { this.camDX += dx; this.camDY += dy; }
+        else {
+          this._cpx += dx; this._cpy += dy;
+          if (performance.now() - this._c0t > 240 || Math.hypot(e.clientX - this._c0x, e.clientY - this._c0y) > 130) { this._cCommit = true; this.camDX += this._cpx; this.camDY += this._cpy; }
+        }
       }
     };
     const up = (e) => {
       if (e.pointerId === this._stickId) { this._stickId = null; this._tx = this._ty = 0; stick.classList.remove('on'); stick.style.left = ''; stick.style.top = ''; knob.style.transform = 'translate(-50%,-50%)'; }
-      if (e.pointerId === this._camId) this._camId = null;
+      if (e.pointerId === this._camId) {
+        if (!this._cCommit && this.active) {
+          // 短く素早い一振り → スワイプ回避
+          const dt = performance.now() - this._c0t, dx = e.clientX - this._c0x, dy = e.clientY - this._c0y, d = Math.hypot(dx, dy);
+          if (dt < 300 && d >= 26) { this._swipe = { x: dx / d, y: -dy / d }; this.press('d'); }
+        }
+        this._camId = null;
+      }
     };
     layer.addEventListener('pointerdown', down);
     layer.addEventListener('pointermove', move);
@@ -85,7 +99,9 @@ export const Input = {
   release(k) { if (k in this.held) this.held[k] = false; },
   // 直近 buf 秒以内に押されていれば true(押下を消費)
   consume(k, buf = 0.22) { if (this.now - this._press[k] <= buf) { this._press[k] = -9; return true; } return false; },
-  clear() { for (const k in this._press) this._press[k] = -9; for (const k in this.held) this.held[k] = false; this.camDX = this.camDY = 0; },
+  // スワイプ方向(スティック座標系)を1回だけ取り出す
+  takeSwipe() { const s = this._swipe; this._swipe = null; return s; },
+  clear() { for (const k in this._press) this._press[k] = -9; for (const k in this.held) this.held[k] = false; this.camDX = this.camDY = 0; this._swipe = null; },
 
   update(dtReal) {
     this.now += dtReal;

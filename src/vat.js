@@ -3,13 +3,13 @@
 import * as THREE from 'three';
 import { patchMat } from './gfx.js';
 
-let _data = null, _loading = null;
-export function preloadSoldier(url = 'assets/soldier.bin') {
-  if (_data) return Promise.resolve(_data);
-  if (!_loading) _loading = fetch(url).then((r) => (r.ok ? r.arrayBuffer() : null)).then((b) => (_data = b ? parse(b) : null)).catch(() => null);
+let _data = [null, null], _loading = null;
+export function preloadSoldier() {
+  if (!_loading) _loading = Promise.all(['assets/soldier.bin', 'assets/soldier2.bin'].map((url, i) =>
+    fetch(url).then((r) => (r.ok ? r.arrayBuffer() : null)).then((b) => (_data[i] = b ? parse(b) : null)).catch(() => null)));
   return _loading;
 }
-export const soldierData = () => _data;
+export const soldierData = (team = 0) => _data[team] || _data[0];
 
 function parse(buf) {
   const hl = new Uint32Array(buf, 0, 1)[0];
@@ -36,8 +36,8 @@ vec3 transformed = mix(vatPos(int(aAnim.x)), vatPos(int(aAnim.y)), aAnim.z);
 if (aWid > 0.5 && abs(aWid - aAnim.w) > 0.5) transformed = vec3(0.0, 0.8, 0.0);`;
 
 // 共有のジオメトリと材質を作る
-export function makeSoldierMesh(cap) {
-  const d = _data; if (!d) return null;
+export function makeSoldierMesh(cap, team = 0) {
+  const d = soldierData(team); if (!d) return null;
   const h = d.head, V = h.V;
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(V * 3), 3));
@@ -62,9 +62,9 @@ export function makeSoldierMesh(cap) {
   const mat = patchMat(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, metalness: 0.0, flatShading: true }), 0.55, true);
   const prev = mat.onBeforeCompile;
   mat.onBeforeCompile = (sh) => { prev(sh); patchV(sh); };
-  mat.customProgramCacheKey = () => 'vatSoldier';
+  mat.customProgramCacheKey = () => 'vatSoldier' + team;
   const depth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
-  depth.onBeforeCompile = patchV; depth.customProgramCacheKey = () => 'vatDepth';
+  depth.onBeforeCompile = patchV; depth.customProgramCacheKey = () => 'vatDepth' + team;
   const mesh = new THREE.InstancedMesh(geo, mat, cap);
   mesh.customDepthMaterial = depth;
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);

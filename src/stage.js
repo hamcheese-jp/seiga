@@ -202,7 +202,7 @@ diffuseColor.rgb *= gCol;`)
     };
     // 素材モデル(木・岩・花)を配置。読み込めていなければ手作りの形で代用
     const lib = natureLib(), set = NATURE_SETS[this.def.theme];
-    const placeModel = (name, count, test, hMin, hMax, tint) => {
+    const placeModel = (name, count, test, hMin, hMax, tint, shadow = true) => {
       const md = lib && lib[name]; if (!md || count <= 0) return false;
       const mats = []; let n = 0, tries = 0;
       while (n < count && tries++ < count * 30) {
@@ -218,7 +218,7 @@ diffuseColor.rgb *= gCol;`)
         if (name === 'Bush_Common' && this.def.theme === 'plains' && p.leaf && lib.CommonTree_1) { const lm = lib.CommonTree_1.parts.find((q) => q.leaf); if (lm) { mat = mat === p.mat ? mat.clone() : mat; mat.map = lm.mat.map; mat.color.set('#ffffff'); if (!this.disposables.includes(mat)) this.disposables.push(mat); } }
         const im = new THREE.InstancedMesh(p.geo, mat, n);
         mats.forEach((mm, i) => im.setMatrixAt(i, mm));
-        im.castShadow = true; im.receiveShadow = true; im.instanceMatrix.needsUpdate = true;
+        im.castShadow = shadow; im.receiveShadow = true; im.instanceMatrix.needsUpdate = true;
         this.group.add(im);
       }
       return true;
@@ -229,7 +229,7 @@ diffuseColor.rgb *= gCol;`)
         const bush = name.startsWith('Bush');
         usedModels = placeModel(name, Math.round(cnt * sc), (d) => d > (bush ? 1.5 : 3) && d < 85 && r() < 1.1 - d / 95, h0, h1, [leafCol || set.leaf, set.bark]) || usedModels;
       }
-      if (set.flowers) placeModel('Flower_3_Group', Math.round(set.flowers * sc), (d) => d > -1 && d < 12, 0.4, 0.7);
+      if (set.flowers) placeModel('Flower_3_Group', Math.round(set.flowers * sc), (d) => d > -1 && d < 12, 0.4, 0.7, null, false);
     }
     if (!usedModels) {
       const kinds = th.trees || [];
@@ -241,12 +241,16 @@ diffuseColor.rgb *= gCol;`)
     const rockCol = th.ground[2][0];
     const rockOk = lib && set && ['Rock_Medium_1', 'Rock_Medium_2', 'Rock_Medium_3'].map((n) => placeModel(n, Math.round(40 * sc), (d) => d > 1.6 && d < 40, 0.8, 3.2, [null, set.rocks])).some(Boolean);
     if (!rockOk) place(facet(ico(1, rockCol, 1), 0.5, mulberry(3)), Math.round(110 * sc), (d) => d > 1.6 && d < 40, 0.6, 2.6);
-    // 地表の小物(歩行領域内)
+    // 地表の小物(歩行領域内)。草は素材モデルを使う
     if (th.scatter) {
+      const grassy = this.def.theme === 'plains' || this.def.theme === 'castle';
+      const grassOk = grassy && lib && placeModel('Grass_Common_Tall', Math.round(750 * sc), (d) => d < -0.8 && d > -40, 0.45, 0.95, null, false);
+      if (!grassOk) {
       const tuft = this.def.theme === 'snow' ? at(sph(0.3, '#f4f8fc', 6, 4), 0, 0, 0, 0, 0, 0, 1.4, 0.4, 1.2)
         : this.def.theme === 'desert' || this.def.theme === 'volcano' ? facet(ico(0.22, th.scatter, 0), 0.1, mulberry(9))
         : merge([at(cone(0.07, 0.42, th.scatter, 4), 0, 0.2, 0), at(cone(0.06, 0.34, th.scatter, 4), 0.1, 0.16, 0.04, 0, 0, -0.4), at(cone(0.06, 0.36, th.scatter, 4), -0.09, 0.17, -0.03, 0.3, 0, 0.4), at(cone(0.05, 0.3, th.scatter, 4), 0.02, 0.14, 0.1, 0.5, 0, 0)]);
       place(tuft, Math.round(1400 * sc), (d) => d < -0.8 && d > -40, 0.7, 1.7, false);
+      }
     }
     this.disposables.push(stdMat);
   }

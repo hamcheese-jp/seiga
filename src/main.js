@@ -7,7 +7,7 @@ import { UI } from './ui.js';
 import { Lobby } from './lobby.js';
 import { Battle } from './battle.js';
 import { STAGE, HEROES } from './data.js';
-import { preloadVrm } from './vrmchar.js';
+import { preloadVrm, probeVrm, VRM_KEYS } from './vrmchar.js';
 import { preloadSoldier } from './vat.js';
 import { preloadNature } from './nature.js';
 
@@ -21,6 +21,7 @@ const App = {
     Audio.vol.bgm = s.bgm; Audio.vol.sfx = s.sfx;
     Input.init();
     UI.init(this);
+    probeVrm();
     this.lobby = new Lobby(); this.lobby.setHero(UI.sel.hero);
     UI.show('title');
     const boot = document.getElementById('boot');
@@ -55,7 +56,7 @@ const App = {
     setTimeout(() => {
       UI.show('load'); UI.fade(false);
       setTimeout(async () => {
-        await Promise.race([Promise.all([preloadVrm([...HEROES.map((h) => h.id), 'enemyOfficer', 'boss1', 'boss2', 'boss3', 'boss4', 'boss5']), preloadSoldier(), preloadNature()]), new Promise((r) => setTimeout(r, 15000))]);
+        await Promise.race([Promise.all([preloadVrm(VRM_KEYS), preloadSoldier(), preloadNature()]), new Promise((r) => setTimeout(r, 15000))]);
         try {
           if (this.battle) { this.battle.dispose(); this.battle = null; }
           if (this.lobby) { this.lobby.dispose(); this.lobby = null; }
@@ -63,7 +64,7 @@ const App = {
           UI.hudStart(this.battle);
           this.mode = 'battle'; this.paused = false;
           UI.show('');
-        } catch (e) { console.error(e); UI.toast('合戦の開始に失敗しました'); this.toMenu('home'); }
+        } catch (e) { console.error(e); UI.toast('合戦の開始に失敗しました'); try { this.toMenu('home'); } catch (e2) { console.error(e2); } }
         this.busy = false;
       }, 120);
     }, 380);

@@ -15,7 +15,7 @@ const SONGS = {
 };
 
 // 場面 → 曲ファイル(bgm/*.mp3)
-const BGM_FILES = { title: 'title', plains: 'battle', desert: 'battle', snow: 'battle2', volcano: 'battle2', castle: 'castle', boss: 'boss', rage: 'rage', result: 'result' };
+const BGM_FILES = { title: 'title', plains: 'battle', desert: 'battle3', snow: 'battle4', volcano: 'battle2', castle: 'castle', boss: 'boss', rage: 'rage', result: 'result' };
 
 export const Audio = {
   ctx: null, vol: { bgm: 0.6, sfx: 0.8 }, intensity: 0.4,
@@ -95,6 +95,8 @@ export const Audio = {
       case 'hurt': this._noise(0.12, 0.5, 'lowpass', 1500, 300, 0.7, d, t); this._tone('square', 150 * r, 70, 0.14, 0.2, d, t); break;
       case 'pickup': this._tone('sine', 880, 880, 0.1, 0.2, d, t); this._tone('sine', 1320, 1320, 0.16, 0.2, d, t + 0.07); break;
       case 'treasure': [660, 880, 1100, 1320].forEach((f, i) => this._tone('triangle', f, f, 0.2, 0.2, d, t + i * 0.06)); break;
+      case 'ready': this._tone('sine', 1047, 1047, 0.1, 0.2, d, t); this._tone('sine', 1568, 1568, 0.2, 0.2, d, t + 0.08); break;
+      case 'ready2': this._tone('sine', 784, 784, 0.1, 0.2, d, t); this._tone('sine', 1175, 1175, 0.2, 0.2, d, t + 0.08); break;
       case 'ui': this._tone('triangle', 660, 660, 0.06, 0.18, d, t); break;
       case 'ok': this._tone('triangle', 660, 660, 0.07, 0.2, d, t); this._tone('triangle', 990, 990, 0.12, 0.2, d, t + 0.06); break;
       case 'back': this._tone('triangle', 520, 390, 0.1, 0.18, d, t); break;
@@ -149,7 +151,7 @@ export const Audio = {
     this.init();
     const c = this.ctx; if (!c) return;
     if (!this._el) {
-      this._el = new window.Audio(); this._el.loop = true; this._el.preload = 'auto';
+      this._el = document.createElement('audio'); this._el.loop = true; this._el.preload = 'auto';
       this._elG = c.createGain(); this._elG.gain.value = 0;
       c.createMediaElementSource(this._el).connect(this._elG).connect(this.bgmG);
     }

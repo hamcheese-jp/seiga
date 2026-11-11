@@ -10,7 +10,7 @@ export function newSave() {
     v: 1, id: genId(), name: '名もなき武将', gold: 500, heroes: {}, weapons: [], stages: {}, unlockedHeroes: START_HEROES.slice(), ach: {},
     stats: { totalKO: 0, battles: 0, wins: 0, maxKO: 0, maxCombo: 0, officers: 0, perfect: 0, flawless: 0, playTime: 0 },
     endless: { ko: 0, wave: 0 },
-    settings: { quality: 'auto', bgm: 0.6, sfx: 0.8, camSens: 1, autoCam: true, vibe: true, fps: false, cloudUrl: '' },
+    settings: { quality: 'auto', bgm: 0.6, sfx: 0.8, camSens: 1, autoCam: true, vibe: true, fps: false, cloudUrl: '', btnScale: 1, btnLayout: null },
     last: { hero: 'reiga', stage: 's1', diff: 1 }, t: 0,
   };
 }

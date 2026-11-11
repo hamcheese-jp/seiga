@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { GFX } from './gfx.js';
 import { buildHero, disposeModel } from './models.js';
-import { hasVrm, loadVrm, VrmBody } from './vrmchar.js';
+import { loadVrm, VrmBody } from './vrmchar.js';
 import { Rig } from './rig.js';
 import { MS } from './moves.js';
 import { ELEMENTS } from './data.js';
@@ -24,7 +24,7 @@ export class Fighter {
     GFX.scene.add(this.model.root);
     // VRoidのキャラがあれば読み込んで差し替える(読み込み中は今の姿で表示)
     const vk = o.heroId || o.vrmKey;
-    if (vk && hasVrm(vk)) loadVrm(vk).then((vrm) => { if (!vrm) return; if (this.disposed) { vrm.scene.traverse((x) => { if (x.geometry) x.geometry.dispose(); }); return; } new VrmBody(this.model, vrm); }).catch((e) => console.warn(e));
+    if (vk) loadVrm(vk).then((vrm) => { if (!vrm) return; if (this.disposed) { vrm.scene.traverse((x) => { if (x.geometry) x.geometry.dispose(); }); return; } new VrmBody(this.model, vrm); }).catch((e) => console.warn(e));
     this.ms = MS[o.ms];
     this.x = o.x; this.z = o.z; this.y = 0; this.vx = 0; this.vy = 0; this.vz = 0; this.yaw = o.yaw || 0;
     this.rad = 0.5 * this.model.scale; this.alive = true; this.hidden = false; this.ghost = false; this.gone = false; this.sealed = false;
@@ -223,7 +223,14 @@ export class Fighter {
 
   startDodge() {
     const I = this.in; let dx, dz;
-    if (I.mag > 0.2) { dx = I.x / I.mag; dz = I.z / I.mag; this.yaw = Math.atan2(dx, dz); }
+    const sw = this.isPlayer ? Input.takeSwipe() : null;
+    if (sw) {
+      // スワイプした向きへ回避(画面上=前、右=カメラの右)
+      const cy = this.B.cam.yaw, fx = Math.sin(cy), fz = Math.cos(cy);
+      dx = fx * sw.y - fz * sw.x; dz = fz * sw.y + fx * sw.x;
+      const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l;
+      this.yaw = Math.atan2(dx, dz);
+    } else if (I.mag > 0.2) { dx = I.x / I.mag; dz = I.z / I.mag; this.yaw = Math.atan2(dx, dz); }
     else { dx = -Math.sin(this.yaw); dz = -Math.cos(this.yaw); }
     this.state = 'dodge'; this.st = 0; this.dvx = dx; this.dvz = dz; this.inv = Math.max(this.inv, 0.3);
     this.rig.setMode('dodge'); Audio.sfx('dodge'); FX.dust(this.x, this.z, 3, 0.8);

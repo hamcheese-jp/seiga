@@ -3,11 +3,22 @@ import * as THREE from 'three';
 import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils } from '../vendor/three-vrm.module.min.js';
 import { VRM_FILES } from './config.js';
+import { HEROES } from './data.js';
 
 // ?vrmtest を付けて開くと、全武将を開発用サンプル(dev/sample.vrm)で表示
 const TEST = new URLSearchParams(location.search).has('vrmtest');
-const fileFor = (id) => (TEST ? 'dev/sample.vrm' : VRM_FILES[id]);
+const fileFor = (id) => (TEST ? 'dev/sample.vrm' : (VRM_FILES[id] || (avail[id] ? 'vrm/' + id + '.vrm' : null)));
 const bufs = new Map();
+
+// VRMを置けるキャラの一覧(vrm/<キー>.vrm を置くだけで差し替わる)
+export const VRM_KEYS = [...HEROES.map((h) => h.id), 'enemyOfficer', 'boss1', 'boss2', 'boss3', 'boss4', 'boss5'];
+const avail = {};
+let _probe = null;
+export function probeVrm() {
+  if (!_probe) _probe = Promise.all(VRM_KEYS.map((id) => VRM_FILES[id] ? (avail[id] = true)
+    : fetch('vrm/' + id + '.vrm', { method: 'HEAD' }).then((r) => { avail[id] = r.ok; }).catch(() => { avail[id] = false; })));
+  return _probe;
+}
 
 export const hasVrm = (id) => !!(id && fileFor(id));
 function fetchBuf(id) {
@@ -17,9 +28,10 @@ function fetchBuf(id) {
   return bufs.get(f);
 }
 // 合戦前などに先読み
-export const preloadVrm = (ids) => Promise.all(ids.filter(hasVrm).map(fetchBuf));
+export const preloadVrm = (ids) => probeVrm().then(() => Promise.all(ids.filter(hasVrm).map(fetchBuf)));
 
 export async function loadVrm(id) {
+  await probeVrm();
   const buf = await fetchBuf(id);
   if (!buf) return null;
   const loader = new GLTFLoader();

@@ -153,6 +153,7 @@ tools/                開発用サーバーなど
 ## クレジット
 
 - 音楽: 魔王魂(https://maou.audio/) — CC BY 4.0
-  - 民族32「初詣」/ 民族33「和bravery heart」/ ネオロック73「夕日の沈む丘へ」/ オーケストラ23「be proudly」/ オーケストラ24「crisis」/ オーケストラ25「神々の試練」/ オーケストラ26「戦いの跡」
+  - 民族32「初詣」/ 民族33「和bravery heart」/ 民族27「和の輪」/ ネオロック73「夕日の沈む丘へ」/ オーケストラ20「裸足の勇者」/ オーケストラ23「be proudly」/ オーケストラ24「crisis」/ オーケストラ25「神々の試練」/ オーケストラ26「戦いの跡」
 - [three-vrm](https://github.com/pixiv/three-vrm): MIT License(`vendor/THREE-VRM-LICENSE.txt`)
 - 雑兵・背景の3D素材: [Quaternius](https://quaternius.com/)(Ultimate Animated Character Pack / Stylized Nature MegaKit)— CC0
+- 要素の増やし方(武将・武器・ステージ・曲)は [MODDING.md](MODDING.md) を参照

@@ -69,7 +69,7 @@ export class Battle {
     this.power = this.lv * 2.2 + this.diff.pow;
     this._scale();
     const sn = this.stage.nodes[this.def.start];
-    this.player = this._add({ player: true, hero: true, heroId: hero.id, team: 0, name: hero.name, look: hero.look, wtype: hero.wtype, tier: S.tier, ms: hero.id, elem: hero.elem,
+    this.player = this._add({ player: true, hero: true, heroId: hero.id, team: 0, name: hero.name, look: hero.look, wtype: hero.wtype, tier: S.tier, ms: hero.ms || hero.id, elem: hero.elem,
       hp: S.hp, atk: S.atk, def: S.def, spd: S.spd, aspd: S.aspd, stats: S, heavy: hero.heavy, x: sn.x + (this.endless ? 0 : 1.6), z: sn.z - (this.endless ? 0 : 5), yaw: 0 });
     this.bases = this.def.bases.map((bd, i) => new Base(this, bd, i));
     this.sealed = this.def.sealNeed > 0; this.boss = null;
@@ -126,7 +126,7 @@ export class Battle {
   _add(o) { const f = new Fighter(this, o); this.fighters.push(f); return f; }
   _allyHero(h, x, z) {
     const A = this.A;
-    const f = this._add({ hero: true, heroId: h.id, team: 0, name: h.name, look: h.look, wtype: h.wtype, tier: 1, ms: h.id, elem: h.elem, hp: A.oHp * h.base.hp / 1000, atk: A.oAtk * h.base.atk / 34, def: A.oDef, spd: h.base.spd * 0.78, aspd: h.base.aspd, heavy: h.heavy, x, z, yaw: 0 });
+    const f = this._add({ hero: true, heroId: h.id, team: 0, name: h.name, look: h.look, wtype: h.wtype, tier: 1, ms: h.ms || h.id, elem: h.elem, hp: A.oHp * h.base.hp / 1000, atk: A.oAtk * h.base.atk / 34, def: A.oDef, spd: h.base.spd * 0.78, aspd: h.base.aspd, heavy: h.heavy, x, z, yaw: 0 });
     f.role = 'attack'; this._squad(f, Math.round(6 * this.pop));
     return f;
   }

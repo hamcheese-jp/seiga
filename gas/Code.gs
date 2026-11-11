@@ -86,7 +86,10 @@ function save_(b) {
   const row = [b.id, clean_(b.name, 20), new Date().toISOString(), Number(b.level) || 1, Number(b.totalKO) || 0, Number(b.gold) || 0, Number(b.weapons) || 0, chunks.length];
   for (let i = 0; i < 6; i++) row.push(chunks[i] || '');
   let r = findRow_(sh, b.id);
-  if (r < 0) r = sh.getLastRow() + 1;
+  if (r < 0) {
+    if (sh.getLastRow() >= 3000) return { ok: false, error: 'full' };   // いたずら対策: 新規セーブは3000人まで
+    r = sh.getLastRow() + 1;
+  }
   sh.getRange(r, 1, 1, row.length).setValues([row]);
   return { ok: true };
 }
@@ -123,7 +126,10 @@ function score_(b) {
     }
   }
   const row = [board, b.id, clean_(b.name, 20), clean_(b.hero, 16), score, Number(b.ko) || 0, Number(b.time) || 0, clean_(b.rank, 12), new Date().toISOString()];
-  if (r < 0) r = n + 1;
+  if (r < 0) {
+    if (n >= 5000) return { ok: false, error: 'full' };                 // 番付も上限あり
+    r = n + 1;
+  }
   sh.getRange(r, 1, 1, row.length).setValues([row]);
   return { ok: true, best: true };
 }

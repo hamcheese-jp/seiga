@@ -6,7 +6,7 @@ import { VERSION } from './config.js';
 import { Install } from './install.js';
 import { Audio } from './audio.js';
 import { GFX } from './gfx.js';
-import { $, el, fmtTime, clamp } from './util.js';
+import { $, $$, el, fmtTime, clamp } from './util.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const SCREENS = ['title', 'home', 'stage', 'hero', 'armory', 'ach', 'rank', 'settings', 'result', 'pause', 'load'];
@@ -31,6 +31,7 @@ export const UI = {
     this.mctx = $('#minimap').getContext('2d');
     this.bS = $('.b-s'); this.bR = $('.b-r');
     Install.onChange(() => { if (this.cur === 'title' || this.cur === 'home') this.show(this.cur); });
+    this.applyBtnLayout();
     const S = Save.data; this.sel = { ...S.last };
   },
 
@@ -86,6 +87,9 @@ export const UI = {
       case 'mok': { const f = this._mok; this.closeModal(); if (f) f(); break; }
       case 'mno': this.closeModal(); break;
       case 'install': this.install(); break;
+      case 'btnedit': this.btnEdit(); break;
+      case 'btndone': this.btnEditEnd(); break;
+      case 'btnreset': { Audio.sfx('back'); Save.data.settings.btnLayout = null; Save.persist(false); this.applyBtnLayout(); this.toast('ボタン配置を初期状態に戻しました'); break; }
     }
   },
   confirm(msg, ok) {
@@ -102,6 +106,7 @@ export const UI = {
     if (k === 'bgm' || k === 'sfx') Audio.setVol(set.bgm, set.sfx);
     if (k === 'quality' && done) { GFX.setQuality(set.quality); this.toast('画質を変更しました(兵数などは次の合戦から反映)'); }
     if (k === 'fps') this.E['h-fps'].textContent = '';
+    if (k === 'btnScale') this.applyBtnLayout();
     if (done) Save.persist(false);
   },
   stageOpen(i) { return i === 0 || Save.stageCleared(STAGES[i - 1].id); },
@@ -111,6 +116,54 @@ export const UI = {
     const s5 = Save.data.stages.s5; return !!(s5 && s5.chaos && s5.chaos.clear);
   },
   gachaPower() { let p = 6; STAGES.forEach((s) => { const st = Save.data.stages[s.id]; if (st) for (const d of DIFFS) if (st[d.id] && st[d.id].clear) p = Math.max(p, s.lv * 2.2 + d.pow + 6); }); return p; },
+
+  // ================= ボタン配置 =================
+  applyBtnLayout() {
+    const s = Save.data.settings;
+    document.documentElement.style.setProperty('--u', `calc(clamp(48px, 11vmin, 86px) * ${s.btnScale || 1})`);
+    const L = s.btnLayout || {};
+    for (const b of $$('#btns .btn')) {
+      const v = L[b.dataset.k];
+      if (v) { b.style.setProperty('--bx', v[0] + 'vmin'); b.style.setProperty('--by', v[1] + 'vmin'); }
+      else { b.style.removeProperty('--bx'); b.style.removeProperty('--by'); }
+    }
+  },
+  btnEdit() {
+    Audio.sfx('ok');
+    this.show('');
+    Input.active = false;                       // 編集中はボタンが効かないように
+    $('#hud').classList.add('hide');
+    document.body.classList.add('btnedit');
+    const bar = el('div', 'panel', '<b>ドラッグでボタンを移動</b><div class="row" style="justify-content:center;margin-top:8px"><button class="sbtn" data-a="btnreset">リセット</button><button class="pbtn" data-a="btndone" style="font-size:15px;padding:8px 22px">完 了</button></div>');
+    bar.id = 'btnedit-bar'; $('#menus').appendChild(bar);
+    const vmin = () => Math.min(innerWidth, innerHeight) / 100;
+    this._bed = [];
+    for (const b of $$('#btns .btn')) {
+      const h = (e) => {
+        e.preventDefault();
+        const k = b.dataset.k, cur = (Save.data.settings.btnLayout || {})[k] || [0, 0];
+        const sx = e.clientX, sy = e.clientY, bx = cur[0], by = cur[1];
+        const mv = (ev) => {
+          const nx = Math.round((bx + (ev.clientX - sx) / vmin()) * 10) / 10, ny = Math.round((by + (ev.clientY - sy) / vmin()) * 10) / 10;
+          const st = Save.data.settings; (st.btnLayout || (st.btnLayout = {}))[k] = [nx, ny];
+          b.style.setProperty('--bx', nx + 'vmin'); b.style.setProperty('--by', ny + 'vmin');
+        };
+        const up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); removeEventListener('pointercancel', up); };
+        addEventListener('pointermove', mv); addEventListener('pointerup', up); addEventListener('pointercancel', up);
+      };
+      b.addEventListener('pointerdown', h);
+      this._bed.push([b, h]);
+    }
+  },
+  btnEditEnd() {
+    Audio.sfx('ok');
+    for (const [b, h] of this._bed || []) b.removeEventListener('pointerdown', h);
+    this._bed = null;
+    const bar = $('#btnedit-bar'); if (bar) bar.remove();
+    document.body.classList.remove('btnedit');
+    Save.persist(false);
+    this.show('settings');
+  },
 
   // ================= アプリとして追加 =================
   installBtn(cls) { return Install.installed() ? '' : `<button class="inst ${cls}" data-a="install">📲 アプリとして追加</button>`; },
@@ -244,6 +297,8 @@ export const UI = {
       <label>効果音音量</label><input type="range" min="0" max="1" step="0.05" value="${s.sfx}" data-s="sfx">
       <label>視点感度</label><input type="range" min="0.4" max="2" step="0.1" value="${s.camSens}" data-s="camSens">
       <label>視点の自動追従</label><input type="checkbox" ${s.autoCam ? 'checked' : ''} data-s="autoCam" style="justify-self:start;width:22px;height:22px">
+      <label>ボタン大きさ</label><input type="range" min="0.7" max="1.4" step="0.05" value="${s.btnScale || 1}" data-s="btnScale">
+      <label>ボタン配置</label><div class="row"><button class="sbtn" data-a="btnedit">画面上で編集</button><button class="sbtn" data-a="btnreset">リセット</button></div>
       <label>振動</label><input type="checkbox" ${s.vibe ? 'checked' : ''} data-s="vibe" style="justify-self:start;width:22px;height:22px">
       <label>FPS表示</label><input type="checkbox" ${s.fps ? 'checked' : ''} data-s="fps" style="justify-self:start;width:22px;height:22px">
       <h3 class="full" style="margin-top:8px">スプレッドシート連携(クラウド保存)</h3>
@@ -291,7 +346,7 @@ export const UI = {
   hudStart(B) {
     const p = B.player, E = this.E;
     E['pl-name'].textContent = p.name; E['pl-lv'].textContent = 'Lv' + p.S.lv;
-    this._ko = -1; this._combo = -1; this._hpT = -1; this._f = 0; this._bq.length = 0; this._bBusy = false;
+    this._ko = -1; this._combo = -1; this._hpT = -1; this._f = 0; this._bq.length = 0; this._bBusy = false; this._spF = true; this._rgF = true;
     E['h-say'].innerHTML = ''; E['mission'].classList.add('hide'); E['h-target'].classList.add('hide'); E['h-base'].classList.add('hide');
   },
   minimapInit(stage) { this.map = stage.drawMap(280); },
@@ -304,6 +359,9 @@ export const UI = {
     if (f % 5 === 0) {
       const spF = p.sp >= 100, rgF = p.rage >= 100 && p.awake <= 0;
       E['sp-fill'].parentNode.classList.toggle('full', spF); E['rg-fill'].parentNode.classList.toggle('full', rgF);
+      if (spF && !this._spF) Audio.sfx('ready');
+      if (rgF && !this._rgF) Audio.sfx('ready2');
+      this._spF = spF; this._rgF = rgF;
       this.bS.classList.toggle('ready', spF); this.bR.classList.toggle('ready', rgF); this.bR.classList.toggle('awake', p.awake > 0);
       E['mor-a'].style.width = (50 + B.morale / 2) + '%';
       const tg = B.focus;
