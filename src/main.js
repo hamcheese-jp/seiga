@@ -56,7 +56,9 @@ const App = {
     setTimeout(() => {
       UI.show('load'); UI.fade(false);
       setTimeout(async () => {
-        await Promise.race([Promise.all([preloadVrm(VRM_KEYS), preloadSoldier(), preloadNature()]), new Promise((r) => setTimeout(r, 15000))]);
+        // VRMは自分の武将・敵将・その章のボスだけ先読み(味方武将などは合戦中に順次読み込む)
+        const st = STAGE[sel.stage] || {}, need = [sel.hero, 'enemyOfficer', ...(st.officers || []).filter((o) => o.boss && o.look).map((o) => o.look)].filter((k) => VRM_KEYS.includes(k));
+        await Promise.race([Promise.all([preloadVrm(need), preloadSoldier(), preloadNature()]), new Promise((r) => setTimeout(r, 15000))]);
         try {
           if (this.battle) { this.battle.dispose(); this.battle = null; }
           if (this.lobby) { this.lobby.dispose(); this.lobby = null; }
