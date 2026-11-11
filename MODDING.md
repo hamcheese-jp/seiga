@@ -111,3 +111,11 @@ node tools/serve.mjs
 ```
 
 で http://localhost:5173 を開いてテストします。URLに `?vrmtest` を付けると、全キャラが開発用サンプルVRM(dev/sample.vrm)で表示されます。
+
+## VRMを軽くする
+
+VRoid から書き出したVRMは10〜20MBになりがちです。次のコマンドで大きいテクスチャを縮小できます(元ファイルは `.orig.vrm` として残ります)。
+
+```bash
+node tools/vrm-optimize.mjs vrm/reiga.vrm 1024
+```
