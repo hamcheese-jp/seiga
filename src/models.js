@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { box, sph, cyl, cone, caps, torus, at, merge, extrude, col } from './geo.js';
 import { patchMat } from './gfx.js';
+import { weaponGlb } from './weaponglb.js';
 
 const PI = Math.PI, TAU = PI * 2;
 
@@ -360,6 +361,14 @@ export function buildHero(look, wtype, tier = 0) {
   const W = buildWeapon(wtype, tier, P);
   const wb = {}; for (const p of W.parts) (wb[p.k] || (wb[p.k] = [])).push(p.g);
   const wMeshes = { R: [], L: [] };
+  // AI生成の3D武器があればそれを持たせる(なければ手作りの形)
+  const G3 = weaponGlb(wtype, tier, P.glow);
+  if (G3) {
+    for (const k in wb) delete wb[k];
+    const r = G3.make(); J.handR.add(r); wMeshes.R.push(r);
+    if (W.dual) { const l = G3.make(); J.handL.add(l); wMeshes.L.push(l); }
+    W.tip = G3.tip; W.base = G3.base;
+  }
   for (const k in wb) {
     const geo = merge(wb[k]);
     const m = new THREE.Mesh(geo, M[k]); m.castShadow = true; J.handR.add(m); wMeshes.R.push(m);
@@ -379,7 +388,7 @@ export function buildHero(look, wtype, tier = 0) {
 
 export function disposeModel(model) {
   if (model.vbody) model.vbody.dispose();
-  model.root.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
+  model.root.traverse((o) => { if (o.geometry && !o.userData.shared) o.geometry.dispose(); });
   for (const k in model.M) model.M[k].dispose();
   if (model.root.parent) model.root.parent.remove(model.root);
 }

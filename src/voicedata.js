@@ -1,17 +1,18 @@
 // 声の台本(VOICEVOXで生成): node tools/make-voices.mjs で assets/voice/ に書き出す
 //   s: 話者スタイルID(通常) / h: 叫び用スタイルID / p: 声の調整(speed, pitch, intonation)
+//   st: 感情ごとのスタイルID(fight=気合 hype=高揚 hurt=痛み joy=喜び sad=悔しさ dead=断末魔)。無ければ s/h と抑揚の調整で表現
 //   クレジット表記が必要: 下の CREDITS をタイトル画面などに表示している
 export const VOICES = {
-  reiga: { s: 11, h: 40, p: { pitch: 0.0 }, lines: {
+  reiga: { st: { fight: 40, hype: 40, hurt: 40, joy: 39, sad: 41 }, s: 11, h: 40, p: { pitch: 0.0 }, lines: {
     atk: ['はっ!', 'せいっ!', 'たぁっ!'], heavy: ['おおおっ!', 'くらえ!'], sp: '焼き尽くせ、紅蓮旋牙!', awake: '燃え上がれ、俺の星牙!',
     hurt: ['ぐっ!', 'ちっ!'], start: 'いくぞ!', ko: '敵将、撃破!', retreat: 'すまない、一度退く!', back: '待たせた、戦線に戻る!' } },
   setsuna: { s: 14, h: 14, p: { intonation: 1.2 }, lines: {
     atk: ['はっ!', 'やっ!', 'えいっ!'], heavy: ['凍てつきなさい!', 'はあっ!'], sp: '舞え、氷華絶槍!', awake: '氷の星牙よ、今こそ!',
     hurt: ['きゃっ!', 'くぅっ!'], start: '参ります!', ko: '敵将、倒しました!', retreat: '申し訳ありません、退きます!', back: 'お待たせしました、戻ります!' } },
-  raika: { s: 12, h: 34, p: {}, lines: {
+  raika: { st: { fight: 34, hype: 32, hurt: 34, joy: 32, sad: 35 }, s: 12, h: 34, p: {}, lines: {
     atk: ['おらっ!', 'よっ!', 'せいっ!'], heavy: ['いっけぇ!', '遅えよ!'], sp: '走れ雷、千雷乱舞!', awake: '全開でいくぜぇ!',
     hurt: ['いってぇ!', 'うわっ!'], start: '一番乗りだ!', ko: '敵将、撃破だぜ!', retreat: 'くそっ、いったん下がる!', back: 'おまたせ! 復活だぜ!' } },
-  gandou: { s: 13, h: 81, p: {}, lines: {
+  gandou: { st: { fight: 81, hype: 81, hurt: 82, joy: 83, sad: 85 }, s: 13, h: 81, p: {}, lines: {
     atk: ['ふんっ!', 'どりゃあ!', 'うおお!'], heavy: ['砕けろぉ!', 'ぬぅん!'], sp: '大地よ、砕けろ! 大地崩壊!', awake: 'がはは! 本気でいくぞ!',
     hurt: ['ぐぬっ!', 'むぅ!'], start: 'ひと暴れするか!', ko: '敵将、叩き潰したぞ!', retreat: 'ぬう、ここは退くか!', back: 'がはは、待たせたな!' } },
   fuuka: { s: 8, h: 8, p: { speed: 1.05 }, lines: {
@@ -37,12 +38,12 @@ export const VOICES = {
     atk: ['ふん。', '消えろ。', '無駄だ。'], heavy: ['ひれ伏せ。', '星に呑まれよ。'], sp: '天よ墜ちよ。覇星墜天。', awake: '覇星よ、我に力を。',
     hurt: ['ほう。', '小賢しい。'], start: '我が覇道を見るがいい。', ko: '塵と消えよ。', rage: '見事だ。ならば覇星の真の力、その身に刻め。',
     intro: 'よくぞここまで来た。だが、ここが貴様の墓場だ。' } },
-  officer: { s: 82, h: 82, p: {}, lines: { heavy: ['くらえ!', '叩き斬る!'], hurt: ['ぐっ!'], dead: ['無念!', 'ば、馬鹿な!'] } },
+  officer: { st: { fight: 82, hype: 81, hurt: 82, dead: 85 }, s: 82, h: 82, p: {}, lines: { heavy: ['くらえ!', '叩き斬る!'], hurt: ['ぐっ!'], dead: ['無念!', 'ば、馬鹿な!'] } },
 };
 // ボスの見た目キー → 声
 export const BOSS_VOICE = { boss1: 'barga', boss2: 'zahar', boss3: 'volg', boss4: 'ignas', boss5: 'zenova' };
 // 合戦中の通信(ui.say)の話し手 → 声
-export const SAY_VOICE = { '軍師ミコト': { s: 16, p: {} }, '斥候': { s: 67, p: { speed: 1.1 } } };
+export const SAY_VOICE = { '軍師ミコト': { s: 16, p: { intonation: 1.35 } }, '斥候': { s: 67, p: { speed: 1.1 } } };
 // 名前の入る通信は、決まった言い回しで声を当てる
 export const SAY_GENERIC = {
   capE: '守備隊長が出てきました! 倒せば制圧です!', capA: '守備隊長が最後の守りについています!', attacked: '味方の拠点が攻撃を受けています!', allyKO: '味方が敵将を撃破しました!',

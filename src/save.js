@@ -3,11 +3,12 @@ import { HEROES, START_HEROES, starterWeapon, ACHIEVEMENTS, expNeed, MAX_LV, UNL
 import { CLOUD_URL } from './config.js';
 
 const KEY = 'seiga_save_v1';
+const genKey = () => { const a = new Uint8Array(20); crypto.getRandomValues(a); return Array.from(a, (b) => 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'[b % 56]).join(''); };
 const genId = () => { const a = new Uint8Array(12); crypto.getRandomValues(a); return Array.from(a, (b) => 'abcdefghjkmnpqrstuvwxyz23456789'[b % 31]).join('').replace(/(.{4})(?=.)/g, '$1-'); };
 
 export function newSave() {
   return {
-    v: 1, id: genId(), name: '名もなき星牙使い', gold: 500, heroes: {}, weapons: [], stages: {}, unlockedHeroes: START_HEROES.slice(), ach: {},
+    v: 1, id: genId(), key: genKey(), name: '名もなき星牙使い', gold: 500, heroes: {}, weapons: [], stages: {}, unlockedHeroes: START_HEROES.slice(), ach: {},
     stats: { totalKO: 0, battles: 0, wins: 0, maxKO: 0, maxCombo: 0, officers: 0, perfect: 0, flawless: 0, playTime: 0 },
     endless: { ko: 0, wave: 0 }, story: {},
     settings: { quality: 'auto', bgm: 0.6, sfx: 0.8, voice: 0.9, camSens: 1, autoCam: true, vibe: true, fps: false, cloudUrl: '', btnScale: 1, btnLayout: null },
@@ -112,24 +113,29 @@ export const Cloud = {
     try {
       Save.cloudState = '保存中…';
       const lv = Math.max(...Object.values(S.heroes).map((h) => h.lv));
-      const res = await this._post({ action: 'save', id: S.id, name: S.name, level: lv, totalKO: S.stats.totalKO, gold: S.gold, weapons: S.weapons.length, data: JSON.stringify(S) });
+      // 合言葉はデータ本体には入れない(サーバーではハッシュ照合だけ)
+      const res = await this._post({ action: 'save', id: S.id, key: S.key, name: S.name, level: lv, totalKO: S.stats.totalKO, gold: S.gold, weapons: S.weapons.length, data: JSON.stringify({ ...S, key: undefined }) });
       Save.cloudState = res.ok ? '保存済み ' + new Date().toLocaleTimeString() : '保存失敗: ' + (res.error || '');
       return !!res.ok;
     } catch (e) { Save.cloudState = '通信エラー(端末内には保存済み)'; return false; }
   },
-  // id のデータを取得(なければ null)
-  async pull(id) {
+  // 引き継ぎコード(「ID.合言葉」)のデータを取得(なければ null)。省略時は自分のデータ
+  code() { return Save.data.id + '.' + Save.data.key; },
+  parse(code) { const [id, key] = String(code || '').trim().split('.'); return { id: (id || '').toLowerCase(), key: key || '' }; },
+  async pull(code) {
     if (!this.enabled()) return null;
     try {
-      const res = await this._get({ action: 'load', id: id || Save.data.id });
+      const c = code ? this.parse(code) : { id: Save.data.id, key: Save.data.key };
+      const res = await this._get({ action: 'load', id: c.id, key: c.key });
       if (!res.ok || !res.data) return null;
       const obj = typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
-      return obj && obj.v === 1 ? obj : null;
+      if (obj && obj.v === 1) { obj.key = c.key || genKey(); return obj; }
+      return null;
     } catch (e) { return null; }
   },
   async score(board, row) {
     if (!this.enabled()) return;
-    try { await this._post({ action: 'score', board, id: Save.data.id, name: Save.data.name, ...row }); } catch (e) { /* 失敗しても続行 */ }
+    try { await this._post({ action: 'score', board, id: Save.data.id, key: Save.data.key, name: Save.data.name, ...row }); } catch (e) { /* 失敗しても続行 */ }
   },
   async ranking(board) {
     if (!this.enabled()) return null;

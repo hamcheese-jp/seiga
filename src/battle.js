@@ -10,7 +10,7 @@ import { Input } from './input.js';
 import { HERO, HEROES, ELEMENTS, LOOKS, OFFICER_NAMES, DIFFS, THEMES, calcStats, rollWeapon } from './data.js';
 import { MS } from './moves.js';
 import { Voice } from './voice.js';
-import { Net, NetHost, NetGuest, spawnInfo } from './net.js';
+import { Net, NetHost, NetGuest, spawnInfo, sanitizeMember } from './net.js';
 import { clamp, rnd, pick, damp, angWrap, lerp, D2R, ease } from './util.js';
 
 const PI = Math.PI;
@@ -70,23 +70,25 @@ export class Battle {
     this.lv = this.endless ? Math.max(1, S.lv - 1) : this.def.lv;
     this.power = this.lv * 2.2 + this.diff.pow;
     this._scale();
+    this.pvp = cfg.pvp || null; this.myTeam = cfg.pvpTeam === 1 ? 1 : 0; this.score = [0, 0]; this.pvpLimit = 300; this.pRespawn = 0;
     const sn = this.stage.nodes[this.def.start];
-    this.player = this._add({ player: true, hero: true, heroId: hero.id, team: 0, name: hero.name, look: hero.look, wtype: hero.wtype, tier: S.tier, ms: hero.ms || hero.id, elem: hero.elem,
+    this.player = this._add({ player: true, hero: true, heroId: hero.id, team: this.myTeam, name: hero.name, look: hero.look, wtype: hero.wtype, tier: S.tier, ms: hero.ms || hero.id, elem: hero.elem,
       hp: S.hp, atk: S.atk, def: S.def, spd: S.spd, aspd: S.aspd, stats: S, heavy: hero.heavy, x: sn.x + (this.endless ? 0 : 1.6), z: sn.z - (this.endless ? 0 : 5), yaw: 0 });
     this.guest = !!cfg.guest;
-    if (cfg.coop) this.p2 = this._makeP2();
+    this.remotes = []; this.respawns = [];
     this.bases = this.def.bases.map((bd, i) => new Base(this, bd, i));
-    this.sealed = this.def.sealNeed > 0; this.boss = null;
+    if (!this.guest) ((cfg.coop || cfg.pvp || {}).members || []).forEach((m, i) => { const r = this._makeRemote(m, i); if (r) this.remotes.push(r); });
+    this.sealed = !this.pvp && this.def.sealNeed > 0; this.boss = null;
     const names = OFFICER_NAMES.slice().sort(() => Math.random() - 0.5); let ni = 0;
     const allies = HEROES.filter((h) => h.id !== hero.id && !h.foe).sort(() => Math.random() - 0.5);
-    for (const od of this.guest ? [] : this.def.officers) {
+    for (const od of this.guest || this.pvp ? [] : this.def.officers) {
       const nd = this.stage.nodes[od.n]; let f;
       if (od.ally !== undefined) this._allyHero(allies[od.ally], nd.x + rnd(-3, 3), nd.z + 3);
       else this._enemyOfficer(od, od.name || names[ni++ % names.length]);
     }
     for (const f of this.fighters) if (f.ai && f.role === 'attack') this._assign(f);
     // 参加側は結界の位置を章のデータから求める
-    if (this.guest) { const bo = this.def.officers.find((o) => o.boss), nd = bo && this.stage.nodes[bo.n]; if (nd) this.boss = { x: nd.x, z: nd.z, sealed: true, alive: true }; }
+    if (this.guest && !this.pvp) { const bo = this.def.officers.find((o) => o.boss), nd = bo && this.stage.nodes[bo.n]; if (nd) this.boss = { x: nd.x, z: nd.z, sealed: true, alive: true }; }
     // 結界
     if (this.boss && this.sealed) {
       this.boss.sealed = true;
@@ -105,8 +107,8 @@ export class Battle {
       const [an, en, mn] = this.def.clash, m = this.stage.nodes[mn];
       this._march(0, an, { x: m.x, z: m.z - 4 }, Math.round(12 * this.pop)); this._march(1, en, { x: m.x, z: m.z + 4 }, Math.round(18 * this.pop));
     }
-    this.events = this.guest ? [] : (this.def.events || []).map((e) => ({ ...e, done: false }));
-    if (cfg.coop) this.net = new NetHost(this);
+    this.events = this.guest || this.pvp ? [] : (this.def.events || []).map((e) => ({ ...e, done: false }));
+    if ((cfg.coop || cfg.pvp) && !this.guest) this.net = new NetHost(this);
     if (this.guest) this.net = new NetGuest(this);
     const p = this.player;
     this.cam = { yaw: 0, pitch: 0.4, p: 0.4, dist: 9.6, baseDist: 9.6, tx: p.x, ty: 1.5, tz: p.z, manualT: -9 };
@@ -127,17 +129,30 @@ export class Battle {
   solStats(team) { return team === 1 ? { hp: this.E.sHp, dmg: this.E.sDmg, exp: this.E.sExp } : { hp: this.A.sHp, dmg: this.A.sDmg, exp: 0 }; }
   capStats(team) { return team === 1 ? { hp: this.E.cHp, dmg: this.E.cDmg, exp: this.E.sExp * 6 } : { hp: this.A.cHp, dmg: this.A.cDmg, exp: 0 }; }
   soldierMul(team) { return clamp(team === 0 ? 1 + this.morale / 333 : 1 - this.morale / 333, 0.7, 1.3); }
-  nearCam(x, z, r) { const p = this.player, dx = x - p.x, dz = z - p.z; if (dx * dx + dz * dz < r * r) return true; const q = this.p2; if (!q) return false; const ex = x - q.x, ez = z - q.z; return ex * ex + ez * ez < r * r; }
+  nearCam(x, z, r) { const p = this.player, dx = x - p.x, dz = z - p.z; if (dx * dx + dz * dz < r * r) return true; for (const q of this.remotes) { const ex = x - q.x, ez = z - q.z; if (ex * ex + ez * ez < r * r) return true; } return false; }
+  remoteOf(slot) { return this.remotes.find((r) => r.netSlot === slot && r.alive) || null; }
+  // 参加者が抜けた: その星牙使いは戦場を去る
+  onMemberLeave(slot) {
+    this.respawns = this.respawns.filter((x) => x.m.slot !== slot);
+    const r = this.remotes.find((x) => x.netSlot === slot); if (!r) return;
+    this.remotes = this.remotes.filter((x) => x !== r);
+    if (r.alive) { r.alive = false; r.hp = 0; r.gone = true; }
+    this.ui.say('軍師ミコト', `${r.name}さんとの通信が途絶えました。`);
+  }
   nearPlayer(x, z, r) { return this.nearCam(x, z, r); }
   // 振動(タッチ端末のみ・設定でオフ可)
   _vibe(ms) { if (this.save.settings.vibe && Input.usedTouch && navigator.vibrate) { try { navigator.vibrate(ms); } catch (_) { /* 非対応端末は無視 */ } } }
 
   _add(o) { const f = new Fighter(this, o); f.netId = (this._nid = (this._nid || 0) + 1); f.netSpawn = spawnInfo(o); this.fighters.push(f); return f; }
-  // 協力プレイの2人目(操作は相手の端末から届く)
-  _makeP2(x, z) {
-    const c = this.cfg.coop, h = HERO[c.hero], S = c.stats, sn = this.stage.nodes[this.def.start];
-    return this._add({ player: true, remote: true, hero: true, heroId: h.id, team: 0, name: c.name || h.name, look: h.look, wtype: h.wtype, tier: S.tier, ms: h.ms || h.id, elem: h.elem,
-      hp: S.hp, atk: S.atk, def: S.def, spd: S.spd, aspd: S.aspd, stats: S, heavy: h.heavy, x: x ?? sn.x - 1.6, z: z ?? sn.z - 5, yaw: 0 });
+  // 協力プレイの仲間(操作は各自の端末から届く)。届いた能力値は範囲を確かめてから使う
+  _makeRemote(m0, i, x, z) {
+    const m = sanitizeMember(m0, HERO); if (!m) return null;
+    const h = HERO[m.hero], S = m.stats, off = [[-1.6, -5], [0, -6.6], [-3.2, -6.6], [3.2, -6.6], [-1.6, -8.2], [1.6, -8.2], [0, -9.8]][i % 7];
+    const team = this.pvp ? m.team : 0, sn = team === 1 ? (this.bases.find((b) => b.main && b.orig === 1) || this.stage.nodes[this.def.start]) : this.stage.nodes[this.def.start], dir = team === 1 ? -1 : 1;
+    const f = this._add({ player: true, remote: true, hero: true, heroId: h.id, team, name: m.name, look: h.look, wtype: h.wtype, tier: S.tier, ms: h.ms || h.id, elem: h.elem,
+      hp: S.hp, atk: S.atk, def: S.def, spd: S.spd, aspd: S.aspd, stats: S, heavy: h.heavy, x: x ?? sn.x + off[0] * dir, z: z ?? sn.z + off[1] * dir, yaw: team === 1 ? Math.PI : 0 });
+    f.netSlot = m.slot; f.member = m0; f.memberI = i;
+    return f;
   }
   _allyHero(h, x, z) {
     const A = this.A;
@@ -197,6 +212,7 @@ export class Battle {
     }
   }
   _objective() {
+    if (this.pvp) { const l = Math.max(0, this.pvpLimit - this.time); this.ui.objective(`蒼軍 ${this.score[0]} − ${this.score[1]} 紅軍 ／ 残り ${Math.floor(l / 60)}:${String(Math.floor(l % 60)).padStart(2, '0')} ／ 敵の本拠を落とせ`); return; }
     if (this.endless) this.ui.objective(`第${Math.max(1, this.wave)}波 — 生き残れ`);
     else if (this.sealed) this.ui.objective(`敵拠点を制圧し結界を解け(${this.capEnemy}/${this.def.sealNeed})`);
     else this.ui.objective(`敵将軍「${this.boss.name}」を倒せ`);
@@ -211,6 +227,7 @@ export class Battle {
     const c = team === 0 ? [0.4, 1.2, 4] : [4, 0.6, 0.3];
     if (this.nearCam(base.x, base.z, 90)) { FX.pillar(base.x, base.z, c, 3, 28, 1.5); FX.ring(base.x, base.z, c, 2, base.R * 1.3, 0.9, 0.2, 1.3); }
     this.capEnemy = this.bases.filter((b) => b.orig === 1 && b.team === 0 && !b.main).length;
+    if (this.pvp) { this.score[team] += base.main ? 0 : 3; if (base.main) { this._pvpEnd(team); return; } }
     if (team === 0) {
       Audio.sfx('capture'); this.ui.banner('拠点制圧', base.name, 'good');
       const p = this.player;
@@ -462,7 +479,7 @@ export class Battle {
     if (mile > this.koMile) { this.koMile = mile; this.ui.koBanner(mile); this.morale = clamp(this.morale + 2, -100, 100); Audio.sfx('levelup'); }
   }
   onFighterDamaged(f, d, src, power) {
-    if (f === this.p2 && this.net) this.net.event('hurt');
+    if (f.netSlot && this.net) this.net.event('hurt', f.netSlot);
     if (f === this.player) {
       this.dmgTaken += d; this.ui.hurt(); GFX.shake(power > 0 ? 0.3 : 0.1); Audio.sfx('hurt', power > 0 ? 1 : 0.5); Voice.play(Voice.idFor(f), 'hurt', { chance: power > 0 ? 0.9 : 0.3, gap: 1.2 });
       if (power > 0) this.hitStop = Math.max(this.hitStop, 0.03);
@@ -472,8 +489,10 @@ export class Battle {
   }
   onFighterDead(f, src) {
     const byP = src === this.player, near = this.nearCam(f.x, f.z, 60);
+    if (this.pvp && f.isPlayer) { this.score[1 - f.team] += 10; if (near) { FX.nova(f.x, f.z, 3.5, f.col); Audio.sfx('explode', 0.8); } }
+    if (f === this.player && this.pvp) { this.pRespawn = 8; this.ui.say('軍師ミコト', '倒されました! 8秒後に本拠から復帰します。'); return; }
     if (f === this.player) { this._lose('力尽きた…'); return; }
-    if (f === this.p2) { this.p2Respawn = 10; this.ui.say('軍師ミコト', `${f.name}さんが倒れました! 10秒後に本拠から復帰します。`); return; }
+    if (f.netSlot) { this.remotes = this.remotes.filter((x) => x !== f); this.respawns.push({ m: f.member, i: f.memberI, t: this.pvp ? 8 : 10 }); this.ui.say('軍師ミコト', `${f.name}さんが倒れました! 10秒後に本拠から復帰します。`); return; }
     if (near) { FX.nova(f.x, f.z, 3.5, f.col); Audio.sfx('explode', 0.8); GFX.shake(0.4); }
     if (f.team === 1) {
       this.morale = clamp(this.morale + (f.boss ? 30 : 5), -100, 100);
@@ -595,6 +614,12 @@ export class Battle {
     }
   }
 
+  // 対戦の決着(ホスト側で判定)。winTeam: 勝った陣営 / -1 は引き分け
+  _pvpEnd(winTeam) {
+    if (this.ended) return;
+    this.winTeam = winTeam;
+    if (winTeam === this.myTeam) this._win(); else this._lose(winTeam < 0 ? '引き分け' : '紅軍の勝利');
+  }
   _win() {
     if (this.ended) return; this.ended = true; this.state = 'win'; this.stateT = 0;
     Audio.stopBgm(); Audio.sfx('win'); this.ui.banner('勝利', 'VICTORY', 'gold'); Input.clear();
@@ -635,8 +660,13 @@ export class Battle {
     else if (this.slowT > 0) { this.slowT -= dtR; ts = this.slowScale; }
     const dt = Math.min(dtR, 0.05) * ts, play = this.state === 'play';
     if (this.state === 'intro' && this.stateT > 2.9) { this.state = 'play'; Input.clear(); this.ui.banner('出撃', this.endless ? '限界まで戦え' : '敵将軍を倒せ', 'gold'); Audio.sfx('drum'); Voice.play(Voice.idFor(this.player), 'start', { force: true }); Audio.ambience(true, this.def.theme); }
-    if ((this.state === 'win' && this.stateT > 4.2) || (this.state === 'lose' && this.stateT > 3.6)) { if (!this.sent) { this.sent = true; const r = this.result(this.state === 'win'); if (this.net) Net.send({ t: 'end', win: r.win, rank: r.rank, time: r.time, ko: r.ko, maxCombo: r.maxCombo, offKO: r.offKO, caps: r.caps, missions: r.missions, wave: r.wave, exp: r.exp, gold: r.gold }); this.cfg.onEnd(r); } }
+    if ((this.state === 'win' && this.stateT > 4.2) || (this.state === 'lose' && this.stateT > 3.6)) { if (!this.sent) { this.sent = true; const r = this.result(this.state === 'win'); if (this.net) Net.send({ t: 'end', winTeam: this.pvp ? (this.winTeam ?? (r.win ? 0 : 1)) : undefined, win: r.win, rank: r.rank, time: r.time, ko: r.ko, maxCombo: r.maxCombo, offKO: r.offKO, caps: r.caps, missions: r.missions, wave: r.wave, exp: r.exp, gold: r.gold }); this.cfg.onEnd(r); } }
     if (play) this.time += dt;
+    if (play && this.pvp) {
+      if ((this._objT = (this._objT || 0) - dt) <= 0) { this._objT = 1; this._objective(); }
+      if (this.time >= this.pvpLimit) this._pvpEnd(this.score[0] === this.score[1] ? -1 : this.score[0] > this.score[1] ? 0 : 1);
+      if (this.pRespawn > 0 && (this.pRespawn -= dt) <= 0) this._respawnPlayer();
+    }
     this.horde.rebuild();
     const F = this.fighters;
     for (let i = 0; i < F.length; i++) F[i].update(dt);
@@ -665,13 +695,14 @@ export class Battle {
         const main = this.bases.find((b) => b.main && b.team === 0);
         if (main) { const f = this._allyHero(HERO[r.id], main.x + rnd(-3, 3), main.z + 4); this._assign(f); this.ui.say(f.name, '待たせたな、戦線に復帰する!'); Voice.play(Voice.idFor(f), 'back', { force: true }); }
       }
-      if (this.p2Respawn > 0) { this.p2Respawn -= dt; if (this.p2Respawn <= 0) { const main = this.bases.find((b) => b.main && b.team === 0) || this.player; this.p2 = this._makeP2(main.x + rnd(-2, 2), main.z + 4); this.ui.say(this.p2.name, '待たせた、戦線に戻る!'); } }
+      for (const w of this.respawns) { w.t -= dt; if (w.t <= 0) { const main = this.bases.find((b) => b.main && b.team === 0) || this.player; const tb = this.pvp && w.m.team === 1 ? this.bases.find((b) => b.main && b.orig === 1) : null; const r = this._makeRemote(w.m, w.i, tb ? tb.x + rnd(-2, 2) : main.x + rnd(-2, 2), tb ? tb.z - 4 : main.z + 4); if (r) { this.remotes.push(r); this.ui.say(r.name, '待たせた、戦線に戻る!'); } } }
+      this.respawns = this.respawns.filter((w) => w.t > 0);
       if (this.comboT > 0) { this.comboT -= dt; if (this.comboT <= 0) this.combo = 0; }
       // 注目対象(近くの敵将)
       this.focusT -= dt;
       if (this.focusT <= 0) {
         this.focusT = 0.25; let best = null, bd = 22 * 22; const p = this.player;
-        for (const f of F) { if (f.team === 0 || !f.alive) continue; const dx = f.x - p.x, dz = f.z - p.z, d2 = (dx * dx + dz * dz) * (f.boss ? 0.5 : 1); if (d2 < bd) { bd = d2; best = f; } }
+        for (const f of F) { if (f.team === p.team || !f.alive) continue; const dx = f.x - p.x, dz = f.z - p.z, d2 = (dx * dx + dz * dz) * (f.boss ? 0.5 : 1); if (d2 < bd) { bd = d2; best = f; } }
         this.focus = best;
         this.curBase = null; for (const b of this.bases) { const dx = b.x - p.x, dz = b.z - p.z; if (dx * dx + dz * dz < (b.R + 2) * (b.R + 2)) { this.curBase = b; break; } }
         if (best && best.boss && !best.sealed && !this.bossBgm) { this.bossBgm = true; Audio.bgm('boss'); this.ui.say(best.name, 'よくぞここまで来た。だが、ここが貴様の墓場だ。'); Voice.play(Voice.idFor(best), 'intro', { force: true }); }
@@ -706,7 +737,8 @@ export class Battle {
     for (let i = F.length - 1; i >= 0; i--) if (F[i].gone && F[i] !== this.player) { F[i].dispose(); F.splice(i, 1); }
     // 近くの敵将に名札(HUD用)
     const p = this.player; let best = null, bd = 22 * 22;
-    for (const f of F) { if (f.team === 0 || !f.alive) continue; const dx = f.x - p.x, dz = f.z - p.z, d2 = dx * dx + dz * dz; if (d2 < bd) { bd = d2; best = f; } }
+    for (const f of F) { if (f.team === p.team || !f.alive) continue; const dx = f.x - p.x, dz = f.z - p.z, d2 = dx * dx + dz * dz; if (d2 < bd) { bd = d2; best = f; } }
+    if (this.pvp && N.snap && N.snap.G.score) { this.score = N.snap.G.score; if ((this._objT = (this._objT || 0) - dt) <= 0) { this._objT = 1; this._objective(); } }
     this.focus = best;
     this.curBase = null; for (const b of this.bases) { const dx = b.x - p.x, dz = b.z - p.z; if (dx * dx + dz * dz < (b.R + 2) * (b.R + 2)) { this.curBase = b; break; } }
     this.horde._write();
@@ -718,7 +750,15 @@ export class Battle {
     GFX.desat = damp(GFX.desat, this.state === 'lose' ? 0.85 : 0, 3, dtR);
     this.ui.hud(this);
   }
+  // 対戦で倒された自分を本拠に戻す
+  _respawnPlayer() {
+    const old = this.player, h = HERO[old.heroId], S = old.S || calcStats(this.save, h.id), main = this.bases.find((b) => b.main && b.team === 0) || this.stage.nodes[this.def.start];
+    const p = this._add({ player: true, hero: true, heroId: h.id, team: 0, name: h.name, look: h.look, wtype: h.wtype, tier: S.tier, ms: h.ms || h.id, elem: h.elem,
+      hp: S.hp, atk: S.atk, def: S.def, spd: S.spd, aspd: S.aspd, stats: S, heavy: h.heavy, x: main.x + rnd(-2, 2), z: main.z + 4, yaw: 0 });
+    this.player = p; Voice.play(Voice.idFor(p), 'back', { force: true });
+  }
   _guestResult(d) {
+    if (this.pvp && d.winTeam !== undefined) d = { ...d, win: d.winTeam === this.myTeam };
     const h = HERO[this.player.heroId], S = this.player.S || calcStats(this.save, h.id);
     const loot = d.win ? [this._lootWeapon(d.rank === 'S' ? 3 : d.rank === 'A' ? 2 : 1)] : [];
     return { win: d.win, endless: this.endless, stage: this.def, diff: this.diff, heroId: h.id, rank: d.rank, time: d.time, ko: d.ko, maxCombo: d.maxCombo, dmgTaken: 0, hpRate: 0,

@@ -9,7 +9,7 @@ import { GFX } from './gfx.js';
 import { $, $$, el, fmtTime, clamp } from './util.js';
 import { Story, STORY } from './story.js';
 import { Voice } from './voice.js';
-import { Net } from './net.js';
+import { Net, MAX_PLAYERS, MAX_PVP, sanitizeMember } from './net.js';
 import { CREDITS } from './voicedata.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -73,18 +73,25 @@ export const UI = {
         if (sc && sc.pre && !S.story[k]) { this.show('scene'); Story.play(sc.pre, sel.hero, () => { S.story[k] = 1; Save.persist(false); this.app.startBattle(sel); }); break; }
         this.app.startBattle(sel); break;
       }
-      case 'chost': Audio.sfx('ok'); this.coopInit(); Net.host(); this.r_coop(); break;
-      case 'cjoin': { const c = ($('#coop-code') || {}).value || ''; if (!/^\d{4}$/.test(c.trim())) { this.toast('4けたの部屋番号を入力してください'); Audio.sfx('deny'); break; } Audio.sfx('ok'); this.coopInit(); Net.join(c.trim()); this.r_coop(); break; }
+      case 'chost': Audio.sfx('ok'); this.coopInit(); Net.host(v === 'pvp' ? 'pvp' : 'coop'); this.r_coop(); break;
+      case 'cteam': { const sl = +v; if (Net.role !== 'host' || Net.mode !== 'pvp' || !this.coop) break; Audio.sfx('ui'); if (sl === 0) this.coop.hostTeam = 1 - (this.coop.hostTeam || 0); else { const m = this.coop.members.get(sl); if (m) m.team = 1 - m.team; } this.coopRoster(); break; }
+      case 'cjoin': { const c = ($('#coop-code') || {}).value || ''; if (!/^[A-Za-z0-9]{6}$/.test(c.trim())) { this.toast('6文字の部屋番号を入力してください'); Audio.sfx('deny'); break; } Audio.sfx('ok'); this.coopInit(); Net.join(c.trim()); this.r_coop(); break; }
       case 'cleave': Audio.sfx('back'); Net.close(); this.coop = null; this.r_coop(); break;
+      case 'ckick': { const sl = +v; if (Net.role === 'host' && sl > 0) { Net.sendTo(sl, { t: 'kicked' }); const c = Net.conns.get(sl); setTimeout(() => { try { c && c.close(); } catch (_) { /* noop */ } }, 300); } break; }
       case 'chero': if (!S.unlockedHeroes.includes(v)) { Audio.sfx('deny'); break; } Audio.sfx('ui'); sel.hero = v; this.app.lobbyHero(v); this.coopHello(); this.r_coop(); break;
       case 'cstage': Audio.sfx('ui'); sel.stage = v; this.r_coop(); break;
       case 'cdiff': Audio.sfx('ui'); sel.diff = +v; this.r_coop(); break;
       case 'cstart': {
-        const P = this.coop && this.coop.partner;
-        if (!Net.connected || !P) { Audio.sfx('deny'); break; }
+        const mem = this.coop ? [...this.coop.members.values()] : [];
+        if (!Net.connected || !mem.length) { Audio.sfx('deny'); break; }
+        const pvp = Net.mode === 'pvp', ht = this.coop.hostTeam || 0;
+        if (pvp && (mem.every((m) => m.team === ht))) { this.toast('蒼軍と紅軍に1人以上ずつ分けてください'); Audio.sfx('deny'); break; }
         Audio.sfx('ok'); S.last = { ...sel }; Save.persist(false);
-        Net.send({ t: 'start', stage: sel.stage, diff: sel.diff });
-        this.app.startBattle({ ...sel }, { coop: { hero: P.hero, stats: P.stats, name: P.name } });
+        Net.locked = true;
+        // ホストは常に蒼軍として動かす(紅軍を選んだ時は全員の陣営を入れ替える)
+        const sw = (t) => (ht === 1 ? 1 - t : t), list = mem.map((m) => ({ ...m, team: sw(m.team) }));
+        Net.send({ t: 'start', stage: sel.stage, diff: sel.diff, mode: Net.mode, teams: Object.fromEntries(list.map((m) => [m.slot, m.team])) });
+        this.app.startBattle({ ...sel }, pvp ? { pvp: { members: list } } : { coop: { members: mem } });
         break;
       }
       case 'replay': {
@@ -117,7 +124,7 @@ export const UI = {
       case 'retire': Audio.sfx('back'); this.app.retire(); break;
       case 'csave': Cloud.push().then(() => { this.toast(Save.cloudState); if (this.cur === 'settings') this.r_settings(); }); this.toast('クラウドへ保存中…'); break;
       case 'cload': this.app.cloudRestore($('#restore-id') ? $('#restore-id').value.trim() : ''); break;
-      case 'copyid': if (navigator.clipboard) navigator.clipboard.writeText(S.id).then(() => this.toast('引き継ぎコードをコピーしました')); break;
+      case 'copyid': if (navigator.clipboard) navigator.clipboard.writeText(Cloud.code()).then(() => this.toast('引き継ぎコードをコピーしました')); break;
       case 'reset': this.confirm('すべてのセーブデータを消去します。よろしいですか?', () => { Save.reset(); this.sel = { ...Save.data.last }; this.app.lobbyHero(this.sel.hero); this.toast('データを初期化しました'); this.show('home'); }); break;
       case 'mok': { const f = this._mok; this.closeModal(); if (f) f(); break; }
       case 'mno': this.closeModal(); break;
@@ -226,7 +233,7 @@ export const UI = {
 
   // ================= 各画面 =================
   r_title() {
-    this.html('title', `<div class="logo">${GAME_TITLE}</div><div class="logo-sub">${GAME_SUB}</div><div class="tap">画面をタップして開始</div><div class="ver">音楽:魔王魂(CC BY 4.0) ／ 音声:${CREDITS} ／ ver ${VERSION}</div>${this.installBtn('inst-title')}`);
+    this.html('title', `<div class="logo">${GAME_TITLE}</div><div class="logo-sub">${GAME_SUB}</div><div class="tap">画面をタップして開始</div><div class="ver">音楽:魔王魂(CC BY 4.0) ／ 音声:${CREDITS} ／ 武器3D:Meshy(CC BY 4.0) ／ ver ${VERSION}</div>${this.installBtn('inst-title')}`);
     $('#s-title').dataset.a = 'start';
   },
   r_home() {
@@ -236,7 +243,7 @@ export const UI = {
         <button class="mbtn main" data-a="go" data-v="stage">出撃<small>章を選んで戦いへ</small></button>
         <button class="mbtn" ${Save.stageCleared('s1') ? 'data-a="go" data-v="endless"' : 'style="opacity:.45"'}>星海の試練<small>${Save.stageCleared('s1') ? `最高 ${S.endless.ko}人撃破 / 第${S.endless.wave}波` : '第一章クリアで解放'}</small></button>
         <button class="mbtn" data-a="go" data-v="armory">装備<small>武器の装備・強化・錬成</small></button>
-        <button class="mbtn" data-a="go" data-v="coop">協力プレイ<small>友だちと2人でオンライン共闘</small></button>
+        <button class="mbtn" data-a="go" data-v="coop">オンライン<small>最大4人で協力 ／ 4対4で対戦</small></button>
         <button class="mbtn" data-a="go" data-v="story">物語<small>オープニング・各章の物語</small></button>
         <button class="mbtn" data-a="go" data-v="ach">称号<small>${Object.keys(S.ach).length} / ${ACHIEVEMENTS.length} 達成</small></button>
         <button class="mbtn" data-a="go" data-v="rank">ランキング<small>全国ランキング</small></button>
@@ -305,40 +312,65 @@ export const UI = {
   },
   // ---------- 協力プレイ ----------
   coopInit() {
-    this.coop = { partner: null };
+    // members: ホストが持つ参加者(slot→情報) / roster: 全員に配る名簿(ホストを含む)
+    this.coop = { members: new Map(), roster: [], hostTeam: 0 };
     Net.onStatus = (s, info) => {
       if (s === 'connected') { Audio.sfx('ok'); this.coopHello(); }
-      if (s === 'closed' && this.coop) { this.coop.partner = null; if (this.cur !== 'coop' && this.app.mode !== 'battle') this.toast('相手との接続が切れました'); }
-      if (s === 'error') this.toast(info === 'nocode' ? 'その部屋は見つかりませんでした' : '通信エラー: ' + info);
+      if (s === 'closed' && this.coop) { this.coop.roster = []; if (this.cur !== 'coop' && this.app.mode !== 'battle') this.toast('部屋との接続が切れました'); }
+      if (s === 'error') this.toast(info === 'nocode' ? 'その部屋は見つかりませんでした' : info === 'full' ? 'その部屋は満員か、すでに出撃しています' : '通信エラー: ' + info);
       if (this.cur === 'coop') this.r_coop();
     };
-    Net.on('hello', (d) => { if (!this.coop) return; this.coop.partner = d; if (this.cur === 'coop') this.r_coop(); });
+    // ホスト: 参加者の自己紹介を受けて名簿を配る(届いた値は範囲を確かめる)
+    Net.on('hello', (d, slot) => {
+      if (!this.coop || Net.role !== 'host' || !slot) return;
+      const old = this.coop.members.get(slot), m = sanitizeMember({ ...d, slot }, HERO); if (!m) return;
+      // 対戦では新しく来た人を人数の少ない陣営へ
+      if (old) m.team = old.team; else { const all = [...this.coop.members.values()], c1 = all.filter((x) => x.team === 1).length + ((this.coop.hostTeam || 0) === 1 ? 1 : 0); m.team = c1 < all.length + 1 - c1 ? 1 : 0; }
+      this.coop.members.set(slot, m); this.coopRoster();
+    });
+    Net.on('leave', (d, slot) => { if (!this.coop) return; this.coop.members.delete(slot); this.coopRoster(); });
+    Net.on('roster', (d) => { if (!this.coop || Net.role !== 'guest' || !Array.isArray(d.list)) return; this.coop.mode = d.mode === 'pvp' ? 'pvp' : 'coop'; this.coop.roster = d.list.slice(0, MAX_PVP).map((x) => ({ slot: x.slot | 0, name: String(x.name || '').slice(0, 16), hero: HERO[x.hero] ? x.hero : '', team: x.team === 1 ? 1 : 0 })); if (this.cur === 'coop') this.r_coop(); });
+    Net.on('kicked', () => { this.toast('部屋から退出しました'); Net.close(); this.coop = null; if (this.cur === 'coop') this.r_coop(); });
     Net.on('start', (d) => {
       if (Net.role !== 'guest') return;
       const sel = this.sel; sel.stage = d.stage; sel.diff = d.diff;
-      this.app.startBattle({ ...sel }, { guest: true });
+      if (!STAGE[d.stage] || !(d.diff >= 0 && d.diff < DIFFS.length)) return;
+      const pvp = d.mode === 'pvp', team = pvp && d.teams && d.teams[Net.slot] === 1 ? 1 : 0;
+      this.app.startBattle({ ...sel }, pvp ? { guest: true, pvp: { members: [] }, pvpTeam: team } : { guest: true });
     });
   },
-  coopHello() { const S = Save.data, h = this.sel.hero; Net.send({ t: 'hello', name: S.name, hero: h, stats: calcStats(S, h) }); },
+  coopHello() {
+    const S = Save.data, h = this.sel.hero;
+    if (Net.role === 'host') { this.coopRoster(); return; }
+    const st = calcStats(S, h); Net.send({ t: 'hello', name: S.name, hero: h, stats: { ...st, weapon: null } });
+  },
+  coopRoster() {
+    if (!this.coop || Net.role !== 'host') return;
+    const S = Save.data, list = [{ slot: 0, name: S.name, hero: this.sel.hero, team: this.coop.hostTeam || 0 }, ...[...this.coop.members.values()].map((m) => ({ slot: m.slot, name: m.name, hero: m.hero, team: m.team }))];
+    this.coop.roster = list; this.coop.mode = Net.mode; Net.send({ t: 'roster', list, mode: Net.mode });
+    if (this.cur === 'coop') this.r_coop();
+  },
   r_coop() {
-    const S = Save.data, sel = this.sel, st = Net.status, role = Net.role, P = this.coop && this.coop.partner;
+    const S = Save.data, sel = this.sel, st = Net.status, role = Net.role, R = (this.coop && this.coop.roster) || [];
     let body;
     if (!role) {
-      body = `<div class="panel"><h3>友だちと2人で共闘</h3><p>片方が「部屋を作る」で出た4けたの番号を、もう片方が入力して参加します。通信は端末どうしの直接接続で、料金はかかりません。</p>
+      body = `<div class="panel"><h3>友だちと最大${MAX_PLAYERS}人で共闘 ／ 最大4対4で対戦</h3><p>部屋を作った人に出る6文字の部屋番号を、ほかの人が入力して参加します。通信は端末どうしの直接接続で、料金はかかりません。</p>
         <p class="dim-t">※ 回線によってはつながらない場合があります(Wi-Fi同士がおすすめ)。</p></div>
-        <div class="row" style="gap:10px;flex-wrap:wrap"><button class="pbtn" data-a="chost">部屋を作る</button>
-        <input id="coop-code" type="tel" maxlength="4" placeholder="部屋番号" style="width:7em;font-size:18px;text-align:center"><button class="sbtn" data-a="cjoin">部屋に入る</button></div>`;
+        <div class="row" style="gap:10px;flex-wrap:wrap"><button class="pbtn" data-a="chost" data-v="coop">協力の部屋を作る</button><button class="pbtn" data-a="chost" data-v="pvp">対戦の部屋を作る</button>
+        <input id="coop-code" type="text" autocapitalize="characters" autocomplete="off" maxlength="6" placeholder="部屋番号" style="width:8em;text-transform:uppercase;font-size:18px;text-align:center"><button class="sbtn" data-a="cjoin">部屋に入る</button></div>`;
     } else {
-      const msg = st === 'wait' ? `部屋番号 <b style="font-size:2em;letter-spacing:.2em;color:var(--gold)">${Net.code}</b><br>相手にこの番号を伝えてください。参加を待っています…`
-        : st === 'connecting' ? '部屋に接続しています…' : st === 'connected' ? (P ? `<b>${esc(P.name)}</b> さんと接続しました(${esc(HERO[P.hero] ? HERO[P.hero].name : '')})` : '接続しました。相手の情報を待っています…')
+      const msg = st === 'wait' ? `部屋番号 <b style="font-size:2em;letter-spacing:.2em;color:var(--gold)">${Net.code}</b><br>仲間にこの番号を伝えてください。参加を待っています…`
+        : st === 'connecting' ? '部屋に接続しています…' : st === 'connected' ? (role === 'host' ? `部屋番号 <b style="color:var(--gold)">${Net.code}</b> ／ あと${Net.max - R.length}人参加できます` : '部屋に参加しました')
         : st === 'closed' ? '接続が切れました' : st === 'error' ? 'つながりませんでした。番号を確かめてもう一度お試しください' : '準備中…';
       const heroes = HEROES.filter((x) => S.unlockedHeroes.includes(x.id)).map((x) => `<button class="tab ${x.id === sel.hero ? 'on' : ''}" data-a="chero" data-v="${x.id}">${x.name}</button>`).join('');
       const stages = role === 'host' ? `<h3>章と難易度(部屋を作った人が決めます)</h3><div class="tabs" style="flex-wrap:wrap">${[...STAGES.filter((s, i) => this.stageOpen(i)), ENDLESS].map((s) => `<button class="tab ${s.id === sel.stage ? 'on' : ''}" data-a="cstage" data-v="${s.id}">${s.no} ${s.name}</button>`).join('')}</div>
         <div class="tabs">${DIFFS.map((x, i) => `<button class="tab ${i === sel.diff ? 'on' : ''} ${this.diffOpen(i) ? '' : 'lock'}" ${this.diffOpen(i) ? `data-a="cdiff" data-v="${i}"` : ''} style="color:${x.col}">${x.n}</button>`).join('')}</div>` : '<p class="dim-t">章と難易度は部屋を作った人が決めます。</p>';
-      body = `<div class="panel scroll" style="flex:1"><p>${msg}</p><h3>自分の星牙使い</h3><div class="tabs" style="flex-wrap:wrap">${heroes}</div>${stages}</div>
-        <div class="row"><button class="sbtn" data-a="cleave">部屋を出る</button><div style="flex:1"></div>${role === 'host' ? `<button class="pbtn" data-a="cstart" ${Net.connected && P ? '' : 'disabled'}>出 撃</button>` : '<span class="dim-t">部屋を作った人の出撃を待っています</span>'}</div>`;
+      const pvpRoom = (this.coop && this.coop.mode) === 'pvp' || (role === 'host' && Net.mode === 'pvp');
+      const roster = R.length ? `<h3>${pvpRoom ? '対戦' : '協力'}の部屋(${R.length}/${pvpRoom ? MAX_PVP : MAX_PLAYERS})${pvpRoom ? ' ／ 本拠を落とすか、5分後の得点で勝敗' : ''}</h3><div class="tabs" style="flex-wrap:wrap">${R.map((m) => `<span class="tab on" ${pvpRoom ? `style="border-color:${m.team ? '#ff5a4a' : '#4aa8ff'}"` : ''}>${pvpRoom ? (role === 'host' ? `<button class="sbtn" style="padding:2px 8px;font-size:11px" data-a="cteam" data-v="${m.slot}">${m.team ? '紅軍' : '蒼軍'}</button> ` : (m.team ? '[紅軍] ' : '[蒼軍] ')) : ''}${m.slot === 0 ? '👑 ' : ''}${esc(m.name)}(${esc(HERO[m.hero] ? HERO[m.hero].name : '?')})${role === 'host' && m.slot ? ` <button class="sbtn" style="padding:2px 8px;font-size:11px" data-a="ckick" data-v="${m.slot}">退出させる</button>` : ''}</span>`).join('')}</div>` : '';
+      body = `<div class="panel scroll" style="flex:1"><p>${msg}</p>${roster}<h3>自分の星牙使い</h3><div class="tabs" style="flex-wrap:wrap">${heroes}</div>${stages}</div>
+        <div class="row"><button class="sbtn" data-a="cleave">部屋を出る</button><div style="flex:1"></div>${role === 'host' ? `<button class="pbtn" data-a="cstart" ${Net.connected && R.length > 1 ? '' : 'disabled'}>出 撃</button>` : '<span class="dim-t">部屋を作った人の出撃を待っています</span>'}</div>`;
     }
-    this.html('coop', `${this.head('協力プレイ', 'home')}<div style="flex:1;display:flex;flex-direction:column;gap:10px;max-width:760px;width:100%;margin:0 auto;min-height:0">${body}</div>`, true);
+    this.html('coop', `${this.head('オンライン', 'home')}<div style="flex:1;display:flex;flex-direction:column;gap:10px;max-width:760px;width:100%;margin:0 auto;min-height:0">${body}</div>`, true);
   },
   r_story() {
     const S = Save.data, items = [['op', 'オープニング', '星牙と覇星帝の物語のはじまり', true]];
@@ -386,10 +418,10 @@ export const UI = {
       <label>振動</label><input type="checkbox" ${s.vibe ? 'checked' : ''} data-s="vibe" style="justify-self:start;width:22px;height:22px">
       <label>FPS表示</label><input type="checkbox" ${s.fps ? 'checked' : ''} data-s="fps" style="justify-self:start;width:22px;height:22px">
       <h3 class="full" style="margin-top:8px">スプレッドシート連携(クラウド保存)</h3>
-      <p class="full note">セーブデータは常にこの端末に保存されます。Google Apps Script のURLを設定すると、Googleスプレッドシートにも自動保存され、別の端末へ引き継ぎ・ランキング参加ができます(設定手順は README.md)。</p>
+      <p class="full note">引き継ぎコードは合言葉を兼ねています。他人に教えないでください(知られるとデータを上書きされます)。セーブデータは常にこの端末に保存されます。Google Apps Script のURLを設定すると、Googleスプレッドシートにも自動保存され、別の端末へ引き継ぎ・ランキング参加ができます(設定手順は README.md)。</p>
       <label>連携URL</label><input type="text" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(s.cloudUrl)}" data-s="cloudUrl">
       <label>状態</label><div>${on ? '<b style="color:#9dff9d">連携中</b> ' + esc(Save.cloudState) : '<span class="dim-t">未設定</span>'}</div>
-      <label>引き継ぎコード</label><div class="row"><span class="code">${S.id}</span><button class="sbtn" data-a="copyid">コピー</button></div>
+      <label>引き継ぎコード</label><div class="row"><span class="code" style="word-break:break-all">${Cloud.code()}</span><button class="sbtn" data-a="copyid">コピー</button></div>
       ${on ? `<label>今すぐ</label><div class="row"><button class="sbtn" data-a="csave">クラウドへ保存</button></div>
       <label>データ復元</label><div class="row"><input type="text" id="restore-id" placeholder="引き継ぎコードを入力" style="flex:1;min-width:8em"><button class="sbtn" data-a="cload">読み込む</button></div>` : ''}
       <h3 class="full" style="margin-top:8px">操作方法</h3>

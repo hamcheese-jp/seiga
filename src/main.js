@@ -10,6 +10,8 @@ import { STAGE, HEROES, HERO } from './data.js';
 import { preloadVrm, probeVrm, VRM_KEYS } from './vrmchar.js';
 import { preloadSoldier } from './vat.js';
 import { preloadNature } from './nature.js';
+import { preloadWeapons } from './weaponglb.js';
+import { Net } from './net.js';
 import { Story, STORY } from './story.js';
 import { Voice, VOICES } from './voice.js';
 import { BOSS_VOICE } from './voicedata.js';
@@ -26,6 +28,7 @@ const App = {
     UI.init(this);
     probeVrm(); Voice.init();
     this.lobby = new Lobby(); this.lobby.setHero(UI.sel.hero);
+    preloadWeapons().then(() => { if (this.lobby) this.lobby.setHero(UI.sel.hero, true); });
     UI.show('title');
     const boot = document.getElementById('boot');
     boot.classList.add('out'); setTimeout(() => boot.remove(), 700);
@@ -62,7 +65,7 @@ const App = {
         // VRMは自分の武将・敵将・その章のボスだけ先読み(味方武将などは合戦中に順次読み込む)
         const st = STAGE[sel.stage] || {}, need = [(HERO[sel.hero] && HERO[sel.hero].vrm) || sel.hero, 'enemyOfficer', ...(st.officers || []).filter((o) => o.boss && o.look).map((o) => o.look)].filter((k) => VRM_KEYS.includes(k) || /^boss/.test(k));
         Audio.resume(); Voice.preload([sel.hero, 'officer', ...(st.officers || []).filter((o) => o.boss && o.look).map((o) => BOSS_VOICE[o.look])], (st.events || []).filter((e) => e.say).map((e) => e.say[1]));
-        await Promise.race([Promise.all([preloadVrm(need), preloadSoldier(), preloadNature()]), new Promise((r) => setTimeout(r, 15000))]);
+        await Promise.race([Promise.all([preloadVrm(need), preloadSoldier(), preloadNature(), preloadWeapons()]), new Promise((r) => setTimeout(r, 15000))]);
         try {
           if (this.battle) { this.battle.dispose(); this.battle = null; }
           if (this.lobby) { this.lobby.dispose(); this.lobby = null; }
@@ -77,7 +80,7 @@ const App = {
   },
   endBattle(r) {
     r.out = Save.applyResult(r); UI.lastResult = r;
-    if (Cloud.enabled() && !r.coop && !(this.battle && this.battle.p2)) {
+    if (Cloud.enabled() && !r.coop && !(this.battle && this.battle.remotes && this.battle.remotes.length)) {
       if (r.endless) Cloud.score('endless', { hero: r.heroId, ko: r.ko, time: Math.round(r.time), rank: '第' + r.wave + '波', score: r.ko + r.wave * 100 });
       else if (r.win) Cloud.score(r.stage.id + '_' + r.diff.id, { hero: r.heroId, ko: r.ko, time: Math.round(r.time), rank: r.rank, score: Math.round(r.ko * 10 + r.maxCombo * 2 + Math.max(0, r.stage.par * 2 - r.time) * 5) });
     }
@@ -93,6 +96,7 @@ const App = {
   toMenu(screen) {
     if (this.battle) { this.battle.dispose(); this.battle = null; }
     this.mode = 'menu'; this.paused = false;
+    Net.locked = false;
     UI.clearFx();
     if (!this.lobby) { this.lobby = new Lobby(); this.lobby.setHero(UI.sel.hero); }
     UI.show(screen);
