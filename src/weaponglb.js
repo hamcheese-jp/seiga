@@ -4,10 +4,10 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
 
-// len: 全長(m) / grip: 下端から柄の中心までの割合 / trail: 軌跡を描く範囲(刃先側の割合)
+// len: 全長(m) / grip: 下端から柄の中心までの割合 / trail: 軌跡を描く範囲(刃先側の割合) / trim: 柄の下端を切り落とす割合
 const DEF = {
   sword: { len: 1.36, grip: 0.1, trail: 0.3 },
-  twin: { len: 1.0, grip: 0.1, trail: 0.3 },
+  twin: { len: 1.05, grip: 0.19, trim: 0.12, trail: 0.5 },   // 柄が長すぎるので下12%を切り落とす
   spear: { len: 2.9, grip: 0.3, trail: 0.7 },
   hammer: { len: 2.0, grip: 0.2, trail: 0.62 },
 };
@@ -29,6 +29,7 @@ function prep(scene, d) {
   scene.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(scene), h = Math.max(0.01, box.max.y - box.min.y), k = d.len / h;
   scene.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.userData.shared = true; } });
+  if (d.trim) trimBottom(scene, box.min.y + h * d.trim);
   const top = (1 - d.grip) * d.len;
   return {
     scene, d, top,
@@ -36,6 +37,20 @@ function prep(scene, d) {
     off: new THREE.Vector3(-(box.min.x + box.max.x) / 2, -(box.min.y + h * d.grip), -(box.min.z + box.max.z) / 2),
     k, mats: new Map(),
   };
+}
+
+// 指定の高さより下にある三角形を取り除く(長すぎる柄を短くする)
+function trimBottom(scene, cutY) {
+  const v = new THREE.Vector3();
+  scene.traverse((o) => {
+    if (!o.isMesh) return;
+    const g = o.geometry.clone(), pos = g.attributes.position;
+    const below = new Uint8Array(pos.count);
+    for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld); below[i] = v.y < cutY ? 1 : 0; }
+    const src = g.index ? g.index.array : Array.from({ length: pos.count }, (_, i) => i), keep = [];
+    for (let i = 0; i < src.length; i += 3) { const a = src[i], b = src[i + 1], c = src[i + 2]; if (!(below[a] && below[b] && below[c])) keep.push(a, b, c); }
+    g.setIndex(keep); o.geometry = g;
+  });
 }
 
 // レア度と属性色で光り方を変えた材質(同じ組み合わせは使い回す)
