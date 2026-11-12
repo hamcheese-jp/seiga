@@ -16,6 +16,9 @@
  */
 const SHEET_SAVE = 'saves';
 const SHEET_RANK = 'ranking';
+const SHEET_ROOM = 'rooms';
+const ROOM_HEAD = ['code', 'mode', 'n', 'max', 'updated'];
+const ROOM_TTL = 45000;
 const SAVE_HEAD = ['id', 'name', 'updated', 'level', 'totalKO', 'gold', 'weapons', 'chunks', 'data1', 'data2', 'data3', 'data4', 'data5', 'data6', 'keyhash'];
 const KEY_COL = 15;
 const RANK_HEAD = ['board', 'id', 'name', 'hero', 'score', 'ko', 'time', 'rank', 'date'];
@@ -60,6 +63,7 @@ function doGet(e) {
   try {
     const p = (e && e.parameter) || {};
     if (p.action === 'load') return out_(load_(p.id, p.key));
+    if (p.action === 'rooms') return out_(rooms_(String(p.mode || '')));
     if (p.action === 'rank') return out_(rank_(String(p.board || ''), Math.min(100, Number(p.n) || 30)));
     return out_({ ok: true, msg: 'SEIGA cloud is running' });
   } catch (err) {
@@ -75,6 +79,7 @@ function doPost(e) {
     try {
       if (b.action === 'save') return out_(save_(b));
       if (b.action === 'score') return out_(score_(b));
+      if (b.action === 'room') return out_(room_(b));
       return out_({ ok: false, error: 'unknown action' });
     } finally {
       lock.releaseLock();
@@ -150,6 +155,32 @@ function score_(b) {
   }
   sh.getRange(r, 1, 1, row.length).setValues([row]);
   return { ok: true, best: true };
+}
+
+// 公開部屋の登録・更新・削除(close: true で削除)
+function room_(b) {
+  const code = String(b.code || '');
+  if (!/^[A-Z0-9]{6}$/.test(code)) return { ok: false, error: 'bad code' };
+  const sh = sheet_(SHEET_ROOM, ROOM_HEAD), now = Date.now();
+  // 古い部屋を掃除
+  const last = sh.getLastRow();
+  if (last >= 2) { const v = sh.getRange(2, 1, last - 1, 5).getValues(); for (let i = v.length - 1; i >= 0; i--) if (now - Number(v[i][4]) > ROOM_TTL * 4) sh.deleteRow(i + 2); }
+  const r = findRow_(sh, code);
+  if (b.close) { if (r > 0) sh.deleteRow(r); return { ok: true }; }
+  const mode = b.mode === 'pvp' ? 'pvp' : 'coop', max = mode === 'pvp' ? 8 : 4, n = Math.max(1, Math.min(max, Number(b.n) || 1));
+  const row = [code, mode, n, max, now];
+  if (r > 0) sh.getRange(r, 1, 1, 5).setValues([row]);
+  else { if (sh.getLastRow() >= 500) return { ok: false, error: 'full' }; sh.appendRow(row); }
+  return { ok: true };
+}
+function rooms_(mode) {
+  const sh = sheet_(SHEET_ROOM, ROOM_HEAD), last = sh.getLastRow(), now = Date.now();
+  if (last < 2) return { ok: true, rooms: [] };
+  const rows = sh.getRange(2, 1, last - 1, 5).getValues()
+    .filter(function (v) { return v[1] === mode && now - Number(v[4]) < ROOM_TTL && Number(v[2]) < Number(v[3]); })
+    .sort(function (a, b) { return b[2] - a[2]; })      // 人の多い部屋から
+    .slice(0, 8).map(function (v) { return { code: String(v[0]), n: Number(v[2]) }; });
+  return { ok: true, rooms: rows };
 }
 
 function rank_(board, n) {

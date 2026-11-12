@@ -1,6 +1,6 @@
 // 画面UI: 合戦HUD・演出テロップ・各メニュー画面(DOM)
 import { Save, Cloud } from './save.js';
-import { HEROES, HERO, ELEMENTS, STAGES, ENDLESS, STAGE, DIFFS, RARITY, RAR_MAXLV, traitText, weaponName, weaponAtk, forgeCost, sellPrice, GACHA_COST, rollWeapon, calcStats, expNeed,
+import { HEROES, HERO, ELEMENTS, STAGES, ENDLESS, STAGE, DIFFS, RARITY, RAR_MAXLV, traitText, weaponName, weaponAtk, synthInfo, doSynth, SYN_MAX, starterWeapon, forgeCost, sellPrice, GACHA_COST, rollWeapon, calcStats, expNeed,
   ACHIEVEMENTS, STAR_LABELS, UNLOCKS, FOE_UNLOCKS, GAME_TITLE, GAME_SUB, MAX_LV, maxNormals, maxCharges } from './data.js';
 import { VERSION } from './config.js';
 import { Install } from './install.js';
@@ -74,18 +74,21 @@ export const UI = {
         this.app.startBattle(sel); break;
       }
       case 'chost': Audio.sfx('ok'); this.coopInit(); Net.host(v === 'pvp' ? 'pvp' : 'coop'); this.r_coop(); break;
+      case 'crandom': this.randomMatch(); break;
+      case 'ccpu': Audio.sfx('ok'); S.last = { ...sel }; Save.persist(false); this.app.startBattle({ ...sel }, { pvp: { members: [] } }); break;
       case 'cteam': { const sl = +v; if (Net.role !== 'host' || Net.mode !== 'pvp' || !this.coop) break; Audio.sfx('ui'); if (sl === 0) this.coop.hostTeam = 1 - (this.coop.hostTeam || 0); else { const m = this.coop.members.get(sl); if (m) m.team = 1 - m.team; } this.coopRoster(); break; }
       case 'cjoin': { const c = ($('#coop-code') || {}).value || ''; if (!/^[A-Za-z0-9]{6}$/.test(c.trim())) { this.toast('6文字の部屋番号を入力してください'); Audio.sfx('deny'); break; } Audio.sfx('ok'); this.coopInit(); Net.join(c.trim()); this.r_coop(); break; }
-      case 'cleave': Audio.sfx('back'); Net.close(); this.coop = null; this.r_coop(); break;
+      case 'cleave': Audio.sfx('back'); this.coopPublic(false); Net.close(); this.coop = null; this.r_coop(); break;
       case 'ckick': { const sl = +v; if (Net.role === 'host' && sl > 0) { Net.sendTo(sl, { t: 'kicked' }); const c = Net.conns.get(sl); setTimeout(() => { try { c && c.close(); } catch (_) { /* noop */ } }, 300); } break; }
       case 'chero': if (!S.unlockedHeroes.includes(v)) { Audio.sfx('deny'); break; } Audio.sfx('ui'); sel.hero = v; this.app.lobbyHero(v); this.coopHello(); this.r_coop(); break;
       case 'cstage': Audio.sfx('ui'); sel.stage = v; this.r_coop(); break;
       case 'cdiff': Audio.sfx('ui'); sel.diff = +v; this.r_coop(); break;
       case 'cstart': {
         const mem = this.coop ? [...this.coop.members.values()] : [];
-        if (!Net.connected || !mem.length) { Audio.sfx('deny'); break; }
-        const pvp = Net.mode === 'pvp', ht = this.coop.hostTeam || 0;
-        if (pvp && (mem.every((m) => m.team === ht))) { this.toast('蒼軍と紅軍に1人以上ずつ分けてください'); Audio.sfx('deny'); break; }
+        const pvp = Net.mode === 'pvp', ht = (this.coop && this.coop.hostTeam) || 0;
+        // 対戦は1人でも出撃できる(空きはCPU)。協力は仲間が必要
+        if (!pvp && (!Net.connected || !mem.length)) { Audio.sfx('deny'); break; }
+        this.coopPublic(false);
         Audio.sfx('ok'); S.last = { ...sel }; Save.persist(false);
         Net.locked = true;
         // ホストは常に蒼軍として動かす(紅軍を選んだ時は全員の陣営を入れ替える)
@@ -101,8 +104,14 @@ export const UI = {
         else { const [s, p] = v.split('.'); Story.play(STORY[s][p], this.sel.hero, fin); }
         break;
       }
-      case 'ahero': Audio.sfx('ui'); this.armHero = v; this.armSel = null; this.app.lobbyHero(v); this.r_armory(); break;
-      case 'wsel': Audio.sfx('ui'); this.armSel = v; this.r_armory(); break;
+      case 'ahero': Audio.sfx('ui'); this.armHero = v; this.armSel = null; this.synBase = null; this.app.lobbyHero(v); this.r_armory(); break;
+      case 'wsel': {
+        // 合成の素材選び中: 選んだ武器を素材にする
+        if (this.synBase) { this.synthPick(v); break; }
+        Audio.sfx('ui'); this.armSel = v; this.r_armory(); break;
+      }
+      case 'synth': { const w = S.weapons.find((x) => x.uid === this.armSel); if (!w || (w.syn || 0) >= SYN_MAX) { Audio.sfx('deny'); break; } Audio.sfx('ui'); this.synBase = w.uid; this.r_armory(); break; }
+      case 'synthx': Audio.sfx('back'); this.synBase = null; this.r_armory(); break;
       case 'equip': { Audio.sfx('ok'); S.heroes[this.armHero].weapon = this.armSel; Save.persist(); this.app.lobbyHero(this.armHero, true); this.r_armory(); break; }
       case 'forge': { const w = S.weapons.find((x) => x.uid === this.armSel), c = forgeCost(w);
         if (S.gold < c || w.lv >= RAR_MAXLV[w.rar]) { Audio.sfx('deny'); break; }
@@ -302,13 +311,41 @@ export const UI = {
       <div class="r"><div class="panel scroll" style="flex:1">
         <div class="dim-t" style="color:${R.col}">${R.star}　${R.n}</div><h3 style="color:${R.col}">${weaponName(cur)}</h3>
         <div class="stat"><span>攻撃<b>+${weaponAtk(cur)}</b></span><span>強化<b>${cur.lv}/${mx}</b></span></div>
-        ${cur.traits.length ? cur.traits.map((t) => `<div class="trait"><b>${traitName(t.k)}</b>${traitText(t)}</div>`).join('') : '<p class="dim-t">特性なし</p>'}
+        ${cur.syn ? `<div class="stat"><span>合成<b style="color:${cur.syn > 0 ? 'var(--gold)' : '#ff6a6a'}">${cur.syn > 0 ? '+' : ''}${cur.syn}</b></span><span class="dim-t">攻撃${cur.syn > 0 ? '+' : ''}${cur.syn * 6}% 特性${cur.syn > 0 ? '+' : ''}${cur.syn * 4}%</span></div>` : ''}
+        ${cur.traits.length ? cur.traits.map((t) => `<div class="trait"><b>${traitName(t.k)}</b>${traitText(t, cur)}</div>`).join('') : '<p class="dim-t">特性なし</p>'}
         <p class="note">敵将を倒すと武器を落とします。難易度が高いほど良質に。</p></div>
         <div class="row"><button class="sbtn" data-a="equip" ${eq ? 'disabled' : ''}>${eq ? '装備中' : '装備'}</button>
           <button class="sbtn" data-a="forge" ${cur.lv >= mx || S.gold < cost ? 'disabled' : ''}>強化 ${cur.lv >= mx ? '(最大)' : cost + '金'}</button>
           <button class="sbtn" data-a="sell" ${eq ? 'disabled' : ''}>売却 +${sellPrice(cur)}</button>
-          <button class="sbtn" data-a="lock">${cur.lock ? '保護解除' : '保護'}</button></div>
+          <button class="sbtn" data-a="lock">${cur.lock ? '保護解除' : '保護'}</button>
+          <button class="sbtn" data-a="synth" ${(cur.syn || 0) >= SYN_MAX || list.length < 2 ? 'disabled' : ''}>合成${(cur.syn || 0) >= SYN_MAX ? '(最大)' : ''}</button></div>
+        ${this.synBase ? `<div class="panel" style="border-color:var(--gold)"><b>合成: ${weaponName(S.weapons.find((x) => x.uid === this.synBase) || cur)}</b><br>素材にする武器を左の一覧から選んでください(素材は成否にかかわらず消えます)。<br><span class="dim-t">失敗すると合成値が1下がるか、武器そのものが消えます。</span> <button class="sbtn" data-a="synthx">やめる</button></div>` : ''}
         <div class="row"><button class="pbtn" style="font-size:14px;padding:8px 14px" data-a="gacha" ${S.gold < GACHA_COST ? 'disabled' : ''}>武器錬成 ${GACHA_COST}金</button><button class="sbtn" data-a="sellall" data-v="2">★2以下を一括売却</button></div></div></div>`);
+  },
+  // 合成の素材を選んだ: 成功率と危険を見せて確認
+  synthPick(uid) {
+    const S = Save.data, base = S.weapons.find((x) => x.uid === this.synBase), mat = S.weapons.find((x) => x.uid === uid);
+    if (!base || !mat || mat === base) { Audio.sfx('deny'); return; }
+    if (mat.lock) { this.toast('保護中の武器は素材にできません'); Audio.sfx('deny'); return; }
+    if (Object.values(S.heroes).some((h) => h.weapon === mat.uid)) { this.toast('装備中の武器は素材にできません'); Audio.sfx('deny'); return; }
+    const I = synthInfo(base, mat), pct = (x) => Math.round(x * 100) + '%';
+    if (S.gold < I.cost) { this.toast(`金が足りません(${I.cost}金)`); Audio.sfx('deny'); return; }
+    Audio.sfx('ui');
+    this.confirm(`「${weaponName(base)}」に「${weaponName(mat)}」を合成します。<br>費用 ${I.cost}金 ／ <b style="color:var(--gold)">成功率 ${pct(I.rate)}</b><br>失敗した時: 合成値 −1(${pct(1 - I.loss)})または <b style="color:#ff6a6a">武器が消失(${pct(I.loss)})</b><br>素材の武器は必ず消えます。`, () => {
+      S.gold -= I.cost;
+      const r = doSynth(base, mat);
+      S.weapons.splice(S.weapons.indexOf(mat), 1);
+      if (r.lost) {
+        S.weapons.splice(S.weapons.indexOf(base), 1);
+        // 装備していたら、残りの同じ種類で一番強い武器に付け替える(1本もなければ初期武器を支給)
+        let rest = S.weapons.filter((x) => x.type === base.type).sort((a, b) => weaponAtk(b) - weaponAtk(a));
+        if (!rest.length) { const st = { ...starterWeapon(base.type), uid: 'w0_' + base.type + Date.now().toString(36) }; S.weapons.push(st); rest = [st]; }
+        for (const h of Object.values(S.heroes)) if (h.weapon === base.uid) h.weapon = rest[0].uid;
+        this.armSel = null; Audio.sfx('lose'); this.toast('合成に失敗…武器が砕け散った');
+      } else if (r.ok) { Audio.sfx('levelup'); this.toast(`合成成功! ${weaponName(base)}${r.inherit ? ' ／ 特性「' + traitName(r.inherit.k) + '」を継承' : ''}`); }
+      else { Audio.sfx('deny'); this.toast(`合成に失敗… ${weaponName(base)}`); }
+      this.synBase = null; Save.persist(); this.app.lobbyHero(this.armHero, true); this.r_armory();
+    });
   },
   // ---------- 協力プレイ ----------
   coopInit() {
@@ -339,6 +376,40 @@ export const UI = {
       this.app.startBattle({ ...sel }, pvp ? { guest: true, pvp: { members: [] }, pvpTeam: team } : { guest: true });
     });
   },
+  // ---------- ランダム対戦: 公開部屋を探して入る。なければ自分が部屋を作って待つ ----------
+  async randomMatch() {
+    if (!Cloud.enabled()) { this.toast('ランダム対戦にはクラウド連携が必要です'); Audio.sfx('deny'); return; }
+    if (this._matching) return; this._matching = true; Audio.sfx('ok');
+    this.coopInit(); this.coop.searching = true; this.r_coop();
+    try {
+      const rooms = await Cloud.rooms('pvp');
+      for (const r of rooms) {
+        if (!this.coop) return;
+        await Net.join(r.code);
+        const ok = await new Promise((res) => { const t0 = Date.now(), iv = setInterval(() => { if (Net.status === 'connected' && Net.slot) { clearInterval(iv); res(true); } else if (Net.status === 'error' || Net.status === 'closed' || Date.now() - t0 > 8000) { clearInterval(iv); res(false); } }, 200); });
+        if (ok) { this.coop.searching = false; this.r_coop(); return; }
+        Net.close();
+      }
+      if (!this.coop) return;
+      // 見つからない: 公開部屋を作って待つ(60秒で自動出撃。空きはCPU)
+      await Net.host('pvp'); this.coop.searching = false; this.coopPublic(true);
+    } finally { this._matching = false; if (this.cur === 'coop') this.r_coop(); }
+  },
+  coopPublic(on) {
+    clearInterval(this._pubT); this._pubT = null;
+    if (!on) { if (this.coop && this.coop.public && Net.code) Cloud.room(Net.code, 'pvp', 0, true); if (this.coop) this.coop.public = false; return; }
+    this.coop.public = true; this.coop.autoT = 60;
+    const beat = () => { if (Net.code && Net.status) Cloud.room(Net.code, 'pvp', Net.count || 1); };
+    setTimeout(beat, 1500);
+    let k = 0;
+    this._pubT = setInterval(() => {
+      if (!this.coop || !this.coop.public || Net.role !== 'host') { clearInterval(this._pubT); return; }
+      if (++k % 20 === 0) beat();
+      this.coop.autoT--;
+      if (this.coop.autoT <= 0 || Net.count >= 8) { const b = document.querySelector('[data-a=cstart]'); if (b) b.click(); else { clearInterval(this._pubT); } return; }
+      if (this.cur === 'coop') { const e = document.getElementById('auto-t'); if (e) e.textContent = this.coop.autoT; }
+    }, 1000);
+  },
   coopHello() {
     const S = Save.data, h = this.sel.hero;
     if (Net.role === 'host') { this.coopRoster(); return; }
@@ -353,13 +424,17 @@ export const UI = {
   r_coop() {
     const S = Save.data, sel = this.sel, st = Net.status, role = Net.role, R = (this.coop && this.coop.roster) || [];
     let body;
-    if (!role) {
+    if (!role && this.coop && this.coop.searching) body = '<div class="panel"><h3>ランダム対戦</h3><p>対戦相手を探しています…</p></div><div class="row"><button class="sbtn" data-a="cleave">やめる</button></div>';
+    else if (!role) {
       body = `<div class="panel"><h3>友だちと最大${MAX_PLAYERS}人で共闘 ／ 最大4対4で対戦</h3><p>部屋を作った人に出る6文字の部屋番号を、ほかの人が入力して参加します。通信は端末どうしの直接接続で、料金はかかりません。</p>
         <p class="dim-t">※ 回線によってはつながらない場合があります(Wi-Fi同士がおすすめ)。</p></div>
-        <div class="row" style="gap:10px;flex-wrap:wrap"><button class="pbtn" data-a="chost" data-v="coop">協力の部屋を作る</button><button class="pbtn" data-a="chost" data-v="pvp">対戦の部屋を作る</button>
+        <div class="row" style="gap:10px;flex-wrap:wrap"><button class="pbtn" data-a="chost" data-v="coop">協力の部屋を作る</button><button class="pbtn" data-a="chost" data-v="pvp">対戦の部屋を作る</button></div>
+        <div class="panel"><h3>4対4 対戦</h3><p>5分間で倒した数を競います(星牙使い10点・隊長3点・兵1点・拠点5点・本拠20点)。人数が足りない枠はCPUの星牙使いが入ります。</p></div>
+        <div class="row" style="gap:10px;flex-wrap:wrap"><button class="pbtn" data-a="crandom">ランダム対戦(知らない人と)</button><button class="sbtn" data-a="ccpu">CPUと4対4</button>
         <input id="coop-code" type="text" autocapitalize="characters" autocomplete="off" maxlength="6" placeholder="部屋番号" style="width:8em;text-transform:uppercase;font-size:18px;text-align:center"><button class="sbtn" data-a="cjoin">部屋に入る</button></div>`;
     } else {
-      const msg = st === 'wait' ? `部屋番号 <b style="font-size:2em;letter-spacing:.2em;color:var(--gold)">${Net.code}</b><br>仲間にこの番号を伝えてください。参加を待っています…`
+      const msg = this.coop && this.coop.public ? `ランダム対戦の相手を待っています(${Net.count || 1}/8人)… <b id=\"auto-t\">${this.coop.autoT}</b>秒後に出撃します(空きはCPU)`
+        : st === 'wait' ? `部屋番号 <b style="font-size:2em;letter-spacing:.2em;color:var(--gold)">${Net.code}</b><br>仲間にこの番号を伝えてください。参加を待っています…`
         : st === 'connecting' ? '部屋に接続しています…' : st === 'connected' ? (role === 'host' ? `部屋番号 <b style="color:var(--gold)">${Net.code}</b> ／ あと${Net.max - R.length}人参加できます` : '部屋に参加しました')
         : st === 'closed' ? '接続が切れました' : st === 'error' ? 'つながりませんでした。番号を確かめてもう一度お試しください' : '準備中…';
       const heroes = HEROES.filter((x) => S.unlockedHeroes.includes(x.id)).map((x) => `<button class="tab ${x.id === sel.hero ? 'on' : ''}" data-a="chero" data-v="${x.id}">${x.name}</button>`).join('');
@@ -368,7 +443,7 @@ export const UI = {
       const pvpRoom = (this.coop && this.coop.mode) === 'pvp' || (role === 'host' && Net.mode === 'pvp');
       const roster = R.length ? `<h3>${pvpRoom ? '対戦' : '協力'}の部屋(${R.length}/${pvpRoom ? MAX_PVP : MAX_PLAYERS})${pvpRoom ? ' ／ 本拠を落とすか、5分後の得点で勝敗' : ''}</h3><div class="tabs" style="flex-wrap:wrap">${R.map((m) => `<span class="tab on" ${pvpRoom ? `style="border-color:${m.team ? '#ff5a4a' : '#4aa8ff'}"` : ''}>${pvpRoom ? (role === 'host' ? `<button class="sbtn" style="padding:2px 8px;font-size:11px" data-a="cteam" data-v="${m.slot}">${m.team ? '紅軍' : '蒼軍'}</button> ` : (m.team ? '[紅軍] ' : '[蒼軍] ')) : ''}${m.slot === 0 ? '👑 ' : ''}${esc(m.name)}(${esc(HERO[m.hero] ? HERO[m.hero].name : '?')})${role === 'host' && m.slot ? ` <button class="sbtn" style="padding:2px 8px;font-size:11px" data-a="ckick" data-v="${m.slot}">退出させる</button>` : ''}</span>`).join('')}</div>` : '';
       body = `<div class="panel scroll" style="flex:1"><p>${msg}</p>${roster}<h3>自分の星牙使い</h3><div class="tabs" style="flex-wrap:wrap">${heroes}</div>${stages}</div>
-        <div class="row"><button class="sbtn" data-a="cleave">部屋を出る</button><div style="flex:1"></div>${role === 'host' ? `<button class="pbtn" data-a="cstart" ${Net.connected && R.length > 1 ? '' : 'disabled'}>出 撃</button>` : '<span class="dim-t">部屋を作った人の出撃を待っています</span>'}</div>`;
+        <div class="row"><button class="sbtn" data-a="cleave">部屋を出る</button><div style="flex:1"></div>${role === 'host' ? `<button class="pbtn" data-a="cstart" ${(Net.mode === 'pvp' && role === 'host') || (Net.connected && R.length > 1) ? '' : 'disabled'}>出 撃</button>` : '<span class="dim-t">部屋を作った人の出撃を待っています</span>'}</div>`;
     }
     this.html('coop', `${this.head('オンライン', 'home')}<div style="flex:1;display:flex;flex-direction:column;gap:10px;max-width:760px;width:100%;margin:0 auto;min-height:0">${body}</div>`, true);
   },

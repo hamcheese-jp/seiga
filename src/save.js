@@ -137,6 +137,9 @@ export const Cloud = {
     if (!this.enabled()) return;
     try { await this._post({ action: 'score', board, id: Save.data.id, key: Save.data.key, name: Save.data.name, ...row }); } catch (e) { /* 失敗しても続行 */ }
   },
+  // ランダム対戦の部屋探し(公開部屋の掲示板)
+  async rooms(mode) { if (!this.enabled()) return []; try { const res = await this._get({ action: 'rooms', mode }); return res.ok ? res.rooms : []; } catch (e) { return []; } },
+  async room(code, mode, n, close = false) { if (!this.enabled()) return; try { await this._post({ action: 'room', code, mode, n, close }); } catch (e) { /* 失敗しても続行 */ } },
   async ranking(board) {
     if (!this.enabled()) return null;
     try { const res = await this._get({ action: 'rank', board, n: 30 }); return res.ok ? res.rows : null; } catch (e) { return null; }

@@ -293,9 +293,34 @@ export const TRAITS = {
   regen:  { n: '活丹', d: '毎秒 体力{v}%回復', min: 0.2, max: 1.2, dec: 1 },
 };
 const TRAIT_KEYS = Object.keys(TRAITS);
-export const traitText = (t) => TRAITS[t.k].d.replace('{v}', t.v);
-export const weaponName = (w) => WEAPON_NAMES[w.type][w.rar - 1] + (w.lv > 0 ? ' +' + w.lv : '');
-export const weaponAtk = (w) => Math.round(w.atk * (1 + 0.05 * w.lv));
+// ---- 合成: 同じ種類の武器を素材にして「合成値」を上げる。失敗すると合成値が下がるか、武器が消える ----
+export const SYN_MAX = 10, SYN_MIN = -5;
+export const synAtk = (w) => 1 + 0.06 * ((w && w.syn) || 0);   // 攻撃への倍率
+export const synTr = (w) => 1 + 0.04 * ((w && w.syn) || 0);    // 特性への倍率
+const trVal = (t, w) => { const v = t.v * synTr(w); return TRAITS[t.k].dec ? Math.round(v * 10) / 10 : Math.round(v); };
+export const traitText = (t, w) => TRAITS[t.k].d.replace('{v}', w ? trVal(t, w) : t.v);
+export const synLabel = (w) => (!w.syn ? '' : w.syn > 0 ? ' ◆' + w.syn : ' ▼' + -w.syn);
+export const weaponName = (w) => WEAPON_NAMES[w.type][w.rar - 1] + (w.lv > 0 ? ' +' + w.lv : '') + synLabel(w);
+export const weaponAtk = (w) => Math.round(w.atk * (1 + 0.05 * w.lv) * synAtk(w));
+// 成功率・失敗時に消える確率・費用
+export function synthInfo(base, mat) {
+  const s = base.syn || 0;
+  const rate = clamp(0.75 - 0.07 * Math.max(0, s) + (s < 0 ? 0.1 : 0) + 0.08 * (mat.rar - base.rar) + 0.03 * ((mat.syn || 0) + mat.lv * 0.3), 0.08, 0.95);
+  const loss = clamp(0.15 + 0.05 * Math.max(0, s), 0.1, 0.6);
+  return { rate, loss, cost: Math.round(150 * base.rar * (Math.abs(s) + 1)) };
+}
+// 合成を行う(素材は成否にかかわらず消える)。結果: { ok, lost, inherit }
+export function doSynth(base, mat) {
+  const I = synthInfo(base, mat), out = { ok: false, lost: false, inherit: null };
+  if (Math.random() < I.rate) {
+    out.ok = true; base.syn = Math.min(SYN_MAX, (base.syn || 0) + 1);
+    // 素材の特性を受け継ぐことがある(持っていない特性・最大5つまで)
+    const cand = mat.traits.filter((t) => !base.traits.some((b) => b.k === t.k));
+    if (cand.length && base.traits.length < 5 && Math.random() < 0.35) { const t = cand[(Math.random() * cand.length) | 0], T = TRAITS[t.k], v = t.v * 0.8; out.inherit = { k: t.k, v: T.dec ? Math.round(v * 10) / 10 : Math.round(v) }; base.traits.push(out.inherit); }
+  } else if (Math.random() < I.loss) out.lost = true;
+  else base.syn = Math.max(SYN_MIN, (base.syn || 0) - 1);
+  return out;
+}
 export const weaponTier = (w) => (!w ? 0 : w.rar >= 5 ? 2 : w.rar >= 3 ? 1 : 0);
 export const forgeCost = (w) => 80 * (w.lv + 1) * w.rar * w.rar;
 export const sellPrice = (w) => Math.round(40 * w.rar * w.rar * (1 + w.lv * 0.5) + w.atk);
@@ -336,7 +361,7 @@ export function calcStats(save, heroId) {
   const h = HERO[heroId], hs = save.heroes[heroId] || { lv: 1 }, lv = hs.lv;
   const w = save.weapons.find((x) => x.uid === hs.weapon) || null;
   const tr = {}; for (const k of TRAIT_KEYS) tr[k] = 0;
-  if (w) for (const t of w.traits) tr[t.k] += t.v;
+  if (w) for (const t of w.traits) tr[t.k] += t.v * synTr(w);
   const b = h.base;
   return {
     lv, weapon: w, tier: weaponTier(w),

@@ -70,7 +70,7 @@ export class Battle {
     this.lv = this.endless ? Math.max(1, S.lv - 1) : this.def.lv;
     this.power = this.lv * 2.2 + this.diff.pow;
     this._scale();
-    this.pvp = cfg.pvp || null; this.myTeam = cfg.pvpTeam === 1 ? 1 : 0; this.score = [0, 0]; this.pvpLimit = 300; this.pRespawn = 0;
+    this.pvp = cfg.pvp || null; this.myTeam = cfg.pvpTeam === 1 ? 1 : 0; this.score = [0, 0]; this.pvpLimit = 300; this.pRespawn = 0; this.cpuRespawn = [];
     const sn = this.stage.nodes[this.def.start];
     this.player = this._add({ player: true, hero: true, heroId: hero.id, team: this.myTeam, name: hero.name, look: hero.look, wtype: hero.wtype, tier: S.tier, ms: hero.ms || hero.id, elem: hero.elem,
       hp: S.hp, atk: S.atk, def: S.def, spd: S.spd, aspd: S.aspd, stats: S, heavy: hero.heavy, x: sn.x + (this.endless ? 0 : 1.6), z: sn.z - (this.endless ? 0 : 5), yaw: 0 });
@@ -79,6 +79,8 @@ export class Battle {
     this.bases = this.def.bases.map((bd, i) => new Base(this, bd, i));
     if (!this.guest) ((cfg.coop || cfg.pvp || {}).members || []).forEach((m, i) => { const r = this._makeRemote(m, i); if (r) this.remotes.push(r); });
     this.sealed = !this.pvp && this.def.sealNeed > 0; this.boss = null;
+    // 対戦: 4人に満たない陣営はCPUの星牙使いで埋める
+    if (this.pvp && !this.guest && this.pvp.cpu !== false) this._fillCpu();
     const names = OFFICER_NAMES.slice().sort(() => Math.random() - 0.5); let ni = 0;
     const allies = HEROES.filter((h) => h.id !== hero.id && !h.foe).sort(() => Math.random() - 0.5);
     for (const od of this.guest || this.pvp ? [] : this.def.officers) {
@@ -212,7 +214,7 @@ export class Battle {
     }
   }
   _objective() {
-    if (this.pvp) { const l = Math.max(0, this.pvpLimit - this.time); this.ui.objective(`蒼軍 ${this.score[0]} − ${this.score[1]} 紅軍 ／ 残り ${Math.floor(l / 60)}:${String(Math.floor(l % 60)).padStart(2, '0')} ／ 敵の本拠を落とせ`); return; }
+    if (this.pvp) { const l = Math.max(0, this.pvpLimit - this.time); this.ui.objective(`蒼軍 ${this.score[0]} − ${this.score[1]} 紅軍 ／ 残り ${Math.floor(l / 60)}:${String(Math.floor(l % 60)).padStart(2, '0')} ／ 倒して得点を稼げ`); return; }
     if (this.endless) this.ui.objective(`第${Math.max(1, this.wave)}波 — 生き残れ`);
     else if (this.sealed) this.ui.objective(`敵拠点を制圧し結界を解け(${this.capEnemy}/${this.def.sealNeed})`);
     else this.ui.objective(`敵将軍「${this.boss.name}」を倒せ`);
@@ -227,7 +229,10 @@ export class Battle {
     const c = team === 0 ? [0.4, 1.2, 4] : [4, 0.6, 0.3];
     if (this.nearCam(base.x, base.z, 90)) { FX.pillar(base.x, base.z, c, 3, 28, 1.5); FX.ring(base.x, base.z, c, 2, base.R * 1.3, 0.9, 0.2, 1.3); }
     this.capEnemy = this.bases.filter((b) => b.orig === 1 && b.team === 0 && !b.main).length;
-    if (this.pvp) { this.score[team] += base.main ? 0 : 3; if (base.main) { this._pvpEnd(team); return; } }
+    if (this.pvp) {
+      this.score[team] += base.main ? 20 : 5;
+      if (base.main) { Audio.sfx(team === this.myTeam ? 'capture' : 'warn'); this.ui.banner(team === 0 ? '蒼軍が本拠を制圧' : '紅軍が本拠を制圧', '+20', team === 0 ? 'good' : 'bad'); this._objective(); return; }
+    }
     if (team === 0) {
       Audio.sfx('capture'); this.ui.banner('拠点制圧', base.name, 'good');
       const p = this.player;
@@ -469,6 +474,9 @@ export class Battle {
   // ---------- 各種イベント ----------
   onSoldierKO(s, src) {
     if (s.base) s.base.onDead(s, src); else if (s.sq && s.sq.n !== undefined && s.sq.path) s.sq.n--;
+    if (this.pvp && src && src.isHero) this.score[src.team] += s.cap ? 3 : 1;
+    // 仲間の星牙使い(別の端末)も、倒せば奥義・覚醒の力がたまる
+    if (src && src.remote) { src.koN = (src.koN || 0) + 1; if (src.state !== 'sp') src.sp = Math.min(100, src.sp + 0.5 * src.S.spGain); if (src.awake <= 0) src.rage = Math.min(100, src.rage + 0.45 * src.S.rageGain); }
     if (src !== this.player) return;
     this.ko++; this.exp += s.exp; const p = this.player;
     if (p.state !== 'sp') p.sp = Math.min(100, p.sp + 0.5 * p.S.spGain);
@@ -489,7 +497,11 @@ export class Battle {
   }
   onFighterDead(f, src) {
     const byP = src === this.player, near = this.nearCam(f.x, f.z, 60);
-    if (this.pvp && f.isPlayer) { this.score[1 - f.team] += 10; if (near) { FX.nova(f.x, f.z, 3.5, f.col); Audio.sfx('explode', 0.8); } }
+    if (this.pvp && f.isHero) {
+      this.score[1 - f.team] += 10; if (near) { FX.nova(f.x, f.z, 3.5, f.col); Audio.sfx('explode', 0.8); }
+      if (src === this.player) { this.offKO++; this.ui.banner('星牙使い 撃破', f.name + ' +10', 'gold'); setTimeout(() => Voice.play(Voice.idFor(this.player), 'ko', { force: true }), 400); }
+      if (!f.isPlayer) { this.cpuRespawn.push({ h: f.heroId, team: f.team, t: 10 }); return; }
+    }
     if (f === this.player && this.pvp) { this.pRespawn = 8; this.ui.say('軍師ミコト', '倒されました! 8秒後に本拠から復帰します。'); return; }
     if (f === this.player) { this._lose('力尽きた…'); return; }
     if (f.netSlot) { this.remotes = this.remotes.filter((x) => x !== f); this.respawns.push({ m: f.member, i: f.memberI, t: this.pvp ? 8 : 10 }); this.ui.say('軍師ミコト', `${f.name}さんが倒れました! 10秒後に本拠から復帰します。`); return; }
@@ -666,6 +678,8 @@ export class Battle {
       if ((this._objT = (this._objT || 0) - dt) <= 0) { this._objT = 1; this._objective(); }
       if (this.time >= this.pvpLimit) this._pvpEnd(this.score[0] === this.score[1] ? -1 : this.score[0] > this.score[1] ? 0 : 1);
       if (this.pRespawn > 0 && (this.pRespawn -= dt) <= 0) this._respawnPlayer();
+      for (const c of this.cpuRespawn) if ((c.t -= dt) <= 0) this._cpuHero(HERO[c.h], c.team, 0, true);
+      this.cpuRespawn = this.cpuRespawn.filter((c) => c.t > 0);
     }
     this.horde.rebuild();
     const F = this.fighters;
@@ -749,6 +763,27 @@ export class Battle {
     GFX.updateSun(p.x, 0, p.z);
     GFX.desat = damp(GFX.desat, this.state === 'lose' ? 0.85 : 0, 3, dtR);
     this.ui.hud(this);
+  }
+  // 対戦: CPUの星牙使い(人の空き枠)。能力は参加者の平均に合わせる
+  _fillCpu() {
+    const people = [this.player, ...this.remotes], n = [0, 0];
+    for (const f of people) n[f.team]++;
+    const avg = (k) => people.reduce((a, f) => a + (f.S ? f.S[k] / HERO[f.heroId].base[k] : 1), 0) / people.length;
+    this.cpuMul = { hp: avg('hp'), atk: avg('atk') };
+    const used = new Set(people.map((f) => f.heroId));
+    const pool = HEROES.filter((h) => !used.has(h.id)).sort(() => Math.random() - 0.5);
+    let k = 0;
+    for (const team of [0, 1]) for (let i = n[team]; i < 4; i++) this._cpuHero(pool[k++ % pool.length], team, i);
+  }
+  _cpuHero(h, team, i = 0, back = false) {
+    const m = this.cpuMul || { hp: 1, atk: 1 }, b = h.base, off = [[-4, -3], [4, -3], [-6, -6], [6, -6]][i % 4];
+    const home = team === 1 ? this.bases.find((x) => x.main && x.orig === 1) : this.bases.find((x) => x.main && x.orig === 0);
+    const sn = home || this.stage.nodes[this.def.start], dir = team === 1 ? -1 : 1;
+    const f = this._add({ hero: true, heroId: h.id, team, name: 'CPU ' + h.name, look: h.look, wtype: h.wtype, tier: 1, ms: h.ms || h.id, elem: h.elem,
+      hp: b.hp * m.hp * 0.9, atk: b.atk * m.atk * 0.85, def: b.def, spd: b.spd * 0.9, aspd: b.aspd, heavy: h.heavy,
+      x: sn.x + off[0] * dir + rnd(-1, 1), z: sn.z + (back ? 4 : off[1]) * dir, yaw: team === 1 ? Math.PI : 0 });
+    f.role = 'attack'; f.ai.aggro = 30; this._assign(f);
+    return f;
   }
   // 対戦で倒された自分を本拠に戻す
   _respawnPlayer() {
