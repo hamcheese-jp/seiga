@@ -10,7 +10,6 @@ import { $, $$, el, fmtTime, clamp } from './util.js';
 import { Story, STORY } from './story.js';
 import { Voice } from './voice.js';
 import { Net, MAX_PLAYERS, MAX_PVP, sanitizeMember } from './net.js';
-import { CREDITS } from './voicedata.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const SCREENS = ['title', 'home', 'stage', 'hero', 'armory', 'ach', 'rank', 'settings', 'result', 'pause', 'load', 'story', 'coop'];
@@ -242,7 +241,7 @@ export const UI = {
 
   // ================= 各画面 =================
   r_title() {
-    this.html('title', `<div class="logo">${GAME_TITLE}</div><div class="logo-sub">${GAME_SUB}</div><div class="tap">画面をタップして開始</div><div class="ver">音楽:魔王魂(CC BY 4.0) ／ 音声:${CREDITS} ／ 武器3D:Meshy(CC BY 4.0) ／ ver ${VERSION}</div>${this.installBtn('inst-title')}`);
+    this.html('title', `<div class="logo">${GAME_TITLE}</div><div class="logo-sub">${GAME_SUB}</div><div class="tap">画面をタップして開始</div><div class="ver">音楽:魔王魂(CC BY 4.0) ／ 武器3D:Meshy(CC BY 4.0) ／ ver ${VERSION}</div>${this.installBtn('inst-title')}`);
     $('#s-title').dataset.a = 'start';
   },
   r_home() {
@@ -485,7 +484,6 @@ export const UI = {
       <label>画質</label><select data-s="quality">${[['auto', '自動'], ['low', '低(軽量)'], ['mid', '中'], ['high', '高'], ['ultra', '最高']].map(([v, n]) => `<option value="${v}" ${s.quality === v ? 'selected' : ''}>${n}</option>`).join('')}</select>
       <label>BGM音量</label><input type="range" min="0" max="1" step="0.05" value="${s.bgm}" data-s="bgm">
       <label>効果音音量</label><input type="range" min="0" max="1" step="0.05" value="${s.sfx}" data-s="sfx">
-      <label>ボイス音量</label><input type="range" min="0" max="1" step="0.05" value="${s.voice}" data-s="voice">
       <label>視点感度</label><input type="range" min="0.4" max="2" step="0.1" value="${s.camSens}" data-s="camSens">
       <label>視点の自動追従</label><input type="checkbox" ${s.autoCam ? 'checked' : ''} data-s="autoCam" style="justify-self:start;width:22px;height:22px">
       <label>ボタン大きさ</label><input type="range" min="0.7" max="1.4" step="0.05" value="${s.btnScale || 1}" data-s="btnScale">

@@ -162,7 +162,8 @@ tools/                開発用サーバーなど
 - 武器の3Dモデル(大太刀・長槍・双剣・大槌): Meshy AI で生成(CC BY 4.0 / https://www.meshy.ai/)。tools/glb-tex.mjs で軽量化
 - ガンドウ(ブロンズ)とバルガ(黒鉄)の鎧: 「黄金鎧 <金獅子のルー・アーリータイプ>」by 金獅子のルー(BOOTH / 改変・再配布OK)を色変えして使用
 - 衣装素材(BOOTH): セツナの騎士装束「VRoid Female Knight Crusader Clothing」by Vampiredirt(https://booth.pm/ja/items/4308595)/ 敵将の鎧「devil鎧」by shirokuro2020(https://booth.pm/ja/items/7918574)/ 敵将の兜「西洋鎧風の被り物」by くろの倉庫(https://booth.pm/ja/items/4429041)
-- 音声: VOICEVOX(https://voicevox.hiroshiba.jp/)— 玄野武宏・冥鳴ひまり・白上虎太郎・青山龍星・春日部つむぎ・小夜/SAYO・麒ヶ島宗麟・雀松朱司・剣崎雌雄・†聖騎士 紅桜†・離途・九州そら・栗田まろん
+- 効果音: Kenney「Impact Sounds」「RPG Audio」(CC0 / https://kenney.nl/)— 斬撃・打撃・金属音・足音など。合成音と重ねて使用
+- キャラの声は使っていません(合成音声では感情が乗らないため。tools/make-voices.mjs と src/voice.js の VOICE_ON で戻せます)
   - 民族32「初詣」/ 民族33「和bravery heart」/ 民族27「和の輪」/ ネオロック73「夕日の沈む丘へ」/ オーケストラ20「裸足の勇者」/ オーケストラ23「be proudly」/ オーケストラ24「crisis」/ オーケストラ25「神々の試練」/ オーケストラ26「戦いの跡」
 - [three-vrm](https://github.com/pixiv/three-vrm): MIT License(`vendor/THREE-VRM-LICENSE.txt`)
 - 雑兵・背景の3D素材: [Quaternius](https://quaternius.com/)(Ultimate Animated Character Pack / Stylized Nature MegaKit)— CC0

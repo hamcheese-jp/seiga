@@ -3,6 +3,8 @@ import { Audio } from './audio.js';
 import { VOICES, BOSS_VOICE, SAY_VOICE, SAY_GENERIC, vkey } from './voicedata.js';
 
 const BASE = 'assets/voice/';
+// 声は使わない(合成音声だと感情が乗らないため)。戻すときは true にして assets/voice/ を tools/make-voices.mjs で作り直す
+export const VOICE_ON = false;
 let index = null;
 const bufs = new Map(), last = {}, playing = {};
 
@@ -15,7 +17,7 @@ function load(file) {
 }
 
 export const Voice = {
-  init() { if (!index) fetch(BASE + 'index.json').then((r) => (r.ok ? r.json() : null)).then((j) => { index = j; }).catch(() => {}); },
+  init() { if (!VOICE_ON) return; if (!index) fetch(BASE + 'index.json').then((r) => (r.ok ? r.json() : null)).then((j) => { index = j; }).catch(() => {}); },
   // 戦うキャラの声を先読み
   preload(ids, sayTexts = []) {
     if (!index || !Audio.ctx) return;

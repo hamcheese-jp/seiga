@@ -17,7 +17,7 @@ http.createServer((req, res) => {
   // 立ち絵撮影ツール(tools/portrait.html)からの保存: assets/portraits/ の下だけ書き込める
   if (req.method === 'POST' && req.url.startsWith('/__save?f=')) {
     const rel = decodeURIComponent(req.url.slice(10)), f = path.join(root, rel);
-    if (!/^assets\/portraits\/[\w-]+\.(webp|png)$/.test(rel) || !f.startsWith(root)) { res.writeHead(403); return res.end(); }
+    if (!/^(assets\/portraits\/[\w-]+\.(webp|png)|assets\/sfx\/[\w-]+\.wav)$/.test(rel) || !f.startsWith(root)) { res.writeHead(403); return res.end(); }
     const chunks = []; req.on('data', (c) => chunks.push(c));
     req.on('end', () => { fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, Buffer.concat(chunks)); res.writeHead(200); res.end('ok'); });
     return;

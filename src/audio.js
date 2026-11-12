@@ -17,6 +17,19 @@ const SONGS = {
 // 場面 → 曲ファイル(bgm/*.mp3)
 const BGM_FILES = { title: 'title', plains: 'battle', desert: 'battle3', snow: 'battle4', volcano: 'battle2', castle: 'castle', boss: 'boss', rage: 'rage', result: 'result' };
 
+// 攻撃の効果音は録音素材(Kenney「Impact Sounds」「RPG Audio」CC0)を assets/sfx/ に置き、合成音と重ねて鳴らす
+const SMP = {
+  punchM: ['punchM0', 'punchM1', 'punchM2', 'punchM3'],   // 打撃(中)
+  punchH: ['punchH0', 'punchH1', 'punchH2', 'punchH3'],   // 打撃(重)
+  plate: ['plateH0', 'plateH1', 'plateH2'],               // 鎧に当たる
+  metal: ['metalH0', 'metalH1', 'metalH2', 'metalH3'],    // 刃と刃
+  metalM: ['metalM0', 'metalM1'],
+  slice: ['knifeSlice', 'knifeSlice2'],                   // 斬る
+  body: ['softH0', 'softH1', 'softH2'],                   // 倒れる
+  cloth: ['cloth1', 'cloth2', 'cloth3'],                  // 身をかわす
+  draw: ['drawKnife1', 'drawKnife2'],                     // 抜刀
+  step: ['step0', 'step1', 'step2'],
+};
 export const Audio = {
   ctx: null, vol: { bgm: 0.6, sfx: 0.8, voice: 0.9 }, intensity: 0.4,
   _song: null, _songName: '', _step: 0, _next: 0, _timer: 0, _last: {},
@@ -43,6 +56,7 @@ export const Audio = {
     for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     this.nbuf = buf;
     this.setVol();
+    this._loadSmp();
     document.addEventListener('visibilitychange', () => { if (!this.ctx) return; if (document.hidden) this.ctx.suspend(); else this.ctx.resume(); });
   },
   resume() { this.init(); if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); },
@@ -50,6 +64,21 @@ export const Audio = {
     if (bgm !== undefined) this.vol.bgm = bgm; if (sfx !== undefined) this.vol.sfx = sfx; if (voice !== undefined) this.vol.voice = voice;
     if (!this.ctx) return;
     this.sfxG.gain.value = this.vol.sfx * 0.9; this.bgmG.gain.value = this.vol.bgm * 0.5; this.voiceG.gain.value = this.vol.voice * 1.1;
+  },
+  // 効果音の録音素材を読み込む(読めなかった分は合成音だけで鳴る)
+  _loadSmp() {
+    this.smp = {};
+    const names = new Set(Object.values(SMP).flat());
+    for (const n of names) fetch('assets/sfx/' + n + '.wav').then((x) => (x.ok ? x.arrayBuffer() : null)).then((a) => (a ? this.ctx.decodeAudioData(a) : null)).then((b) => { if (b) this.smp[n] = b; }).catch(() => {});
+  },
+  // 素材を1つ選んで鳴らす(音程と音量を少し揺らして単調にしない)
+  _s(group, v = 1, rate = 1, t = 0) {
+    const c = this.ctx, list = SMP[group]; if (!c || !list || !this.smp) return false;
+    const b = this.smp[list[(Math.random() * list.length) | 0]]; if (!b) return false;
+    const src = c.createBufferSource(), g = c.createGain();
+    src.buffer = b; src.playbackRate.value = rate * (0.92 + Math.random() * 0.16); g.gain.value = v * (0.85 + Math.random() * 0.3);
+    src.connect(g).connect(this.sfxG); src.start(t || c.currentTime);
+    return true;
   },
   // 声などの録音済み音を鳴らす
   playBuf(buf, v = 1, rate = 1, pan = 0) {
@@ -137,12 +166,12 @@ export const Audio = {
     this._last[name] = now;
     const d = this.sfxG, t = now, r = 0.92 + Math.random() * 0.16;
     switch (name) {
-      case 'swing': this._noise(0.13, 0.22 * p, 'bandpass', 700 * r, 2600 * r, 1.2, d, t, 0.02); break;
-      case 'swingH': this._noise(0.22, 0.3, 'bandpass', 300 * r, 1500 * r, 1.0, d, t, 0.04); break;
-      case 'hit': this._noise(0.07, 0.42 * p, 'lowpass', 2600 * r, 500, 0.7, d, t); this._tone('sine', 170 * r, 60, 0.09, 0.4 * p, d, t); this._noise(0.05, 0.16 * p, 'highpass', 4200, 6000, 0.7, d, t); if (Math.random() < 0.35) this._clang(0.07 * p, t, 2000 + Math.random() * 700); break;
-      case 'hitH': this._noise(0.16, 0.6, 'lowpass', 2200 * r, 240, 0.7, d, t); this._tone('sine', 120 * r, 38, 0.22, 0.7, d, t); this._tone('square', 90, 40, 0.1, 0.12, d, t); this._clang(0.12, t, 1500 + Math.random() * 500); this._noise(0.3, 0.2, 'lowpass', 600, 80, 0.7, d, t + 0.02); break;
-      case 'clash': this._clang(0.22, t, 1700 + Math.random() * 600); this._noise(0.08, 0.3, 'bandpass', 3000, 1200, 1, d, t); break;
-      case 'ko': this._tone('sine', 240 * r, 70, 0.14, 0.3, d, t); this._noise(0.1, 0.25, 'bandpass', 1400, 500, 1, d, t); break;
+      case 'swing': this._noise(0.16, 0.3 * p, 'bandpass', 2400 * r, 600 * r, 2.2, d, t, 0.025); this._noise(0.1, 0.12 * p, 'highpass', 5000, 3000, 0.7, d, t + 0.02); break;
+      case 'swingH': this._noise(0.3, 0.42, 'bandpass', 1500 * r, 240 * r, 1.6, d, t, 0.05); this._noise(0.25, 0.2, 'lowpass', 500, 120, 0.8, d, t + 0.03); break;
+      case 'hit': this._s('slice', 0.55 * p, 1.15); this._s('punchM', 0.75 * p); if (Math.random() < 0.3) this._s('metalM', 0.25 * p, 1.2); this._noise(0.05, 0.12 * p, 'highpass', 4200, 6000, 0.7, d, t); this._tone('sine', 150 * r, 55, 0.08, 0.22 * p, d, t); break;
+      case 'hitH': this._s('punchH', 0.95); this._s('plate', 0.55, 0.9); this._s('slice', 0.4, 0.8); this._tone('sine', 110 * r, 36, 0.26, 0.6, d, t); this._noise(0.3, 0.18, 'lowpass', 600, 80, 0.7, d, t + 0.02); break;
+      case 'clash': this._s('metal', 0.95); this._s('metalM', 0.4, 1.3); this._noise(0.06, 0.18, 'bandpass', 3000, 1200, 1, d, t); break;
+      case 'ko': this._s('punchH', 0.7, 0.85); this._s('body', 0.6, 1, t + 0.12); break;
       case 'explode': this._noise(0.6, 0.75, 'lowpass', 1400, 70, 0.6, d, t); this._tone('sine', 95, 28, 0.5, 0.8, d, t); break;
       case 'quake': this._noise(0.5, 0.6, 'lowpass', 500, 50, 0.8, d, t); this._tone('sine', 70, 26, 0.45, 0.85, d, t); break;
       case 'fire': this._noise(0.5, 0.45, 'bandpass', 500, 2400, 0.6, d, t, 0.05); this._noise(0.35, 0.3, 'lowpass', 900, 200, 0.6, d, t + 0.05); break;
@@ -150,12 +179,12 @@ export const Audio = {
       case 'thunder': this._noise(0.08, 0.6, 'highpass', 2500, 800, 0.8, d, t); this._noise(0.55, 0.5, 'lowpass', 1800, 90, 0.6, d, t + 0.02); this._tone('sawtooth', 160, 40, 0.3, 0.2, d, t); break;
       case 'wind': this._noise(0.5, 0.36, 'bandpass', 400, 1800 * r, 0.9, d, t, 0.12); break;
       case 'dark': this._tone('sawtooth', 110, 45, 0.5, 0.25, d, t, 0.03); this._noise(0.45, 0.25, 'bandpass', 300, 900, 2, d, t, 0.05); break;
-      case 'special': this._tone('sawtooth', 180, 900, 0.5, 0.2, d, t, 0.02); this._tone('sine', 360, 1800, 0.5, 0.22, d, t, 0.02); this._noise(0.6, 0.3, 'bandpass', 600, 5000, 1.2, d, t, 0.2); break;
+      case 'special': this._s('draw', 0.8); this._tone('sawtooth', 180, 900, 0.5, 0.2, d, t, 0.02); this._tone('sine', 360, 1800, 0.5, 0.22, d, t, 0.02); this._noise(0.6, 0.3, 'bandpass', 600, 5000, 1.2, d, t, 0.2); break;
       case 'awaken': this._tone('sawtooth', 80, 320, 0.7, 0.3, d, t, 0.05); this._tone('sine', 220, 1320, 0.8, 0.25, d, t, 0.05); this._noise(0.9, 0.35, 'lowpass', 300, 4000, 0.8, d, t, 0.3); break;
       case 'tele': this._tone('sine', 1760, 2200, 0.22, 0.2, d, t); this._tone('sine', 2640, 3300, 0.18, 0.1, d, t); break;
-      case 'dodge': this._noise(0.18, 0.25, 'bandpass', 1200, 400, 0.8, d, t, 0.02); break;
+      case 'dodge': this._s('cloth', 0.7); this._noise(0.16, 0.18, 'bandpass', 1200, 400, 0.8, d, t, 0.02); break;
       case 'perfect': this._tone('sine', 1320, 1320, 0.5, 0.25, d, t); this._tone('sine', 1980, 1980, 0.6, 0.18, d, t + 0.05); this._tone('sine', 2640, 2640, 0.7, 0.12, d, t + 0.1); break;
-      case 'hurt': this._noise(0.12, 0.5, 'lowpass', 1500, 300, 0.7, d, t); this._tone('square', 150 * r, 70, 0.14, 0.2, d, t); break;
+      case 'hurt': this._s('punchH', 0.8 * p); this._s('plate', 0.35 * p); this._tone('sine', 120 * r, 60, 0.12, 0.25 * p, d, t); break;
       case 'pickup': this._tone('sine', 880, 880, 0.1, 0.2, d, t); this._tone('sine', 1320, 1320, 0.16, 0.2, d, t + 0.07); break;
       case 'treasure': [660, 880, 1100, 1320].forEach((f, i) => this._tone('triangle', f, f, 0.2, 0.2, d, t + i * 0.06)); break;
       case 'ready': this._tone('sine', 1047, 1047, 0.1, 0.2, d, t); this._tone('sine', 1568, 1568, 0.2, 0.2, d, t + 0.08); break;
@@ -170,7 +199,7 @@ export const Audio = {
       case 'win': [[0, 0], [4, 0.14], [7, 0.28], [12, 0.42], [16, 0.7], [19, 0.7], [24, 0.7]].forEach(([s, o]) => { const f = mtof(60 + s); this._tone('triangle', f, f, 0.55, 0.2, d, t + o); this._tone('sawtooth', f, f, 0.5, 0.05, d, t + o); }); break;
       case 'lose': [[7, 0], [3, 0.3], [0, 0.6], [-5, 0.95]].forEach(([s, o]) => { const f = mtof(55 + s); this._tone('triangle', f, f, 0.6, 0.22, d, t + o, 0.03); }); break;
       case 'drum': this._tone('sine', 110, 48, 0.35, 0.8, d, t); this._noise(0.1, 0.3, 'lowpass', 600, 150, 0.7, d, t); break;
-      case 'step': this._noise(0.04, 0.05, 'lowpass', 700, 300, 0.7, d, t); break;
+      case 'step': if (!this._s('step', 0.22 * p)) this._noise(0.04, 0.05, 'lowpass', 700, 300, 0.7, d, t); break;
     }
   },
 
