@@ -9,10 +9,11 @@ import { GFX } from './gfx.js';
 import { $, $$, el, fmtTime, clamp } from './util.js';
 import { Story, STORY } from './story.js';
 import { Voice } from './voice.js';
+import { Net } from './net.js';
 import { CREDITS } from './voicedata.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const SCREENS = ['title', 'home', 'stage', 'hero', 'armory', 'ach', 'rank', 'settings', 'result', 'pause', 'load', 'story'];
+const SCREENS = ['title', 'home', 'stage', 'hero', 'armory', 'ach', 'rank', 'settings', 'result', 'pause', 'load', 'story', 'coop'];
 const TIPS = ['通常攻撃の途中でチャージ攻撃を押すと、段数に応じた強力な技に派生します。', '敵将の武器が赤く光ったら強攻撃の合図。回避でかわそう。', '攻撃が当たる直前に回避すると「見切り」が発動し、奥義ゲージが大きく溜まります。',
   '敵拠点は兵を倒し続けると守備隊長が出現。守備隊長を倒せば制圧できます。', '拠点を制圧すると体力が回復し、味方の士気が上がります。', '覚醒中は攻撃力・攻撃速度が上がり、怯まなくなります。覚醒中の奥義は「真・奥義」に強化。',
   '武器には特性が付きます。強化で攻撃力を上げ、自分好みの一振りを探しましょう。', '高難易度ほど良い武器が手に入りやすくなります。', '攻撃ボタンは押しっぱなしでも連続攻撃できます。'];
@@ -71,6 +72,20 @@ export const UI = {
         const sc = STORY[sel.stage], k = sel.stage + '.pre';
         if (sc && sc.pre && !S.story[k]) { this.show('scene'); Story.play(sc.pre, sel.hero, () => { S.story[k] = 1; Save.persist(false); this.app.startBattle(sel); }); break; }
         this.app.startBattle(sel); break;
+      }
+      case 'chost': Audio.sfx('ok'); this.coopInit(); Net.host(); this.r_coop(); break;
+      case 'cjoin': { const c = ($('#coop-code') || {}).value || ''; if (!/^\d{4}$/.test(c.trim())) { this.toast('4けたの部屋番号を入力してください'); Audio.sfx('deny'); break; } Audio.sfx('ok'); this.coopInit(); Net.join(c.trim()); this.r_coop(); break; }
+      case 'cleave': Audio.sfx('back'); Net.close(); this.coop = null; this.r_coop(); break;
+      case 'chero': if (!S.unlockedHeroes.includes(v)) { Audio.sfx('deny'); break; } Audio.sfx('ui'); sel.hero = v; this.app.lobbyHero(v); this.coopHello(); this.r_coop(); break;
+      case 'cstage': Audio.sfx('ui'); sel.stage = v; this.r_coop(); break;
+      case 'cdiff': Audio.sfx('ui'); sel.diff = +v; this.r_coop(); break;
+      case 'cstart': {
+        const P = this.coop && this.coop.partner;
+        if (!Net.connected || !P) { Audio.sfx('deny'); break; }
+        Audio.sfx('ok'); S.last = { ...sel }; Save.persist(false);
+        Net.send({ t: 'start', stage: sel.stage, diff: sel.diff });
+        this.app.startBattle({ ...sel }, { coop: { hero: P.hero, stats: P.stats, name: P.name } });
+        break;
       }
       case 'replay': {
         Audio.sfx('ok'); this.show('scene');
@@ -221,6 +236,7 @@ export const UI = {
         <button class="mbtn main" data-a="go" data-v="stage">出撃<small>章を選んで戦いへ</small></button>
         <button class="mbtn" ${Save.stageCleared('s1') ? 'data-a="go" data-v="endless"' : 'style="opacity:.45"'}>星海の試練<small>${Save.stageCleared('s1') ? `最高 ${S.endless.ko}人撃破 / 第${S.endless.wave}波` : '第一章クリアで解放'}</small></button>
         <button class="mbtn" data-a="go" data-v="armory">装備<small>武器の装備・強化・錬成</small></button>
+        <button class="mbtn" data-a="go" data-v="coop">協力プレイ<small>友だちと2人でオンライン共闘</small></button>
         <button class="mbtn" data-a="go" data-v="story">物語<small>オープニング・各章の物語</small></button>
         <button class="mbtn" data-a="go" data-v="ach">称号<small>${Object.keys(S.ach).length} / ${ACHIEVEMENTS.length} 達成</small></button>
         <button class="mbtn" data-a="go" data-v="rank">ランキング<small>全国ランキング</small></button>
@@ -286,6 +302,43 @@ export const UI = {
           <button class="sbtn" data-a="sell" ${eq ? 'disabled' : ''}>売却 +${sellPrice(cur)}</button>
           <button class="sbtn" data-a="lock">${cur.lock ? '保護解除' : '保護'}</button></div>
         <div class="row"><button class="pbtn" style="font-size:14px;padding:8px 14px" data-a="gacha" ${S.gold < GACHA_COST ? 'disabled' : ''}>武器錬成 ${GACHA_COST}金</button><button class="sbtn" data-a="sellall" data-v="2">★2以下を一括売却</button></div></div></div>`);
+  },
+  // ---------- 協力プレイ ----------
+  coopInit() {
+    this.coop = { partner: null };
+    Net.onStatus = (s, info) => {
+      if (s === 'connected') { Audio.sfx('ok'); this.coopHello(); }
+      if (s === 'closed' && this.coop) { this.coop.partner = null; if (this.cur !== 'coop' && this.app.mode !== 'battle') this.toast('相手との接続が切れました'); }
+      if (s === 'error') this.toast(info === 'nocode' ? 'その部屋は見つかりませんでした' : '通信エラー: ' + info);
+      if (this.cur === 'coop') this.r_coop();
+    };
+    Net.on('hello', (d) => { if (!this.coop) return; this.coop.partner = d; if (this.cur === 'coop') this.r_coop(); });
+    Net.on('start', (d) => {
+      if (Net.role !== 'guest') return;
+      const sel = this.sel; sel.stage = d.stage; sel.diff = d.diff;
+      this.app.startBattle({ ...sel }, { guest: true });
+    });
+  },
+  coopHello() { const S = Save.data, h = this.sel.hero; Net.send({ t: 'hello', name: S.name, hero: h, stats: calcStats(S, h) }); },
+  r_coop() {
+    const S = Save.data, sel = this.sel, st = Net.status, role = Net.role, P = this.coop && this.coop.partner;
+    let body;
+    if (!role) {
+      body = `<div class="panel"><h3>友だちと2人で共闘</h3><p>片方が「部屋を作る」で出た4けたの番号を、もう片方が入力して参加します。通信は端末どうしの直接接続で、料金はかかりません。</p>
+        <p class="dim-t">※ 回線によってはつながらない場合があります(Wi-Fi同士がおすすめ)。</p></div>
+        <div class="row" style="gap:10px;flex-wrap:wrap"><button class="pbtn" data-a="chost">部屋を作る</button>
+        <input id="coop-code" type="tel" maxlength="4" placeholder="部屋番号" style="width:7em;font-size:18px;text-align:center"><button class="sbtn" data-a="cjoin">部屋に入る</button></div>`;
+    } else {
+      const msg = st === 'wait' ? `部屋番号 <b style="font-size:2em;letter-spacing:.2em;color:var(--gold)">${Net.code}</b><br>相手にこの番号を伝えてください。参加を待っています…`
+        : st === 'connecting' ? '部屋に接続しています…' : st === 'connected' ? (P ? `<b>${esc(P.name)}</b> さんと接続しました(${esc(HERO[P.hero] ? HERO[P.hero].name : '')})` : '接続しました。相手の情報を待っています…')
+        : st === 'closed' ? '接続が切れました' : st === 'error' ? 'つながりませんでした。番号を確かめてもう一度お試しください' : '準備中…';
+      const heroes = HEROES.filter((x) => S.unlockedHeroes.includes(x.id)).map((x) => `<button class="tab ${x.id === sel.hero ? 'on' : ''}" data-a="chero" data-v="${x.id}">${x.name}</button>`).join('');
+      const stages = role === 'host' ? `<h3>章と難易度(部屋を作った人が決めます)</h3><div class="tabs" style="flex-wrap:wrap">${[...STAGES.filter((s, i) => this.stageOpen(i)), ENDLESS].map((s) => `<button class="tab ${s.id === sel.stage ? 'on' : ''}" data-a="cstage" data-v="${s.id}">${s.no} ${s.name}</button>`).join('')}</div>
+        <div class="tabs">${DIFFS.map((x, i) => `<button class="tab ${i === sel.diff ? 'on' : ''} ${this.diffOpen(i) ? '' : 'lock'}" ${this.diffOpen(i) ? `data-a="cdiff" data-v="${i}"` : ''} style="color:${x.col}">${x.n}</button>`).join('')}</div>` : '<p class="dim-t">章と難易度は部屋を作った人が決めます。</p>';
+      body = `<div class="panel scroll" style="flex:1"><p>${msg}</p><h3>自分の星牙使い</h3><div class="tabs" style="flex-wrap:wrap">${heroes}</div>${stages}</div>
+        <div class="row"><button class="sbtn" data-a="cleave">部屋を出る</button><div style="flex:1"></div>${role === 'host' ? `<button class="pbtn" data-a="cstart" ${Net.connected && P ? '' : 'disabled'}>出 撃</button>` : '<span class="dim-t">部屋を作った人の出撃を待っています</span>'}</div>`;
+    }
+    this.html('coop', `${this.head('協力プレイ', 'home')}<div style="flex:1;display:flex;flex-direction:column;gap:10px;max-width:760px;width:100%;margin:0 auto;min-height:0">${body}</div>`, true);
   },
   r_story() {
     const S = Save.data, items = [['op', 'オープニング', '星牙と覇星帝の物語のはじまり', true]];

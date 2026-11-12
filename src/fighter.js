@@ -2,13 +2,14 @@
 import * as THREE from 'three';
 import { GFX } from './gfx.js';
 import { buildHero, disposeModel } from './models.js';
-import { loadVrm, VrmBody } from './vrmchar.js';
+import { loadVrm, VrmBody, hasVrm } from './vrmchar.js';
 import { Rig } from './rig.js';
 import { MS } from './moves.js';
 import { ELEMENTS } from './data.js';
 import { FX, Trail } from './fx.js';
 import { Audio } from './audio.js';
 import { Voice } from './voice.js';
+import { RemoteInput } from './net.js';
 import { Input } from './input.js';
 import { clamp, rnd, angTo, angDamp, damp, D2R } from './util.js';
 
@@ -17,7 +18,7 @@ const TEAM_GLOW = [[0.5, 1.4, 3.6], [3.6, 0.7, 0.4]];
 
 export class Fighter {
   constructor(B, o) {
-    this.B = B; this.isFighter = true; this.team = o.team; this.isPlayer = !!o.player; this.name = o.name; this.title = o.title || '';
+    this.B = B; this.isFighter = true; this.team = o.team; this.isPlayer = !!o.player; this.remote = !!o.remote; this.inp = o.remote ? new RemoteInput() : Input; this.name = o.name; this.title = o.title || '';
     this.boss = !!o.boss; this.isHero = !!o.hero; this.heroId = o.heroId || null;
     this.elem = o.elem || null; this.col = this.elem ? ELEMENTS[this.elem].glow : TEAM_GLOW[o.team];
     const look = { ...o.look, pal: { ...o.look.pal, glow: o.look.pal.glow || this.col } };
@@ -25,7 +26,9 @@ export class Fighter {
     GFX.scene.add(this.model.root);
     // VRoidのキャラがあれば読み込んで差し替える(読み込み中は今の姿で表示)
     const vk = o.heroId || o.vrmKey;
-    if (vk) loadVrm(vk).then((vrm) => { if (!vrm) return; if (this.disposed) { vrm.scene.traverse((x) => { if (x.geometry) x.geometry.dispose(); }); return; } new VrmBody(this.model, vrm).rim(this.col, this.team === 1 ? (this.boss ? 2 : 1) : 0); }).catch((e) => console.warn(e));
+    // VRoidのキャラが読み込まれるまでは姿を出さない(古い手作りモデルが一瞬映らないように)
+    this.vrmPending = !!(vk && hasVrm(vk));
+    if (vk) loadVrm(vk).then((vrm) => { this.vrmPending = false; if (!vrm) return; if (this.disposed) { vrm.scene.traverse((x) => { if (x.geometry) x.geometry.dispose(); }); return; } new VrmBody(this.model, vrm).rim(this.col, this.team === 1 ? (this.boss ? 2 : 1) : 0); if (this.B.nearCam(this.x, this.z, 40)) FX.glow(this.x, 1.2, this.z, this.col[0] * 0.5, this.col[1] * 0.5, this.col[2] * 0.5, 3, 0.35); }).catch((e) => { this.vrmPending = false; console.warn(e); });
     this.ms = MS[o.ms];
     this.x = o.x; this.z = o.z; this.y = 0; this.vx = 0; this.vy = 0; this.vz = 0; this.yaw = o.yaw || 0;
     this.rad = 0.5 * this.model.scale; this.alive = true; this.hidden = false; this.ghost = false; this.gone = false; this.sealed = false;
@@ -84,7 +87,7 @@ export class Fighter {
     if (this.awake > 0) {
       this.awake -= dt; this.rage = Math.max(0, 100 * this.awake / AWAKE_DUR); this.sp = Math.min(100, this.sp + 5 * dt);
       if (Math.random() < dt * 40) FX.aura(this.x, this.y + 0.2, this.z, this.col, 1, 0.6);
-      if (this.awake <= 0) { this.rage = 0; if (this.isPlayer) B.ui.toast('覚醒終了'); }
+      if (this.awake <= 0) { this.rage = 0; if (this === B.player) B.ui.toast('覚醒終了'); }
     }
     if (this.boss && this.team === 1 && Math.random() < dt * 12) FX.aura(this.x, this.y + 0.1, this.z, [1.6, 0.08, 0.35], 1, 0.75 * this.model.scale);
     if (this.enraged && Math.random() < dt * 30) FX.aura(this.x, this.y + 0.2, this.z, [3.5, 0.4, 0.3], 1, 0.7);
@@ -98,7 +101,7 @@ export class Fighter {
   }
 
   _control() {
-    const B = this.B, I = this.in, cy = B.cam.yaw, mx = Input.mx, my = Input.my, ml = Math.hypot(mx, my);
+    const B = this.B, I = this.in, inp = this.inp, cy = this.remote ? inp.cy : B.cam.yaw, mx = inp.mx, my = inp.my, ml = Math.hypot(mx, my);
     if (ml > 0.01 && B.state === 'play') { const fx = Math.sin(cy), fz = Math.cos(cy); I.x = fx * my - fz * mx; I.z = fz * my + fx * mx; I.mag = Math.min(1, ml); }
     else { I.x = I.z = I.mag = 0; }
   }
@@ -121,7 +124,7 @@ export class Fighter {
         this.st += dt; const u = this.st / 0.36, v = 15.5 * Math.pow(Math.max(0, 1 - u), 0.55);
         this.vx = this.dvx * v; this.vz = this.dvz * v;
         if (Math.random() < dt * 50) FX.glow(this.x, 1, this.z, this.col[0] * 0.4, this.col[1] * 0.4, this.col[2] * 0.4, 1.2, 0.18, 0.7);
-        if (this.st > 0.2 && this.isPlayer && (Input.consume('a', 0.2) || Input.consume('c', 0.01))) { this.dodgeCd = 0.2; this.startAttack('n', 0); break; }
+        if (this.st > 0.2 && this.isPlayer && (this.inp.consume('a', 0.2) || this.inp.consume('c', 0.01))) { this.dodgeCd = 0.2; this.startAttack('n', 0); break; }
         if (u >= 1) { this.dodgeCd = 0.22; this._toIdle(); }
         break;
       }
@@ -135,11 +138,11 @@ export class Fighter {
   _toIdle() { this.state = 'idle'; this.st = 0; this.airHits = 0; this.rig.setMode('loco'); }
 
   _playerActions() {
-    if (Input.consume('s')) { if (this.sp >= 100) return this.startSpecial(); Audio.sfx('deny'); }
-    if (Input.consume('r')) { if (this.rage >= 100 && this.awake <= 0) return this.startAwaken(); Audio.sfx('deny'); }
-    if (this.dodgeCd <= 0 && Input.consume('d')) return this.startDodge();
-    if (Input.consume('c')) return this.startAttack('c', 0);
-    if (Input.consume('a') || Input.held.a) return this.startAttack('n', 0);
+    if (this.inp.consume('s')) { if (this.sp >= 100) return this.startSpecial(); Audio.sfx('deny'); }
+    if (this.inp.consume('r')) { if (this.rage >= 100 && this.awake <= 0) return this.startAwaken(); Audio.sfx('deny'); }
+    if (this.dodgeCd <= 0 && this.inp.consume('d')) return this.startDodge();
+    if (this.inp.consume('c')) return this.startAttack('c', 0);
+    if (this.inp.consume('a') || this.inp.held.a) return this.startAttack('n', 0);
   }
 
   // 攻撃開始時の向き: スティック優先、なければ近くの敵へ自動補正
@@ -207,11 +210,11 @@ export class Fighter {
 
     if (this.isPlayer) {
       if (this.state === 'atk') {
-        if (this.dodgeCd <= 0 && Input.consume('d', 0.15)) { this._interrupt(); return this.startDodge(); }
-        if (this.sp >= 100 && Input.consume('s', 0.15)) { this._interrupt(); return this.startSpecial(); }
+        if (this.dodgeCd <= 0 && this.inp.consume('d', 0.15)) { this._interrupt(); return this.startDodge(); }
+        if (this.sp >= 100 && this.inp.consume('s', 0.15)) { this._interrupt(); return this.startSpecial(); }
         if (t >= m.chainAt && this.kind === 'n') {
-          if (Input.consume('c', 0.35)) { const ci = this.chain + 1; if (ci < this.S.maxC) return this.startAttack('c', ci); }
-          else if (Input.consume('a', 0.35) || Input.held.a) { const ni = this.chain + 1; if (ni < this.S.maxN) return this.startAttack('n', ni); }
+          if (this.inp.consume('c', 0.35)) { const ci = this.chain + 1; if (ci < this.S.maxC) return this.startAttack('c', ci); }
+          else if (this.inp.consume('a', 0.35) || this.inp.held.a) { const ni = this.chain + 1; if (ni < this.S.maxN) return this.startAttack('n', ni); }
         }
       }
     } else if (t >= m.chainAt && this.ai.plan && this.ai.pi < this.ai.plan.seq.length - 1) {
@@ -227,7 +230,7 @@ export class Fighter {
 
   startDodge() {
     const I = this.in; let dx, dz;
-    const sw = this.isPlayer ? Input.takeSwipe() : null;
+    const sw = this.isPlayer ? this.inp.takeSwipe() : null;
     if (sw) {
       // スワイプした向きへ回避(画面上=前、右=カメラの右)
       const cy = this.B.cam.yaw, fx = Math.sin(cy), fz = Math.cos(cy);
@@ -302,7 +305,7 @@ export class Fighter {
     const B = this.B, r = this.model.root;
     r.position.set(this.x, this.y, this.z); r.rotation.y = this.yaw;
     const near = this.isPlayer || B.nearCam(this.x, this.z, 80);
-    r.visible = near && !this.hidden;
+    r.visible = near && !this.hidden && !this.vrmPending;
     if (near) {
       this.rig.speed = this.state === 'idle' ? Math.hypot(this.vx, this.vz) : 0;
       this.rig.update(dt);

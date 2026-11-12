@@ -53,7 +53,7 @@ const App = {
     if (name === 'home' && this.mode === 'menu') Audio.bgm('title');
   },
 
-  startBattle(sel) {
+  startBattle(sel, extra = {}) {
     if (this.busy) return; this.busy = true;
     UI.fade(true);
     setTimeout(() => {
@@ -66,7 +66,7 @@ const App = {
         try {
           if (this.battle) { this.battle.dispose(); this.battle = null; }
           if (this.lobby) { this.lobby.dispose(); this.lobby = null; }
-          this.battle = new Battle({ stage: STAGE[sel.stage], heroId: sel.hero, diff: sel.diff, save: Save.data, ui: UI, onEnd: (r) => this.endBattle(r) });
+          this.battle = new Battle({ stage: STAGE[sel.stage], heroId: sel.hero, diff: sel.diff, save: Save.data, ui: UI, onEnd: (r) => this.endBattle(r), ...extra });
           UI.hudStart(this.battle);
           this.mode = 'battle'; this.paused = false;
           UI.show('');
@@ -77,7 +77,7 @@ const App = {
   },
   endBattle(r) {
     r.out = Save.applyResult(r); UI.lastResult = r;
-    if (Cloud.enabled()) {
+    if (Cloud.enabled() && !r.coop && !(this.battle && this.battle.p2)) {
       if (r.endless) Cloud.score('endless', { hero: r.heroId, ko: r.ko, time: Math.round(r.time), rank: '第' + r.wave + '波', score: r.ko + r.wave * 100 });
       else if (r.win) Cloud.score(r.stage.id + '_' + r.diff.id, { hero: r.heroId, ko: r.ko, time: Math.round(r.time), rank: r.rank, score: Math.round(r.ko * 10 + r.maxCombo * 2 + Math.max(0, r.stage.par * 2 - r.time) * 5) });
     }

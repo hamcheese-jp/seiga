@@ -377,3 +377,9 @@ p { margin: 4px 0; font-size: clamp(11px, 3vmin, 13px); line-height: 1.55; }
   .op-all img { width: 22vw; margin: 0 -2.5vw; }
   .op-boss .op-name { top: 4%; bottom: auto; right: 0; transform: none; text-align: left; }
 }
+
+/* キャラ読み込み中の表示 */
+#vrm-loading { position: fixed; left: 50%; top: 64%; transform: translate(-50%, -50%); z-index: 5; display: none; align-items: center; gap: 10px; padding: 8px 18px; border-radius: 20px; background: rgba(4, 6, 16, .7); border: 1px solid var(--line); font-family: var(--serif); font-size: 14px; color: #f4ecd2; pointer-events: none; }
+#vrm-loading.on { display: flex; }
+#vrm-loading i { width: 16px; height: 16px; border: 2px solid rgba(243, 207, 109, .3); border-top-color: var(--gold); border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }

@@ -44,10 +44,20 @@ export class Lobby {
     this.model = buildHero({ ...h.look, pal: { ...h.look.pal, glow: E.glow } }, h.wtype, st.tier);
     this.model.root.position.set(0, 0.5, 0); GFX.scene.add(this.model.root);
     this.rig = new Rig(this.model); this.ms = MS[HERO[id].ms || id]; this.move = null; this.showT = 1.6;
-    { const model = this.model; loadVrm(id).then((vrm) => { if (vrm && this.model === model) new VrmBody(model, vrm); }).catch((e) => console.warn(e)); }
+    {
+      // 読み込みが終わるまでキャラは隠し、「読み込み中」を表示
+      const model = this.model; model.root.visible = false; this._loading(true);
+      const done = () => { if (this.model !== model) return; model.root.visible = true; this._loading(false); FX.shell(0, 1.5, 0, this.col, 0.6, 2.4, 0.35, 0.5); };
+      loadVrm(HERO[id].vrm || id).then((vrm) => { if (vrm && this.model === model) new VrmBody(model, vrm); done(); }).catch((e) => { console.warn(e); done(); });
+    }
     this.trails = [new Trail(E.glow), new Trail(E.glow)]; this.trailsL = this.model.dual ? [new Trail(E.glow), new Trail(E.glow)] : null;
     this.ringMat.color.setRGB(E.glow[0] * 0.3, E.glow[1] * 0.3, E.glow[2] * 0.3);
     FX.shell(0, 1.5, 0, E.glow, 0.6, 2.6, 0.4, 0.45); FX.ring(0, 0, E.glow, 1, 4.6, 0.6, 0.56, 0.7); FX.embers(0, 0.6, 0, E.glow[0] * 0.6, E.glow[1] * 0.6, E.glow[2] * 0.6, 22, 1.0, 4, 0.08, 1.2);
+  }
+  _loading(on) {
+    let e = document.getElementById('vrm-loading');
+    if (!e) { e = document.createElement('div'); e.id = 'vrm-loading'; e.innerHTML = '<i></i>読み込み中…'; document.body.appendChild(e); }
+    e.classList.toggle('on', on);
   }
   _drop() {
     if (!this.model) return;
@@ -97,6 +107,7 @@ export class Lobby {
     GFX.updateSun(0, 0, 0);
   }
   dispose() {
+    this._loading(false);
     this._drop(); this.stage.dispose(); FX.clear();
     GFX.scene.remove(this.group);
     this.group.traverse((o) => { if (o.geometry) o.geometry.dispose(); });

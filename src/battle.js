@@ -10,6 +10,7 @@ import { Input } from './input.js';
 import { HERO, HEROES, ELEMENTS, LOOKS, OFFICER_NAMES, DIFFS, THEMES, calcStats, rollWeapon } from './data.js';
 import { MS } from './moves.js';
 import { Voice } from './voice.js';
+import { Net, NetHost, NetGuest, spawnInfo } from './net.js';
 import { clamp, rnd, pick, damp, angWrap, lerp, D2R, ease } from './util.js';
 
 const PI = Math.PI;
@@ -72,16 +73,20 @@ export class Battle {
     const sn = this.stage.nodes[this.def.start];
     this.player = this._add({ player: true, hero: true, heroId: hero.id, team: 0, name: hero.name, look: hero.look, wtype: hero.wtype, tier: S.tier, ms: hero.ms || hero.id, elem: hero.elem,
       hp: S.hp, atk: S.atk, def: S.def, spd: S.spd, aspd: S.aspd, stats: S, heavy: hero.heavy, x: sn.x + (this.endless ? 0 : 1.6), z: sn.z - (this.endless ? 0 : 5), yaw: 0 });
+    this.guest = !!cfg.guest;
+    if (cfg.coop) this.p2 = this._makeP2();
     this.bases = this.def.bases.map((bd, i) => new Base(this, bd, i));
     this.sealed = this.def.sealNeed > 0; this.boss = null;
     const names = OFFICER_NAMES.slice().sort(() => Math.random() - 0.5); let ni = 0;
     const allies = HEROES.filter((h) => h.id !== hero.id && !h.foe).sort(() => Math.random() - 0.5);
-    for (const od of this.def.officers) {
+    for (const od of this.guest ? [] : this.def.officers) {
       const nd = this.stage.nodes[od.n]; let f;
       if (od.ally !== undefined) this._allyHero(allies[od.ally], nd.x + rnd(-3, 3), nd.z + 3);
       else this._enemyOfficer(od, od.name || names[ni++ % names.length]);
     }
     for (const f of this.fighters) if (f.ai && f.role === 'attack') this._assign(f);
+    // 参加側は結界の位置を章のデータから求める
+    if (this.guest) { const bo = this.def.officers.find((o) => o.boss), nd = bo && this.stage.nodes[bo.n]; if (nd) this.boss = { x: nd.x, z: nd.z, sealed: true, alive: true }; }
     // 結界
     if (this.boss && this.sealed) {
       this.boss.sealed = true;
@@ -95,11 +100,14 @@ export class Battle {
       this.sealPos = { x: this.boss.x, z: this.boss.z };
     }
     // 開幕の激突
-    if (this.def.clash) {
+    if (this.guest) this.boss = null;
+    if (this.def.clash && !this.guest) {
       const [an, en, mn] = this.def.clash, m = this.stage.nodes[mn];
       this._march(0, an, { x: m.x, z: m.z - 4 }, Math.round(12 * this.pop)); this._march(1, en, { x: m.x, z: m.z + 4 }, Math.round(18 * this.pop));
     }
-    this.events = (this.def.events || []).map((e) => ({ ...e, done: false }));
+    this.events = this.guest ? [] : (this.def.events || []).map((e) => ({ ...e, done: false }));
+    if (cfg.coop) this.net = new NetHost(this);
+    if (this.guest) this.net = new NetGuest(this);
     const p = this.player;
     this.cam = { yaw: 0, pitch: 0.4, p: 0.4, dist: 9.6, baseDist: 9.6, tx: p.x, ty: 1.5, tz: p.z, manualT: -9 };
     this.ui.minimapInit(this.stage);
@@ -119,12 +127,18 @@ export class Battle {
   solStats(team) { return team === 1 ? { hp: this.E.sHp, dmg: this.E.sDmg, exp: this.E.sExp } : { hp: this.A.sHp, dmg: this.A.sDmg, exp: 0 }; }
   capStats(team) { return team === 1 ? { hp: this.E.cHp, dmg: this.E.cDmg, exp: this.E.sExp * 6 } : { hp: this.A.cHp, dmg: this.A.cDmg, exp: 0 }; }
   soldierMul(team) { return clamp(team === 0 ? 1 + this.morale / 333 : 1 - this.morale / 333, 0.7, 1.3); }
-  nearCam(x, z, r) { const p = this.player, dx = x - p.x, dz = z - p.z; return dx * dx + dz * dz < r * r; }
+  nearCam(x, z, r) { const p = this.player, dx = x - p.x, dz = z - p.z; if (dx * dx + dz * dz < r * r) return true; const q = this.p2; if (!q) return false; const ex = x - q.x, ez = z - q.z; return ex * ex + ez * ez < r * r; }
   nearPlayer(x, z, r) { return this.nearCam(x, z, r); }
   // 振動(タッチ端末のみ・設定でオフ可)
   _vibe(ms) { if (this.save.settings.vibe && Input.usedTouch && navigator.vibrate) { try { navigator.vibrate(ms); } catch (_) { /* 非対応端末は無視 */ } } }
 
-  _add(o) { const f = new Fighter(this, o); this.fighters.push(f); return f; }
+  _add(o) { const f = new Fighter(this, o); f.netId = (this._nid = (this._nid || 0) + 1); f.netSpawn = spawnInfo(o); this.fighters.push(f); return f; }
+  // 協力プレイの2人目(操作は相手の端末から届く)
+  _makeP2(x, z) {
+    const c = this.cfg.coop, h = HERO[c.hero], S = c.stats, sn = this.stage.nodes[this.def.start];
+    return this._add({ player: true, remote: true, hero: true, heroId: h.id, team: 0, name: c.name || h.name, look: h.look, wtype: h.wtype, tier: S.tier, ms: h.ms || h.id, elem: h.elem,
+      hp: S.hp, atk: S.atk, def: S.def, spd: S.spd, aspd: S.aspd, stats: S, heavy: h.heavy, x: x ?? sn.x - 1.6, z: z ?? sn.z - 5, yaw: 0 });
+  }
   _allyHero(h, x, z) {
     const A = this.A;
     const f = this._add({ hero: true, heroId: h.id, team: 0, name: h.name, look: h.look, wtype: h.wtype, tier: 1, ms: h.ms || h.id, elem: h.elem, hp: A.oHp * h.base.hp / 1000, atk: A.oAtk * h.base.atk / 34, def: A.oDef, spd: h.base.spd * 0.78, aspd: h.base.aspd, heavy: h.heavy, x, z, yaw: 0 });
@@ -448,7 +462,8 @@ export class Battle {
     if (mile > this.koMile) { this.koMile = mile; this.ui.koBanner(mile); this.morale = clamp(this.morale + 2, -100, 100); Audio.sfx('levelup'); }
   }
   onFighterDamaged(f, d, src, power) {
-    if (f.isPlayer) {
+    if (f === this.p2 && this.net) this.net.event('hurt');
+    if (f === this.player) {
       this.dmgTaken += d; this.ui.hurt(); GFX.shake(power > 0 ? 0.3 : 0.1); Audio.sfx('hurt', power > 0 ? 1 : 0.5); Voice.play(Voice.idFor(f), 'hurt', { chance: power > 0 ? 0.9 : 0.3, gap: 1.2 });
       if (power > 0) this.hitStop = Math.max(this.hitStop, 0.03);
       this._vibe(power > 0 ? 40 : 12);
@@ -457,7 +472,8 @@ export class Battle {
   }
   onFighterDead(f, src) {
     const byP = src === this.player, near = this.nearCam(f.x, f.z, 60);
-    if (f.isPlayer) { this._lose('力尽きた…'); return; }
+    if (f === this.player) { this._lose('力尽きた…'); return; }
+    if (f === this.p2) { this.p2Respawn = 10; this.ui.say('軍師ミコト', `${f.name}さんが倒れました! 10秒後に本拠から復帰します。`); return; }
     if (near) { FX.nova(f.x, f.z, 3.5, f.col); Audio.sfx('explode', 0.8); GFX.shake(0.4); }
     if (f.team === 1) {
       this.morale = clamp(this.morale + (f.boss ? 30 : 5), -100, 100);
@@ -481,7 +497,7 @@ export class Battle {
   onSpecial(f) {
     const near = f.isPlayer || this.nearCam(f.x, f.z, 40);
     if (near) { Audio.sfx('special'); FX.nova(f.x, f.z, 3, f.col); Voice.play(Voice.idFor(f), 'sp', { force: true }); }
-    if (f.isPlayer) {
+    if (f === this.player) {
       this.spCam = 1.1; this.slowT = 0.32; this.slowScale = 0.12; GFX.radial = 0.6; GFX.doFlash(0.3, ELEMENTS[f.elem].css);
       this.ui.cutin((f.awake > 0 ? '真・' : '') + f.ms.spName, f.name, ELEMENTS[f.elem].css);
     } else if (near) this.ui.say(f.name, `奥義——${f.ms.spName}!`);
@@ -612,13 +628,14 @@ export class Battle {
 
   // ---------- メインループ ----------
   update(dtR) {
+    if (this.guest) return this._guestUpdate(dtR);
     this.rt += dtR; this.stateT += dtR;
     let ts = 1;
     if (this.hitStop > 0) { this.hitStop -= dtR; ts = 0.05; }
     else if (this.slowT > 0) { this.slowT -= dtR; ts = this.slowScale; }
     const dt = Math.min(dtR, 0.05) * ts, play = this.state === 'play';
     if (this.state === 'intro' && this.stateT > 2.9) { this.state = 'play'; Input.clear(); this.ui.banner('出撃', this.endless ? '限界まで戦え' : '敵将軍を倒せ', 'gold'); Audio.sfx('drum'); Voice.play(Voice.idFor(this.player), 'start', { force: true }); Audio.ambience(true, this.def.theme); }
-    if ((this.state === 'win' && this.stateT > 4.2) || (this.state === 'lose' && this.stateT > 3.6)) { if (!this.sent) { this.sent = true; this.cfg.onEnd(this.result(this.state === 'win')); } }
+    if ((this.state === 'win' && this.stateT > 4.2) || (this.state === 'lose' && this.stateT > 3.6)) { if (!this.sent) { this.sent = true; const r = this.result(this.state === 'win'); if (this.net) Net.send({ t: 'end', win: r.win, rank: r.rank, time: r.time, ko: r.ko, maxCombo: r.maxCombo, offKO: r.offKO, caps: r.caps, missions: r.missions, wave: r.wave, exp: r.exp, gold: r.gold }); this.cfg.onEnd(r); } }
     if (play) this.time += dt;
     this.horde.rebuild();
     const F = this.fighters;
@@ -648,6 +665,7 @@ export class Battle {
         const main = this.bases.find((b) => b.main && b.team === 0);
         if (main) { const f = this._allyHero(HERO[r.id], main.x + rnd(-3, 3), main.z + 4); this._assign(f); this.ui.say(f.name, '待たせたな、戦線に復帰する!'); Voice.play(Voice.idFor(f), 'back', { force: true }); }
       }
+      if (this.p2Respawn > 0) { this.p2Respawn -= dt; if (this.p2Respawn <= 0) { const main = this.bases.find((b) => b.main && b.team === 0) || this.player; this.p2 = this._makeP2(main.x + rnd(-2, 2), main.z + 4); this.ui.say(this.p2.name, '待たせた、戦線に戻る!'); } }
       if (this.comboT > 0) { this.comboT -= dt; if (this.comboT <= 0) this.combo = 0; }
       // 注目対象(近くの敵将)
       this.focusT -= dt;
@@ -671,6 +689,40 @@ export class Battle {
     GFX.updateSun(p.x, 0, p.z);
     GFX.desat = damp(GFX.desat, this.state === 'lose' ? 0.85 : 0, 3, dtR);
     this.ui.hud(this);
+    if (this.net) this.net.tick(dtR);
+  }
+
+  // ---------- 協力プレイの参加側: ホストから届いた状態を描くだけ ----------
+  _guestUpdate(dtR) {
+    this.rt += dtR; this.stateT += dtR;
+    const dt = Math.min(dtR, 0.05), N = this.net, prev = this.state;
+    N.apply(dt);
+    if (prev === 'intro' && this.state === 'play') { Input.clear(); Audio.ambience(true, this.def.theme); }
+    if (this.state === 'play') { N.sendInput(dtR); Audio.ambTick(dt, 0.5); }
+    if ((this.state === 'win' || this.state === 'lose') && prev === 'play') { this.stateT = 0; Audio.stopBgm(); Audio.sfx(this.state === 'win' ? 'win' : 'lose'); this.ui.banner(this.state === 'win' ? '勝利' : '敗北', this.state === 'win' ? 'VICTORY' : '', this.state === 'win' ? 'gold' : 'bad'); }
+    if (N.endData && !this.sent) { this.sent = true; this.cfg.onEnd(this._guestResult(N.endData)); }
+    if (!Net.connected && !this.sent && this.rt > 3) { this.sent = true; this.ui.toast('ホストとの接続が切れました'); this.cfg.onEnd(this._guestResult({ win: false, rank: '-', time: this.time, ko: this.ko, maxCombo: 0, offKO: 0, caps: 0, missions: 0, wave: 0, exp: 0, gold: 0 })); }
+    const F = this.fighters;
+    for (let i = F.length - 1; i >= 0; i--) if (F[i].gone && F[i] !== this.player) { F[i].dispose(); F.splice(i, 1); }
+    // 近くの敵将に名札(HUD用)
+    const p = this.player; let best = null, bd = 22 * 22;
+    for (const f of F) { if (f.team === 0 || !f.alive) continue; const dx = f.x - p.x, dz = f.z - p.z, d2 = dx * dx + dz * dz; if (d2 < bd) { bd = d2; best = f; } }
+    this.focus = best;
+    this.curBase = null; for (const b of this.bases) { const dx = b.x - p.x, dz = b.z - p.z; if (dx * dx + dz * dz < (b.R + 2) * (b.R + 2)) { this.curBase = b; break; } }
+    this.horde._write();
+    this.stage.update(dt);
+    FX.weather(this.theme.weather, p.x, 1.5, p.z, dtR);
+    FX.update(dt);
+    this._camera(dtR);
+    GFX.updateSun(p.x, 0, p.z);
+    GFX.desat = damp(GFX.desat, this.state === 'lose' ? 0.85 : 0, 3, dtR);
+    this.ui.hud(this);
+  }
+  _guestResult(d) {
+    const h = HERO[this.player.heroId], S = this.player.S || calcStats(this.save, h.id);
+    const loot = d.win ? [this._lootWeapon(d.rank === 'S' ? 3 : d.rank === 'A' ? 2 : 1)] : [];
+    return { win: d.win, endless: this.endless, stage: this.def, diff: this.diff, heroId: h.id, rank: d.rank, time: d.time, ko: d.ko, maxCombo: d.maxCombo, dmgTaken: 0, hpRate: 0,
+      offKO: d.offKO, caps: d.caps, missions: d.missions, perfect: 0, wave: d.wave, exp: Math.round(d.exp * (S.exp || 1)), gold: Math.round(d.gold * (S.gold || 1)), loot, relic: false, coop: true };
   }
 
   _camera(dtR) {
@@ -711,6 +763,7 @@ export class Battle {
 
   dispose() {
     Audio.ambience(false);
+    if (this.net) this.net.dispose();
     for (const f of this.fighters) f.dispose();
     this.horde.dispose(); this.stage.dispose(); FX.clear();
     if (this.dome) { GFX.scene.remove(this.dome); this.dome.geometry.dispose(); this.dome.material.dispose(); }
