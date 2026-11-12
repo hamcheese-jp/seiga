@@ -51,6 +51,7 @@ export async function loadVrm(id) {
 const _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _v = new THREE.Vector3(), _w = new THREE.Vector3();
 const _f = new THREE.Vector3(), _g = new THREE.Vector3(), _x = new THREE.Vector3(), _y = new THREE.Vector3(), _m = new THREE.Matrix4();
 const _hq = new THREE.Quaternion(), _pq = new THREE.Quaternion(), _rq = new THREE.Quaternion();
+const _S = new THREE.Vector3(), _E = new THREE.Vector3(), _H = new THREE.Vector3(), _T = new THREE.Vector3(), _u = new THREE.Vector3(), _n = new THREE.Vector3(), _dq = new THREE.Quaternion(), _wq = new THREE.Quaternion();
 const CL = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -Math.PI / 2);   // 左腕: +X → 下向き
 const CR = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI / 2);    // 右腕: -X → 下向き
 const ID = new THREE.Quaternion();
@@ -109,7 +110,9 @@ export class VrmBody {
     vrm.scene.traverse((o) => { if (o.isMesh) for (const m of [].concat(o.material)) if (m.emissive && !this.mats.some((x) => x.m === m)) this.mats.push({ m, c: m.emissive.clone() }); });
     this._fl = -1;
     this._fist();
-    if (model.armor) this._armor(model.armor, model.pal || {});
+    // 後付けの鎧パーツは服の上に浮いて見えるため使わない(鎧はVRoidの衣装で表現する)
+    if (model.armor && model.forceArmor) this._armor(model.armor, model.pal || {});
+    if (model.spiky) this._spikes();
     model.vbody = this;
   }
 
@@ -139,6 +142,42 @@ export class VrmBody {
     root.updateMatrixWorld(true);
     this._place(this.wR, 'rightHand', J.handR, Q.handR, rig, false);
     if (this.model.dual) this._place(this.wL, 'leftHand', J.handL, Q.handL, rig, true);
+    // 両手持ち: VRMの腕の長さで左手を柄に届かせる(元リグの角度を写すだけだと届かない)
+    if (this.model.two) {
+      this.wR.updateMatrixWorld(true);
+      this._reach(this.wR.localToWorld(_T.copy(this.model.grip)));
+      this._grip('leftHand', 'leftLowerArm', Q.handR, true);
+      this.vrm.humanoid.update();
+    }
+  }
+  // 左腕の2関節IK: 肩→肘→手首で目標点に手を届かせる。肘は今の向き(元リグの肘)を保つ
+  _reach(T) {
+    const N = this.N, up = N.leftUpperArm, lo = N.leftLowerArm, hd = N.leftHand;
+    if (!up || !lo || !hd) return;
+    up.getWorldPosition(_S); lo.getWorldPosition(_E); hd.getWorldPosition(_H);
+    // 手首ではなく拳の中心を柄に合わせる
+    const mid = this.vrm.humanoid.getNormalizedBoneNode('leftMiddleProximal');
+    let off = 0; if (mid) { mid.getWorldPosition(_v); off = _v.distanceTo(_H) * 0.62; }
+    const a = _S.distanceTo(_E), b = _E.distanceTo(_H) + off;
+    const dist = _S.distanceTo(T); if (dist < 1e-4) return;
+    const d = Math.min(dist, (a + b) * 0.999), u = _u.copy(T).sub(_S).normalize();
+    // 肘を出す向き: 今の肘の位置から、肩→目標の線に直交する成分(なければ下)
+    _n.copy(_E).sub(_S); _n.addScaledVector(u, -_n.dot(u));
+    if (_n.lengthSq() < 1e-8) _n.set(0, -1, 0).addScaledVector(u, -u.y);
+    _n.normalize();
+    const cosA = THREE.MathUtils.clamp((a * a + d * d - b * b) / (2 * a * d), -1, 1), sinA = Math.sqrt(1 - cosA * cosA);
+    const elbow = _w.copy(_S).addScaledVector(u, a * cosA).addScaledVector(_n, a * sinA);
+    // 上腕: 今の向き → 新しい肘の向き へ回す
+    const rot = (node, from, to) => {
+      _dq.setFromUnitVectors(from.normalize(), to.normalize());
+      node.getWorldQuaternion(_wq); _wq.premultiply(_dq);
+      node.parent.getWorldQuaternion(_pq); node.quaternion.copy(_pq.invert().multiply(_wq));
+      node.updateMatrixWorld(true);
+    };
+    rot(up, _f.copy(_E).sub(_S), _g.copy(elbow).sub(_S));
+    lo.getWorldPosition(_E); hd.getWorldPosition(_H);
+    // 前腕: 肘→手首 を 肘→目標 へ(拳の分だけ手前で止まる)
+    rot(lo, _f.copy(_H).sub(_E), _g.copy(T).sub(_E));
   }
   _grip(bone, lower, q, left) {
     const hand = this.N[bone], arm = this.vrm.humanoid.getNormalizedBoneNode(lower);
@@ -167,6 +206,43 @@ export class VrmBody {
     if (left) { rig.wBaseL.add(_v); rig.wTipL.add(_v); } else { rig.wBase.add(_v); rig.wTip.add(_v); }
     g.position.copy(root.worldToLocal(_w.clone()));
     g.quaternion.copy(q);
+  }
+  // ツンツン頭: VRMの髪の上半分から、逆立つ毛束を生やす(髪と同じ色・頭の骨に付ける)
+  _spikes() {
+    const head = this.vrm.humanoid.getRawBoneNode('head'); if (!head) return;
+    this.vrm.scene.updateMatrixWorld(true);
+    const S = head.getWorldScale(new THREE.Vector3()).x || 1;
+    // 頭の骨(首の付け根)から上へ: VRoidの頭は高さ約0.22・幅約0.19
+    const c = head.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.105 * S, -0.008 * S)), r = 0.092 * S;
+    const col = new THREE.Color((this.model.pal && this.model.pal.hair) || '#2a1e16');
+    const mat = new THREE.MeshToonMaterial({ color: col });
+    const grp = new THREE.Group(); head.add(grp);
+    const hs = head.getWorldScale(new THREE.Vector3()).x || 1;   // 頭の骨の拡大率(毛束の大きさをワールド基準でそろえる)
+    const fwd = new THREE.Vector3(0, 0, 1), up = new THREE.Vector3(0, 1, 0), d = new THREE.Vector3(), base = new THREE.Vector3(), tip = new THREE.Vector3();
+    let n = 0;
+    for (const [el, cnt, len] of [[78, 5, 0.55], [58, 9, 0.5], [38, 11, 0.42], [20, 9, 0.32]]) {
+      for (let i = 0; i < cnt; i++) {
+        const az = (i / cnt) * Math.PI * 2 + el * 0.05;
+        // 顔の前(額より下)には生やさない
+        if (el < 50 && Math.cos(az) > 0.35) continue;
+        const e = THREE.MathUtils.degToRad(el);
+        d.set(Math.sin(az) * Math.cos(e), Math.sin(e), Math.cos(az) * Math.cos(e));
+        // 毛先は上と後ろへ流す
+        const dir = d.clone().addScaledVector(up, 0.55).addScaledVector(fwd, -0.35).normalize();
+        base.copy(c).addScaledVector(d, r * 0.78);
+        const L = r * len * 2.0 * (0.85 + ((n * 37) % 10) / 30);
+        tip.copy(base).addScaledVector(dir, L);
+        const g = new THREE.ConeGeometry(r * 0.2 / hs, L / hs, 4); g.translate(0, L / hs / 2, 0);
+        const m = new THREE.Mesh(g, mat);
+        m.position.copy(head.worldToLocal(base.clone()));
+        // 向き: 頭の骨のローカルで base→tip
+        const lt = head.worldToLocal(tip.clone()).sub(m.position).normalize();
+        m.quaternion.setFromUnitVectors(up, lt);
+        m.rotateY(az);
+        m.castShadow = true; grp.add(m); n++;
+      }
+    }
+    this.spikeGrp = grp;
   }
   // 鎧(肩当て・籠手・腰帯・すね当て)をVRMの骨に取り付ける。kind: 'heavy' / 'light'
   _armor(kind, pal) {

@@ -17,7 +17,7 @@ let loading = null;
 export function preloadWeapons() {
   if (!loading) {
     const L = new GLTFLoader();
-    loading = Promise.all(Object.keys(DEF).map((k) => L.loadAsync(`assets/weapons/${k}.glb`)
+    loading = Promise.all(Object.keys(DEF).map((k) => L.loadAsync(new URL(`../assets/weapons/${k}.glb`, import.meta.url).href)
       .then((g) => { lib[k] = prep(g.scene, DEF[k]); })
       .catch((e) => console.warn('武器モデルを読み込めませんでした:', k, e))));
   }

@@ -378,7 +378,7 @@ export function buildHero(look, wtype, tier = 0) {
   J.root.scale.setScalar(L.scale);
 
   return {
-    root: J.root, J, M, dang, scale: L.scale, wtype, two: W.two, dual: W.dual, armor: L.armor || '', pal: P,
+    root: J.root, J, M, dang, scale: L.scale, wtype, two: W.two, dual: W.dual, armor: L.armor || '', spiky: !!L.vrmSpiky, pal: P,
     tip: new THREE.Vector3(...W.tip), base: new THREE.Vector3(...W.base), grip: new THREE.Vector3(...W.grip),
     rest: { ...RESTS[wtype], ...REST_COMMON }, idle: IDLES[wtype], height: 1.95 * L.scale, glow: P.glow,
     wMeshes,

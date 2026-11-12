@@ -32,7 +32,7 @@ export const HEROES = [
   { id: 'gandou', name: 'ガンドウ', title: '砕地の豪傑', wtype: 'hammer', wname: '大槌', elem: 'earth',
     desc: '一撃の重さは随一。攻撃中は怯まず、大地ごと敵を叩き潰す。',
     base: { hp: 1400, atk: 44, def: 40, spd: 6.6, aspd: 0.9 }, stars: [5, 4, 1, 5], heavy: true,
-    look: { armor: 'heavy', scale: 1.2, sw: 0.3, bulk: 1.42, headScale: 1.02, hair: 'bald', beard: true, gear: 'horn', cape: '', pauldron: 2, tasset: 'plate', tails: 1, arms: 'bare', fur: true,
+    look: { armor: 'heavy', vrmSpiky: true, scale: 1.2, sw: 0.3, bulk: 1.42, headScale: 1.02, hair: 'bald', beard: true, gear: 'horn', cape: '', pauldron: 2, tasset: 'plate', tails: 1, arms: 'bare', fur: true,
       pal: { skin: '#c89064', hair: '#3b2a1c', c1: '#8a5c30', c2: '#2c2520', c3: '#d38a2c', metal: '#a08a66', gold: '#d9a23a', eye: '#2a1608' } } },
   { id: 'fuuka', name: 'フウカ', title: '翠嵐の舞姫', wtype: 'fan', wname: '双扇', elem: 'wind',
     desc: '風の刃を放つ遠距離型。舞うように敵を寄せ集め、まとめて吹き飛ばす。',

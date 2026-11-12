@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>キャラ確認ツール</title>
+<!-- 使い方: http://localhost:5173/tools/view.html?id=gandou&move=idle&t=0
+     立ち姿(待機)か技の途中を、正面・斜め・横・背面の4方向から並べて表示。zoom=upper で上半身を大きく -->
+<style>body { margin: 0; background: #223; color: #ddd; font: 13px sans-serif; } #log { white-space: pre; padding: 4px 8px; }</style>
+<script type="importmap">{ "imports": { "three": "../vendor/three.module.min.js" } }</script>
+</head>
+<body>
+<div id="log"></div>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
+import { VRMLoaderPlugin, VRMUtils } from '../vendor/three-vrm.module.min.js';
+import { GFX } from '../src/gfx.js';
+import { buildHero } from '../src/models.js';
+import { Rig } from '../src/rig.js';
+import { MS } from '../src/moves.js';
+import { HERO, ELEMENTS } from '../src/data.js';
+import { VrmBody } from '../src/vrmchar.js';
+import { preloadWeapons } from '../src/weaponglb.js';
+
+const Q = new URLSearchParams(location.search);
+const log = (s) => { document.getElementById('log').textContent += s + '\n'; };
+if (!GFX.uRim) GFX.uRim = { value: 0 };
+await preloadWeapons();
+const S = 380, renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1); renderer.setSize(S * 2, S * 2); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.setClearColor(0x556070, 1); renderer.setScissorTest(true);
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const cam = new THREE.PerspectiveCamera(22, 1, 0.1, 60);
+const key = new THREE.DirectionalLight(0xffffff, 2.4); key.position.set(-1.5, 2.5, 3); scene.add(key);
+const back = new THREE.DirectionalLight(0xffffff, 1.6); back.position.set(1.5, 1.5, -3); scene.add(back);
+scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+
+async function loadVrm(url) {
+  const loader = new GLTFLoader(); loader.register((p) => new VRMLoaderPlugin(p));
+  const gltf = await loader.loadAsync('../' + url), vrm = gltf.userData.vrm;
+  VRMUtils.removeUnnecessaryVertices(gltf.scene);
+  if (vrm.meta && vrm.meta.metaVersion === '0') VRMUtils.rotateVRM0(vrm);
+  return vrm;
+}
+const id = Q.get('id') || 'gandou', h = HERO[id], E = ELEMENTS[h.elem];
+const model = buildHero({ ...h.look, pal: { ...h.look.pal, glow: E.glow } }, h.wtype, +(Q.get('tier') || 2));
+scene.add(model.root);
+const rig = new Rig(model);
+const key2 = h.vrm || id;
+const vrm = await loadVrm(`vrm/${key2}.vrm`);
+const vb = new VrmBody(model, vrm);
+vb.rim([E.glow[0] * 0.5, E.glow[1] * 0.5, E.glow[2] * 0.5], h.foe ? 1 : 0);
+const mvK = Q.get('move') || 'idle', t = +(Q.get('t') || 0);
+for (let i = 0; i < 90; i++) { rig.update(1 / 60); vb.sync(1 / 60, rig); }
+if (mvK !== 'idle') {
+  const ms = MS[h.ms || id], mv = mvK === 'sp' ? ms.sp : mvK[0] === 'c' ? ms.c[+mvK.slice(1)] : ms.n[+mvK.slice(1)];
+  rig.play(mv); rig.mt = 0; for (let x = 0; x < t; x += 1 / 120) { rig.mt += 1 / 120; rig.update(1 / 120); vb.sync(1 / 120, rig); }
+}
+window.__step = (n = 1) => { for (let i = 0; i < n; i++) { rig.update(1 / 60); vb.sync(1 / 60, rig); } draw(); };
+function draw() {
+  model.root.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(model.root), c = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
+  const hp = vb.N.hips.getWorldPosition(new THREE.Vector3()); let r = model.height * 0.62; c.copy(hp); c.y = Math.max(model.height * 0.5, hp.y);
+  if (Q.get('zoom') === 'upper') { c.y = hp.y + model.height * 0.3; r = model.height * 0.32; }
+  const d = r / Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
+  [0, 45, 90, 180].forEach((deg, i) => {
+    const a = THREE.MathUtils.degToRad(deg + (+(Q.get('yaw') || 0)));
+    cam.position.set(c.x + Math.sin(a) * d, c.y + 0.1 * d, c.z + Math.cos(a) * d); cam.lookAt(c);
+    const vx = (i % 2) * S, vy = (1 - (i >> 1)) * S; renderer.setViewport(vx, vy, S, S); renderer.setScissor(vx, vy, S, S); renderer.render(scene, cam);
+  });
+}
+draw();
+log(`${id} ${mvK} t=${t}`);
+window.__done = true;
+</script>
+</body>
+</html>
