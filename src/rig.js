@@ -130,6 +130,8 @@ export class Rig {
       tr = s * 0.95 * run - 0.12 * run; kr = (0.3 + 1.15 * Math.max(0, -c)) * run;
     } else if (!this.move && (mode === 'air' || mode === 'down' || mode === 'dead')) { tl = -0.35; kl = 0.6; tr = 0.1; kr = 0.3; }
     else { const st = p.stance; tl = -0.55 * st - sq; kl = 0.5 * st + sq * 2; tr = 0.5 * st - sq * 0.55; kr = 0.35 * st + sq * 1.35; splay = 0.05 + 0.1 * st; }
+    // 決めポーズ: 足を左右に大きく開いて腰を落とす(wide = 開く角度[ラジアン])
+    if (!this.move && mode === 'pose' && this.customPose && this.customPose.wide) { const w = this.customPose.wide; tl = tr = -sq * 0.7 - 0.05; kl = kr = sq * 1.5; splay = w; }
     const la = 1 - Math.exp(-(this.move ? 30 : 18) * dt), g = this.legs;
     g.tl += (tl - g.tl) * la; g.kl += (kl - g.kl) * la; g.tr += (tr - g.tr) * la; g.kr += (kr - g.kr) * la;
     J.legL.rotation.set(g.tl, 0, splay); J.shinL.rotation.x = g.kl;

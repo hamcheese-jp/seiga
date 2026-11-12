@@ -243,6 +243,9 @@ export class VrmBody {
     if (left) { rig.wBaseL.add(_v); rig.wTipL.add(_v); } else { rig.wBase.add(_v); rig.wTip.add(_v); }
     g.position.copy(root.worldToLocal(_w.clone()));
     g.quaternion.copy(q);
+    // 決めポーズ: 武器を柄の軸まわりに回す(扇の面を正面へ向けるなど)
+    const cp = rig && rig.mode === 'pose' && rig.customPose; const roll = cp && (left ? cp.rollL : cp.roll);
+    if (roll) g.rotateY(roll * Math.PI / 180);
   }
   // ツンツン頭: VRMの髪の上半分から、逆立つ毛束を生やす(髪と同じ色・頭の骨に付ける)
   _spikes() { this.spikeGrp = addSpikes(this.vrm, this.model.pal && this.model.pal.hair); }
