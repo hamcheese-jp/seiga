@@ -21,6 +21,9 @@ import { Rig } from '../src/rig.js';
 import { MS } from '../src/moves.js';
 import { HERO, ELEMENTS } from '../src/data.js';
 import { VrmBody } from '../src/vrmchar.js';
+import { preloadWeapons } from '../src/weaponglb.js';
+import { heroPose } from '../src/poses.js';
+await preloadWeapons();
 
 // 各キャラの決めポーズ(技・時刻・カメラ)
 const POSES = {
@@ -56,7 +59,8 @@ async function loadVrm(url) {
 }
 const pickMove = (ms, k) => (k === 'sp' ? ms.sp : k[0] === 'c' ? ms.c[+k.slice(1)] : ms.n[+k.slice(1)]);
 
-async function shoot(id, o, save) {
+async function shoot(id, o0, save) {
+  let o = o0;
   const h = HERO[id], E = ELEMENTS[h.elem];
   const model = buildHero({ ...h.look, pal: { ...h.look.pal, glow: E.glow } }, h.wtype, 2);
   scene.add(model.root);
@@ -68,15 +72,25 @@ async function shoot(id, o, save) {
   back.color.setRGB(E.glow[0] / 5, E.glow[1] / 5, E.glow[2] / 5);
   const em = vrm.expressionManager; if (em) { em.setValue('angry', h.look.fem ? 0.3 : 0.55); }
   // 技を途中まで再生
-  const mv = pickMove(MS[h.ms || id], o.move);
-  for (let i = 0; i < 30; i++) rig.update(1 / 60);
-  rig.play(mv); rig.mt = 0;
-  const dt = 1 / 120;
-  for (let t = 0; t < o.t; t += dt) { rig.mt += dt; rig.update(dt); }
+  const HP = heroPose(id);
+  if (HP && !Q.has('move')) {
+    // 決めポーズ(src/poses.js)
+    rig.customPose = HP.p; rig.setMode('pose');
+    for (let i = 0; i < 150; i++) { rig.update(1 / 60); vb.sync(1 / 60, rig); }
+    o = { ...o, yaw: HP.cam.yaw, pitch: HP.cam.pitch };
+  } else {
+    const mv = pickMove(MS[h.ms || id], o.move);
+    for (let i = 0; i < 30; i++) rig.update(1 / 60);
+    rig.play(mv); rig.mt = 0;
+    const dt = 1 / 120;
+    for (let t = 0; t < o.t; t += dt) { rig.mt += dt; rig.update(dt); }
+  }
   model.root.updateMatrixWorld(true);
   // 全体が収まるように構図を決める
   const box = new THREE.Box3().setFromObject(model.root), c = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
-  const r = Math.max(sz.x, sz.y, sz.z) * 0.62, d = r / Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
+  // 体を大きく写す(武器は多少はみ出してもよい)。中心は体と武器の中間
+  const hp = vb.N.hips.getWorldPosition(new THREE.Vector3()); c.lerp(hp.add(new THREE.Vector3(0, model.height * 0.12, 0)), 0.55);
+  const r = Math.max(model.height * 0.62, Math.max(sz.x, sz.y, sz.z) * 0.46), d = r / Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
   const yaw = THREE.MathUtils.degToRad(o.yaw), pit = THREE.MathUtils.degToRad(o.pitch || 0);
   cam.position.set(c.x + Math.sin(yaw) * Math.cos(pit) * d, c.y + Math.sin(pit) * d, c.z + Math.cos(yaw) * Math.cos(pit) * d);
   cam.lookAt(c);

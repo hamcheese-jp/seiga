@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>ポーズ選び</title>
+<!-- 使い方: http://localhost:5173/tools/sweep.html?id=reiga&moves=sp,c0,c5&yaw=20&pitch=-8
+     技ごとに時間を区切ったコマを並べる(各コマの左上に 技名 t=秒)。決めポーズ選びに使う -->
+<style>body { margin: 0; background: #223; color: #ddd; font: 12px sans-serif; } #log { white-space: pre; padding: 4px; } .g { display: grid; grid-template-columns: repeat(var(--cols, 6), 1fr); gap: 2px; } .c { position: relative; } .c span { position: absolute; left: 2px; top: 2px; background: #000a; padding: 1px 3px; } img { width: 100%; display: block; background: #556070; }</style>
+<script type="importmap">{ "imports": { "three": "../vendor/three.module.min.js" } }</script>
+</head>
+<body>
+<div id="log"></div><div class="g" id="g"></div>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
+import { VRMLoaderPlugin, VRMUtils } from '../vendor/three-vrm.module.min.js';
+import { GFX } from '../src/gfx.js';
+import { buildHero } from '../src/models.js';
+import { Rig } from '../src/rig.js';
+import { MS } from '../src/moves.js';
+import { HERO, ELEMENTS } from '../src/data.js';
+import { VrmBody } from '../src/vrmchar.js';
+import { preloadWeapons } from '../src/weaponglb.js';
+import { POSE_CANDS } from '../src/poses.js';
+
+const Q = new URLSearchParams(location.search);
+if (Q.has('cand')) document.getElementById('g').style.setProperty('--cols', 3);
+if (!GFX.uRim) GFX.uRim = { value: 0 };
+await preloadWeapons();
+const S = 260, renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1); renderer.setSize(S, S); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.setClearColor(0x556070, 1);
+const scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(30, 1, 0.1, 60);
+const key = new THREE.DirectionalLight(0xffffff, 2.4); key.position.set(-1.5, 2.5, 3); scene.add(key);
+scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+const loader = new GLTFLoader(); loader.register((p) => new VRMLoaderPlugin(p));
+const id = Q.get('id') || 'reiga', h = HERO[id], E = ELEMENTS[h.elem];
+const gltf = await loader.loadAsync(`../vrm/${h.vrm || id}.vrm`), vrm = gltf.userData.vrm;
+VRMUtils.removeUnnecessaryVertices(gltf.scene); if (vrm.meta && vrm.meta.metaVersion === '0') VRMUtils.rotateVRM0(vrm);
+const model = buildHero({ ...h.look, pal: { ...h.look.pal, glow: E.glow } }, h.wtype, 2);
+scene.add(model.root);
+const rig = new Rig(model), vb = new VrmBody(model, vrm);
+const yaw = THREE.MathUtils.degToRad(+(Q.get('yaw') || 20)), pit = THREE.MathUtils.degToRad(+(Q.get('pitch') || -8));
+const ms = MS[h.ms || id], pick = (k) => (k === 'sp' ? ms.sp : k[0] === 'c' ? ms.c[+k.slice(1)] : ms.n[+k.slice(1)]);
+const moves = (Q.get('moves') || 'sp,c0,c1,c2,c3,c4,c5').split(','), N = +(Q.get('n') || 6);
+const shotAt = (label) => {
+  model.root.updateMatrixWorld(true);
+  for (const yd of (Q.get('yaws') || '15,-30,50').split(',').map(Number)) {
+    const yw = THREE.MathUtils.degToRad(yd);
+    const hp = vb.N.hips.getWorldPosition(new THREE.Vector3()), c = hp.clone(); c.y = hp.y + model.height * 0.12;
+    const d = (model.height * 0.75) / Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
+    cam.position.set(c.x + Math.sin(yw) * Math.cos(pit) * d, c.y + Math.sin(pit) * d, c.z + Math.cos(yw) * Math.cos(pit) * d); cam.lookAt(c);
+    renderer.render(scene, cam);
+    const div = document.createElement('div'); div.className = 'c';
+    div.innerHTML = '<img src="' + renderer.domElement.toDataURL() + '"><span>' + label + ' y' + yd + '</span>';
+    document.getElementById('g').appendChild(div);
+  }
+};
+if (Q.has('cand')) {
+  (POSE_CANDS[id] || []).forEach((p, i) => { rig.customPose = p; rig.setMode('pose'); for (let j = 0; j < 120; j++) { rig.update(1 / 60); vb.sync(1 / 60, rig); } shotAt('案' + (i + 1)); });
+}
+for (const k of Q.has('cand') ? [] : moves) {
+  const mv = pick(k); if (!mv) continue;
+  for (let s = 0; s < N; s++) {
+    const t = (mv.dur * (s + 0.5)) / N;
+    rig.stop && rig.stop(); for (let i = 0; i < 40; i++) { rig.update(1 / 60); vb.sync(1 / 60, rig); }
+    rig.play(mv); rig.mt = 0;
+    for (let x = 0; x < t; x += 1 / 120) { rig.mt += 1 / 120; rig.update(1 / 120); vb.sync(1 / 120, rig); }
+    model.root.updateMatrixWorld(true);
+    const hp = vb.N.hips.getWorldPosition(new THREE.Vector3()), c = hp.clone(); c.y = hp.y + model.height * 0.12;
+    const d = (model.height * 0.75) / Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
+    cam.position.set(c.x + Math.sin(yaw) * Math.cos(pit) * d, c.y + Math.sin(pit) * d, c.z + Math.cos(yaw) * Math.cos(pit) * d); cam.lookAt(c);
+    renderer.render(scene, cam);
+    const div = document.createElement('div'); div.className = 'c';
+    div.innerHTML = `<img src="${renderer.domElement.toDataURL()}"><span>${k} t=${t.toFixed(2)}</span>`;
+    document.getElementById('g').appendChild(div);
+  }
+}
+window.__done = true;
+</script>
+</body>
+</html>

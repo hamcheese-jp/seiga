@@ -3,8 +3,9 @@
 //   会話の書き方: { c: キャラ, t: 台詞 } / c: '@' は選んだ武将(t を武将IDごとに書き分けられる) / f: 'b' で表情差分 / c 省略でナレーション
 import { Audio } from './audio.js';
 import { HERO } from './data.js';
+import { VERSION } from './config.js';
 
-const IMG = (id, v = '') => `assets/portraits/${id}${v}.webp`;
+const IMG = (id, v = '') => `assets/portraits/${id}${v}.webp?v=${VERSION}`;   // 版ごとに読み直す(古い画像が残らないように)
 
 export const CAST = {
   mikoto: { n: 'ミコト', t: '蒼星軍 軍師', col: '#b79cff' },

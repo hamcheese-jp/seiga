@@ -100,6 +100,7 @@ export class Rig {
       else if (mode === 'stun') { tp.lean = 14; tp.side = Math.sin(this.t * 5) * 8; tp.el = -78; tp.elL = -78; tp.head = Math.sin(this.t * 4) * 15; rate = 10; }
       else if (mode === 'victory') { tp.el = 76; tp.az = -14; tp.bend = 12; tp.wr = 12; tp.lean = -6; tp.elL = -48; tp.azL = 52; tp.stance = 0.3; rate = 7; }
       else if (mode === 'cast') { tp.el = 58; tp.az = -34; tp.elL = 58; tp.azL = 34; tp.bend = 35; tp.bendL = 35; tp.lean = -10; tp.crouch = 0.12; tp.stance = 0.5; tp.wr = 40; rate = 16; }
+      else if (mode === 'pose' && this.customPose) { Object.assign(tp, this.customPose); rate = 20; armRate = 20; }
       else if (mode === 'pose') { tp.el = -30; tp.az = -50; tp.bend = 60; tp.wr = 70; tp.tw = -18; tp.stance = 0.55; tp.elL = -45; tp.azL = 55; rate = 6; }
     }
     const a = 1 - Math.exp(-rate * dt);

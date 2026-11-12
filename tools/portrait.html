@@ -13,6 +13,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils } from '../vendor/three-vrm.module.min.js';
+import { addSpikes } from '../src/vrmchar.js';
 
 // [保存名, VRMファイル, 表情(普段), 表情(差分), 輪郭光の色, 敵か]
 const LIST = [
@@ -30,7 +31,7 @@ const LIST = [
   ['boss4', 'vrm/boss4.orig.vrm', ['angry', 0.8], ['angry', 1], [1.6, 0.1, 0.02], 2],
   ['boss5', 'vrm/boss5.orig.vrm', ['relaxed', 0.4], ['happy', 0.5], [1.6, 0.05, 0.3], 2],
 ];
-const only = new URLSearchParams(location.search).get('only');
+const only = (new URLSearchParams(location.search).get('only') || '').split(',').filter(Boolean);
 const log = (s) => { document.getElementById('log').textContent += '\n' + s; };
 
 const W = 640, H = 800;
@@ -80,18 +81,18 @@ function face(vrm, e) {
   for (const n of ['happy', 'angry', 'sad', 'relaxed', 'surprised']) em.setValue(n, 0);
   if (e) em.setValue(e[0], e[1]);
 }
-function shot(vrm, mode) {
+function shot(vrm, mode, extra = 0) {
   vrm.update(0);
   vrm.scene.updateMatrixWorld(true);
   const head = vrm.humanoid.getNormalizedBoneNode('head').getWorldPosition(new THREE.Vector3());
   const hips = vrm.humanoid.getNormalizedBoneNode('hips').getWorldPosition(new THREE.Vector3());
   if (mode === 'bust') {
     // 頭の上から腰まで
-    const top = head.y + 0.2, bot = hips.y + 0.02, mid = (top + bot) / 2, span = top - bot;
+    const top = head.y + 0.2 + extra, bot = hips.y + 0.02, mid = (top + bot) / 2, span = top - bot;
     const d = span / 2 / Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)) * 1.02;
     cam.position.set(0.12, mid + 0.02, d); cam.lookAt(0, mid, 0);
   } else {
-    const top = head.y + 0.22, bot = -0.03, mid = (top + bot) / 2, span = top - bot;
+    const top = head.y + 0.22 + extra, bot = -0.03, mid = (top + bot) / 2, span = top - bot;
     const d = span / 2 / Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)) * 1.02;
     cam.position.set(0.15, mid, d); cam.lookAt(0, mid, 0);
   }
@@ -104,15 +105,16 @@ async function save(name, blob) {
 }
 
 for (const [id, url, e1, e2, c, lv] of LIST) {
-  if (only && only !== id) continue;
+  if (only.length && !only.includes(id)) continue;
   try {
     const vrm = await load(url);
     scene.add(vrm.scene); pose(vrm, lv); rim(vrm, c, lv); light(lv);
+    if (id === 'gandou') { vrm.scene.updateMatrixWorld(true); addSpikes(vrm, '#3b2a1c'); }
     face(vrm, e1); renderer.setSize(W, H); cam.aspect = W / H; cam.updateProjectionMatrix();
-    await save(id, await shot(vrm, 'bust'));
-    face(vrm, e2); await save(id + '_b', await shot(vrm, 'bust'));
+    await save(id, await shot(vrm, 'bust', id === 'gandou' ? 0.1 : 0));
+    face(vrm, e2); await save(id + '_b', await shot(vrm, 'bust', id === 'gandou' ? 0.1 : 0));
     face(vrm, e1); renderer.setSize(480, 960); cam.aspect = 0.5; cam.updateProjectionMatrix();
-    await save(id + '_full', await shot(vrm, 'full'));
+    await save(id + '_full', await shot(vrm, 'full', id === 'gandou' ? 0.1 : 0));
     scene.remove(vrm.scene); VRMUtils.deepDispose(vrm.scene);
   } catch (err) { log(id + ' エラー: ' + err.message); }
 }

@@ -21,6 +21,7 @@ import { MS } from '../src/moves.js';
 import { HERO, ELEMENTS } from '../src/data.js';
 import { VrmBody } from '../src/vrmchar.js';
 import { preloadWeapons } from '../src/weaponglb.js';
+import { HERO_POSES } from '../src/poses.js';
 
 const Q = new URLSearchParams(location.search);
 const log = (s) => { document.getElementById('log').textContent += s + '\n'; };
@@ -52,7 +53,12 @@ const vb = new VrmBody(model, vrm);
 vb.rim([E.glow[0] * 0.5, E.glow[1] * 0.5, E.glow[2] * 0.5], h.foe ? 1 : 0);
 const mvK = Q.get('move') || 'idle', t = +(Q.get('t') || 0);
 for (let i = 0; i < 90; i++) { rig.update(1 / 60); vb.sync(1 / 60, rig); }
-if (mvK !== 'idle') {
+if (mvK === 'pose') {
+  const P = HERO_POSES[id]; let pp = P ? P.p : {};
+  if (Q.get('p')) pp = { ...pp, ...JSON.parse(Q.get('p')) };
+  rig.customPose = pp; rig.setMode('pose');
+  for (let i = 0; i < 120; i++) { rig.update(1 / 60); vb.sync(1 / 60, rig); }
+} else if (mvK !== 'idle') {
   const ms = MS[h.ms || id], mv = mvK === 'sp' ? ms.sp : mvK[0] === 'c' ? ms.c[+mvK.slice(1)] : ms.n[+mvK.slice(1)];
   rig.play(mv); rig.mt = 0; for (let x = 0; x < t; x += 1 / 120) { rig.mt += 1 / 120; rig.update(1 / 120); vb.sync(1 / 120, rig); }
 }

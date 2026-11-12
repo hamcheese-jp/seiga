@@ -83,6 +83,43 @@ const MAP = [
 const PARENT = { hips: 'body', spine: 'hips', chest: 'spine', head: 'chest', armL: 'chest', foreL: 'armL', handL: 'foreL', armR: 'chest', foreR: 'armR', handR: 'foreR', legL: 'hips', shinL: 'legL', legR: 'hips', shinR: 'legR' };
 const ORDER = ['hips', 'spine', 'chest', 'head', 'armL', 'foreL', 'handL', 'armR', 'foreR', 'handR', 'legL', 'shinL', 'legR', 'shinR'];
 
+export function addSpikes(vrm, hairHex) {
+  const head = vrm.humanoid.getRawBoneNode('head'); if (!head) return;
+  vrm.scene.updateMatrixWorld(true);
+  const S = head.getWorldScale(new THREE.Vector3()).x || 1;
+  // 頭の骨(首の付け根)から上へ: VRoidの頭は高さ約0.22・幅約0.19
+  const c = head.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.105 * S, -0.008 * S)), r = 0.092 * S;
+  const col = new THREE.Color(hairHex || '#2a1e16');
+  const mat = new THREE.MeshToonMaterial({ color: col });
+  const grp = new THREE.Group(); head.add(grp);
+  const hs = head.getWorldScale(new THREE.Vector3()).x || 1;   // 頭の骨の拡大率(毛束の大きさをワールド基準でそろえる)
+  const fwd = new THREE.Vector3(0, 0, 1), up = new THREE.Vector3(0, 1, 0), d = new THREE.Vector3(), base = new THREE.Vector3(), tip = new THREE.Vector3();
+  let n = 0;
+  for (const [el, cnt, len] of [[78, 5, 0.55], [58, 9, 0.5], [38, 11, 0.42], [20, 9, 0.32]]) {
+    for (let i = 0; i < cnt; i++) {
+      const az = (i / cnt) * Math.PI * 2 + el * 0.05;
+      // 顔の前(額より下)には生やさない
+      if (el < 50 && Math.cos(az) > 0.35) continue;
+      const e = THREE.MathUtils.degToRad(el);
+      d.set(Math.sin(az) * Math.cos(e), Math.sin(e), Math.cos(az) * Math.cos(e));
+      // 毛先は上と後ろへ流す
+      const dir = d.clone().addScaledVector(up, 0.55).addScaledVector(fwd, -0.35).normalize();
+      base.copy(c).addScaledVector(d, r * 0.78);
+      const L = r * len * 2.0 * (0.85 + ((n * 37) % 10) / 30);
+      tip.copy(base).addScaledVector(dir, L);
+      const g = new THREE.ConeGeometry(r * 0.2 / hs, L / hs, 4); g.translate(0, L / hs / 2, 0);
+      const m = new THREE.Mesh(g, mat);
+      m.position.copy(head.worldToLocal(base.clone()));
+      // 向き: 頭の骨のローカルで base→tip
+      const lt = head.worldToLocal(tip.clone()).sub(m.position).normalize();
+      m.quaternion.setFromUnitVectors(up, lt);
+      m.rotateY(az);
+      m.castShadow = true; grp.add(m); n++;
+    }
+  }
+  return grp;
+}
+
 export class VrmBody {
   constructor(model, vrm) {
     this.model = model; this.vrm = vrm;
@@ -208,42 +245,7 @@ export class VrmBody {
     g.quaternion.copy(q);
   }
   // ツンツン頭: VRMの髪の上半分から、逆立つ毛束を生やす(髪と同じ色・頭の骨に付ける)
-  _spikes() {
-    const head = this.vrm.humanoid.getRawBoneNode('head'); if (!head) return;
-    this.vrm.scene.updateMatrixWorld(true);
-    const S = head.getWorldScale(new THREE.Vector3()).x || 1;
-    // 頭の骨(首の付け根)から上へ: VRoidの頭は高さ約0.22・幅約0.19
-    const c = head.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.105 * S, -0.008 * S)), r = 0.092 * S;
-    const col = new THREE.Color((this.model.pal && this.model.pal.hair) || '#2a1e16');
-    const mat = new THREE.MeshToonMaterial({ color: col });
-    const grp = new THREE.Group(); head.add(grp);
-    const hs = head.getWorldScale(new THREE.Vector3()).x || 1;   // 頭の骨の拡大率(毛束の大きさをワールド基準でそろえる)
-    const fwd = new THREE.Vector3(0, 0, 1), up = new THREE.Vector3(0, 1, 0), d = new THREE.Vector3(), base = new THREE.Vector3(), tip = new THREE.Vector3();
-    let n = 0;
-    for (const [el, cnt, len] of [[78, 5, 0.55], [58, 9, 0.5], [38, 11, 0.42], [20, 9, 0.32]]) {
-      for (let i = 0; i < cnt; i++) {
-        const az = (i / cnt) * Math.PI * 2 + el * 0.05;
-        // 顔の前(額より下)には生やさない
-        if (el < 50 && Math.cos(az) > 0.35) continue;
-        const e = THREE.MathUtils.degToRad(el);
-        d.set(Math.sin(az) * Math.cos(e), Math.sin(e), Math.cos(az) * Math.cos(e));
-        // 毛先は上と後ろへ流す
-        const dir = d.clone().addScaledVector(up, 0.55).addScaledVector(fwd, -0.35).normalize();
-        base.copy(c).addScaledVector(d, r * 0.78);
-        const L = r * len * 2.0 * (0.85 + ((n * 37) % 10) / 30);
-        tip.copy(base).addScaledVector(dir, L);
-        const g = new THREE.ConeGeometry(r * 0.2 / hs, L / hs, 4); g.translate(0, L / hs / 2, 0);
-        const m = new THREE.Mesh(g, mat);
-        m.position.copy(head.worldToLocal(base.clone()));
-        // 向き: 頭の骨のローカルで base→tip
-        const lt = head.worldToLocal(tip.clone()).sub(m.position).normalize();
-        m.quaternion.setFromUnitVectors(up, lt);
-        m.rotateY(az);
-        m.castShadow = true; grp.add(m); n++;
-      }
-    }
-    this.spikeGrp = grp;
-  }
+  _spikes() { this.spikeGrp = addSpikes(this.vrm, this.model.pal && this.model.pal.hair); }
   // 鎧(肩当て・籠手・腰帯・すね当て)をVRMの骨に取り付ける。kind: 'heavy' / 'light'
   _armor(kind, pal) {
     const h = this.vrm.humanoid, raw = (n) => h.getRawBoneNode(n), nb = (n) => h.getNormalizedBoneNode(n);

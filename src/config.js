@@ -4,7 +4,7 @@
 // 空のままでも、ゲーム内「設定」画面から個別にURLを入力できます。
 export const CLOUD_URL = 'https://script.google.com/macros/s/AKfycbwIXAdAaQbAvjuTPs3f40_3I8KxJB3mKbrFkAzfM-IuFDj_kmxqeDuisBGuqbjSZOJp1Q/exec';
 
-export const VERSION = '1.7.2';
+export const VERSION = '1.7.3';
 
 // VRoid のキャラ(VRM)。ファイルを vrm/ フォルダに入れ、武将ID: パス を書くと差し替わります
 // 武将ID: reiga / setsuna / raika / gandou / fuuka / yomi
