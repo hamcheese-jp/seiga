@@ -8,7 +8,7 @@ const _z = new THREE.Vector3(), _ny = new THREE.Vector3(), _v1 = new THREE.Vecto
 const _qc = new THREE.Quaternion(), _qi = new THREE.Quaternion(), _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion(), _qt = new THREE.Quaternion();
 const _mat = new THREE.Matrix4();
 const FWD = new THREE.Vector3(0, 0, 1);
-const ARMK = new Set(['az', 'el', 'bend', 'wr']);
+const ARMK = new Set(['az', 'el', 'bend', 'wr', 'azL', 'elL', 'bendL', 'wrL']);
 const wrap180 = (a) => { a = a % 360; if (a > 180) a -= 360; else if (a < -180) a += 360; return a; };
 
 function basisQ(out, X, dir) {
@@ -98,9 +98,13 @@ export class Rig {
         tp.crouch = 0.06 * walk + 0.16 * dash; tp.stance = R.stance * (1 - Math.min(1, run * 2));
         tp.head = 6 * dash;
         // 右手(刀): 走る時は後ろ下へ流して切っ先を引きずる
-        tp.az = R.az + (-150 - R.az) * dash + s * 5 * walk; tp.el = R.el + (-32 - R.el) * dash + s * (6 * walk + 5 * dash) + br * 1.5;
-        tp.bend = R.bend + (14 - R.bend) * dash; tp.wr = R.wr + (26 - R.wr) * dash;
-        if (!two) {   // 左手: 歩きは軽く振り、走りは前に出して風を切る
+        const RP = this.model.run;
+        tp.az = R.az + (RP.az - R.az) * dash + s * 5 * walk; tp.el = R.el + (RP.el - R.el) * dash + s * (6 * walk + 5 * dash) + br * 1.5;
+        tp.bend = R.bend + (RP.bend - R.bend) * dash; tp.wr = R.wr + (RP.wr - R.wr) * dash;
+        if (RP.azL !== undefined) {   // 二刀・双扇: 左手も武器ごとの構えへ
+          tp.azL = R.azL + (RP.azL - R.azL) * dash - s * 5 * walk; tp.elL = R.elL + (RP.elL - R.elL) * dash - s * (6 * walk + 5 * dash) + br;
+          tp.bendL = R.bendL + (RP.bendL - R.bendL) * dash; tp.wrL = R.wrL + (RP.wrL - R.wrL) * dash;
+        } else if (!two) {   // 左手: 歩きは軽く振り、走りは前に出して風を切る
           tp.azL = R.azL + (-8 - R.azL) * dash - 6 * walk; tp.elL = R.elL - s * 22 * walk + (-14 - R.elL) * dash - s * 16 * dash + br;
           tp.bendL = R.bendL + 18 * walk + (96 - R.bendL) * dash;
         }

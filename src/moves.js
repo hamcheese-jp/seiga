@@ -422,3 +422,18 @@ MS.p_ignas = { spName: '獄炎噴火',
 MS.p_zenova = { spName: '覇星墜天',
   n: [B5.n0, B5.n1, B5.n2, B5.n3, MS.yomi.n[4], MS.yomi.n[5]],
   c: [pl(B5.warp), MS.yomi.c[1], pl(B5.orbs), MS.yomi.c[3], pl(B5.reap), MS.yomi.c[5]], sp: MS.yomi.sp };
+
+// ---- 足さばき: 指定のない技に、一撃ごとに踏み出す足(step)を交互に割り振る ----
+function footwork(ms) {
+  for (const list of [ms.n, ms.c]) list.forEach((mv, i) => {
+    if (mv.keys.some((k) => k.step !== undefined)) return;       // 個別に決めてある技はそのまま
+    const st = i % 2 ? 1 : -1; let alt = st;
+    mv.keys.forEach((k, j) => {
+      if (j === 0) return;                                        // 振りかぶりの間は前の足のまま
+      // 連結技は、振りかぶり(e=out で bend が大きい)のたびに足を替える
+      if (j > 1 && k.e === 'out' && (k.bend ?? 0) > 60) alt = -alt;
+      k.step = alt;
+    });
+  });
+}
+for (const id of ['setsuna', 'raika', 'gandou', 'fuuka', 'yomi']) footwork(MS[id]);
