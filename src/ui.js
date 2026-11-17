@@ -1,6 +1,7 @@
 // 画面UI: 合戦HUD・演出テロップ・各メニュー画面(DOM)
 import { Save, Cloud } from './save.js';
-import { HEROES, HERO, ELEMENTS, STAGES, ENDLESS, STAGE, DIFFS, RARITY, RAR_MAXLV, traitText, weaponName, weaponAtk, synthInfo, doSynth, SYN_MAX, starterWeapon, forgeCost, sellPrice, GACHA_COST, rollWeapon, calcStats, expNeed,
+import { ARMOR_SLOT_KEYS, ARMOR_SLOT_TAB, ARMOR_SLOT_NAMES, ARMOR_SETS, armorName, armorSell, heroArmor,
+  HEROES, HERO, ELEMENTS, STAGES, ENDLESS, STAGE, DIFFS, RARITY, RAR_MAXLV, traitText, weaponName, weaponAtk, synthInfo, doSynth, SYN_MAX, starterWeapon, forgeCost, sellPrice, GACHA_COST, rollWeapon, calcStats, expNeed,
   ACHIEVEMENTS, STAR_LABELS, UNLOCKS, FOE_UNLOCKS, GAME_TITLE, GAME_SUB, MAX_LV, maxNormals, maxCharges } from './data.js';
 import { VERSION } from './config.js';
 import { Install } from './install.js';
@@ -104,6 +105,17 @@ export const UI = {
         break;
       }
       case 'ahero': Audio.sfx('ui'); this.armHero = v; this.armSel = null; this.synBase = null; this.app.lobbyHero(v); this.r_armory(); break;
+      case 'amode': Audio.sfx('ui'); this.armMode = v; this.armASel = null; this.synBase = null; this.r_armory(); break;
+      case 'asel': Audio.sfx('ui'); this.armASel = v; this.r_armory(); break;
+      case 'aequip': { const a = S.armors.find((x) => x.uid === this.armASel); if (!a) { Audio.sfx('deny'); break; }
+        // 他の武将が着けていたら外してから着ける
+        for (const hh of Object.values(S.heroes)) if (hh.armor && hh.armor[a.slot] === a.uid) hh.armor[a.slot] = null;
+        S.heroes[this.armHero].armor[a.slot] = a.uid; Audio.sfx('ok'); Save.persist(); this.app.lobbyHero(this.armHero, true); this.r_armory(); break; }
+      case 'aunequip': { S.heroes[this.armHero].armor[this.armMode] = null; Audio.sfx('back'); Save.persist(); this.app.lobbyHero(this.armHero, true); this.r_armory(); break; }
+      case 'asell': { const a = S.armors.find((x) => x.uid === this.armASel);
+        if (!a || a.lock || Object.values(S.heroes).some((hh) => hh.armor && hh.armor[a.slot] === a.uid)) { Audio.sfx('deny'); break; }
+        S.gold += armorSell(a); S.armors.splice(S.armors.indexOf(a), 1); this.armASel = null; Audio.sfx('pickup'); Save.persist(); this.r_armory(); break; }
+      case 'alock': { const a = S.armors.find((x) => x.uid === this.armASel); if (a) { a.lock = !a.lock; Audio.sfx('ui'); Save.persist(false); this.r_armory(); } break; }
       case 'wsel': {
         // 合成の素材選び中: 選んだ武器を素材にする
         if (this.synBase) { this.synthPick(v); break; }
@@ -250,7 +262,7 @@ export const UI = {
       <div class="home-menu">
         <button class="mbtn main" data-a="go" data-v="stage">出撃<small>章を選んで戦いへ</small></button>
         <button class="mbtn" ${Save.stageCleared('s1') ? 'data-a="go" data-v="endless"' : 'style="opacity:.45"'}>星海の試練<small>${Save.stageCleared('s1') ? `最高 ${S.endless.ko}人撃破 / 第${S.endless.wave}波` : '第一章クリアで解放'}</small></button>
-        <button class="mbtn" data-a="go" data-v="armory">装備<small>武器の装備・強化・錬成</small></button>
+        <button class="mbtn" data-a="go" data-v="armory">装備<small>武器と防具の装備・強化・錬成</small></button>
         <button class="mbtn" data-a="go" data-v="coop">オンライン<small>最大4人で協力 ／ 4対4で対戦</small></button>
         <button class="mbtn" data-a="go" data-v="story">物語<small>オープニング・各章の物語</small></button>
         <button class="mbtn" data-a="go" data-v="ach">称号<small>${Object.keys(S.ach).length} / ${ACHIEVEMENTS.length} 達成</small></button>
@@ -299,12 +311,14 @@ export const UI = {
   r_armory() {
     const S = Save.data; if (!this.armHero || !S.unlockedHeroes.includes(this.armHero)) this.armHero = S.unlockedHeroes.includes(this.sel.hero) ? this.sel.hero : S.unlockedHeroes[0];
     const h = HERO[this.armHero], hs = S.heroes[h.id];
+    if (this.armMode && this.armMode !== 'weapon') return this.r_armorView(h, hs);
     const list = S.weapons.filter((w) => w.type === h.wtype).sort((a, b) => b.rar - a.rar || weaponAtk(b) - weaponAtk(a));
     const cur = list.find((w) => w.uid === this.armSel) || list.find((w) => w.uid === hs.weapon) || list[0];
     this.armSel = cur.uid; if (cur.isNew) { cur.isNew = false; }
     const eq = cur.uid === hs.weapon, mx = RAR_MAXLV[cur.rar], cost = forgeCost(cur), R = RARITY[cur.rar];
     this.html('armory', `${this.head('装備', 'home')}
       <div class="tabs">${HEROES.filter((x) => S.unlockedHeroes.includes(x.id)).map((x) => `<button class="tab ${x.id === h.id ? 'on' : ''}" data-a="ahero" data-v="${x.id}">${x.name}</button>`).join('')}</div>
+      ${this.armTabs()}
       <div class="cols"><div class="l scroll">${list.map((w) => `<div class="card wcard ${w.uid === cur.uid ? 'on' : ''}" style="border-left-color:${RARITY[w.rar].col}" data-a="wsel" data-v="${w.uid}"><div class="n"><div class="a" style="color:${RARITY[w.rar].col}">${weaponName(w)}${w.uid === hs.weapon ? '<span class="eq">装備中</span>' : ''}${w.isNew ? '<span class="new">NEW</span>' : ''}${w.lock ? ' 🔒' : ''}</div><div class="b">${RARITY[w.rar].star}　特性${w.traits.length}</div></div><div class="atk">攻+${weaponAtk(w)}</div></div>`).join('')}
         <p class="note">${h.wname} ${list.length}本(全武器 ${S.weapons.length}/150)</p></div>
       <div class="r"><div class="panel scroll" style="flex:1">
@@ -320,6 +334,36 @@ export const UI = {
           <button class="sbtn" data-a="synth" ${(cur.syn || 0) >= SYN_MAX || list.length < 2 ? 'disabled' : ''}>合成${(cur.syn || 0) >= SYN_MAX ? '(最大)' : ''}</button></div>
         ${this.synBase ? `<div class="panel" style="border-color:var(--gold)"><b>合成: ${weaponName(S.weapons.find((x) => x.uid === this.synBase) || cur)}</b><br>素材にする武器を左の一覧から選んでください(素材は成否にかかわらず消えます)。<br><span class="dim-t">失敗すると合成値が1下がるか、武器そのものが消えます。</span> <button class="sbtn" data-a="synthx">やめる</button></div>` : ''}
         <div class="row"><button class="pbtn" style="font-size:14px;padding:8px 14px" data-a="gacha" ${S.gold < GACHA_COST ? 'disabled' : ''}>武器錬成 ${GACHA_COST}金</button><button class="sbtn" data-a="sellall" data-v="2">★2以下を一括売却</button></div></div></div>`);
+  },
+  // 武器と防具(頭・胴・腕・足)の切り替え
+  armTabs() {
+    const m = this.armMode || 'weapon';
+    return `<div class="tabs"><button class="tab ${m === 'weapon' ? 'on' : ''}" data-a="amode" data-v="weapon">武器</button>${ARMOR_SLOT_KEYS.map((k) => `<button class="tab ${m === k ? 'on' : ''}" data-a="amode" data-v="${k}">${ARMOR_SLOT_TAB[k]}</button>`).join('')}</div>`;
+  },
+  // 防具の画面: 選んだ部位の手持ちを並べ、着ける・外す・売る
+  r_armorView(h, hs) {
+    const S = Save.data, slot = this.armMode, worn = heroArmor(S, h.id), wearer = {};
+    for (const x of HEROES) { const u = S.heroes[x.id].armor[slot]; if (u) wearer[u] = x; }
+    const list = S.armors.filter((a) => a.slot === slot).sort((a, b) => b.rar - a.rar || b.def - a.def);
+    const cur = list.find((a) => a.uid === this.armASel) || worn[slot] || list[0] || null;
+    this.armASel = cur ? cur.uid : null; if (cur && cur.isNew) cur.isNew = false;
+    const eq = !!cur && hs.armor[slot] === cur.uid, R = cur ? RARITY[cur.rar] : null, st = calcStats(S, h.id);
+    this.html('armory', `${this.head('装備', 'home')}
+      <div class="tabs">${HEROES.filter((x) => S.unlockedHeroes.includes(x.id)).map((x) => `<button class="tab ${x.id === h.id ? 'on' : ''}" data-a="ahero" data-v="${x.id}">${x.name}</button>`).join('')}</div>
+      ${this.armTabs()}
+      <div class="cols"><div class="l scroll">${list.length ? list.map((a) => `<div class="card wcard ${cur && a.uid === cur.uid ? 'on' : ''}" style="border-left-color:${RARITY[a.rar].col}" data-a="asel" data-v="${a.uid}"><div class="n"><div class="a" style="color:${RARITY[a.rar].col}">${armorName(a)}${wearer[a.uid] ? `<span class="eq">${wearer[a.uid].id === h.id ? '装備中' : wearer[a.uid].name}</span>` : ''}${a.isNew ? '<span class="new">NEW</span>' : ''}${a.lock ? ' 🔒' : ''}</div><div class="b">${RARITY[a.rar].star}</div></div><div class="atk">防<b>+${a.def}</b></div></div>`).join('') : '<p class="note">この部位の防具をまだ持っていません。</p>'}
+        <p class="note">${ARMOR_SLOT_NAMES[slot]} ${list.length}個(全防具 ${S.armors.length}/120)</p></div>
+      <div class="r"><div class="panel scroll" style="flex:1">
+        ${cur ? `<div class="dim-t" style="color:${R.col}">${R.star}　${R.n}</div><h3 style="color:${R.col}">${armorName(cur)}</h3>
+        <div class="stat"><span>防御<b>+${cur.def}</b></span><span>部位<b>${ARMOR_SLOT_TAB[slot]}</b></span></div>
+        <p class="dim-t">${ARMOR_SETS[cur.set].d}</p>` : '<p class="dim-t">防具なし</p>'}
+        <div class="stat"><span>${h.name}の防御<b>${st.def}</b></span><span>うち防具<b>+${st.armDef}</b></span></div>
+        <div class="stat">${ARMOR_SLOT_KEYS.map((k) => `<span>${ARMOR_SLOT_TAB[k]}<b>${worn[k] ? ARMOR_SETS[worn[k].set].n : '—'}</b></span>`).join('')}</div>
+        <p class="note">防具は合戦に勝つと手に入ります。部位ごとに違う鎧を組み合わせられ、着けた鎧は姿にも表れます。</p></div>
+        <div class="row"><button class="sbtn" data-a="aequip" ${!cur || eq ? 'disabled' : ''}>${eq ? '装備中' : '装備'}</button>
+          <button class="sbtn" data-a="aunequip" ${hs.armor[slot] ? '' : 'disabled'}>外す</button>
+          <button class="sbtn" data-a="asell" ${!cur || eq || cur.lock || wearer[cur.uid] ? 'disabled' : ''}>売却${cur ? ' +' + armorSell(cur) : ''}</button>
+          <button class="sbtn" data-a="alock" ${cur ? '' : 'disabled'}>${cur && cur.lock ? '保護解除' : '保護'}</button></div></div></div>`);
   },
   // 合成の素材を選んだ: 成功率と危険を見せて確認
   synthPick(uid) {
@@ -527,6 +571,7 @@ export const UI = {
         ${r.relic ? '<p style="color:#ff5a7a;font-weight:700">✦ 神器を授かった! ✦</p>' : ''}
         ${o.ach.map((a) => `<p style="color:var(--gold)">称号獲得: ${a.n}${a.gold ? ' (+' + a.gold + '金)' : ''}</p>`).join('')}
         ${r.loot.length ? '<h3 style="margin-top:6px;font-size:14px">入手した武器</h3>' + r.loot.map((w) => `<div class="trait" style="border-color:${RARITY[w.rar].col}"><b style="color:${RARITY[w.rar].col}">${RARITY[w.rar].star}</b>${weaponName(w)} <span class="dim-t">攻+${w.atk}</span></div>`).join('') : ''}
+        ${(r.armorLoot || []).length ? '<h3 style="margin-top:6px;font-size:14px">入手した防具</h3>' + r.armorLoot.map((a) => `<div class="trait" style="border-color:${RARITY[a.rar].col}"><b style="color:${RARITY[a.rar].col}">${RARITY[a.rar].star}</b>${armorName(a)} <span class="dim-t">防+${a.def}</span></div>`).join('') : ''}
       </div></div>
       <div class="row" style="flex:none"><button class="sbtn" data-a="go" data-v="home">拠点へ戻る</button><button class="pbtn" data-a="again">もう一度</button></div>`, true);
   },

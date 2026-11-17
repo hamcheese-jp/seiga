@@ -7,7 +7,7 @@ import { Fighter } from './fighter.js';
 import { FX } from './fx.js';
 import { Audio } from './audio.js';
 import { Input } from './input.js';
-import { HERO, HEROES, ELEMENTS, LOOKS, OFFICER_NAMES, DIFFS, THEMES, calcStats, rollWeapon } from './data.js';
+import { HERO, HEROES, ELEMENTS, LOOKS, OFFICER_NAMES, DIFFS, THEMES, calcStats, rollWeapon, rollArmor } from './data.js';
 import { MS } from './moves.js';
 import { Voice } from './voice.js';
 import { Net, NetHost, NetGuest, spawnInfo, sanitizeMember } from './net.js';
@@ -654,13 +654,17 @@ export class Battle {
     const loot = this.loot.slice();
     if (win) loot.push(this._lootWeapon(rank === 'S' ? 3 : rank === 'A' ? 2 : 1));
     if (this.endless) for (let i = 0; i < Math.floor(this.wave / 5); i++) loot.push(this._lootWeapon(2));
+    // 防具: 勝てば1つ(評価が高いほど良質)、敵将を多く倒すともう1つ。無双では5波ごとに1つ
+    const armorLoot = [], aP = this.power + this.wave * 1.5, aL = this.player.S.luck;
+    if (win) { armorLoot.push(rollArmor(aP, aL, rank === 'S' ? 3 : rank === 'A' ? 2 : 1)); if (this.offKO >= 3 && Math.random() < 0.6) armorLoot.push(rollArmor(aP, aL)); }
+    if (this.endless) for (let i = 0; i < Math.floor(this.wave / 5); i++) armorLoot.push(rollArmor(aP, aL, 2));
     let relic = false;
     if (win && d.id === 's5' && (this.diff.id === 'chaos' || this.diff.id === 'hell') && rank === 'S') {
       const wt = HERO[this.player.heroId].wtype;
       if (!this.save.weapons.some((w) => w.type === wt && w.rar === 6)) { loot.push(rollWeapon(wt, this.power + 20, 0, 6, 6)); relic = true; }
     }
     return { win, endless: this.endless, stage: d, diff: this.diff, heroId: this.player.heroId, rank, time: t, ko: this.ko, maxCombo: this.maxCombo, dmgTaken: this.dmgTaken, hpRate: this.dmgTaken / this.player.maxHp,
-      offKO: this.offKO, caps: this.capEnemy, missions: this.missionsDone, perfect: this.perfect, wave: this.wave, exp, gold, loot, relic };
+      offKO: this.offKO, caps: this.capEnemy, missions: this.missionsDone, perfect: this.perfect, wave: this.wave, exp, gold, loot, armorLoot, relic };
   }
 
   // ---------- メインループ ----------

@@ -1,5 +1,5 @@
 // セーブデータ: 端末内(localStorage)に常時保存し、設定すれば Googleスプレッドシートへ同期する
-import { HEROES, START_HEROES, starterWeapon, ACHIEVEMENTS, expNeed, MAX_LV, UNLOCKS, FOE_UNLOCKS, HERO } from './data.js';
+import { HEROES, START_HEROES, starterWeapon, starterArmor, emptyArmor, ARMOR_SLOT_KEYS, ACHIEVEMENTS, expNeed, MAX_LV, UNLOCKS, FOE_UNLOCKS, HERO } from './data.js';
 import { CLOUD_URL } from './config.js';
 
 const KEY = 'seiga_save_v1';
@@ -8,7 +8,7 @@ const genId = () => { const a = new Uint8Array(12); crypto.getRandomValues(a); r
 
 export function newSave() {
   return {
-    v: 1, id: genId(), key: genKey(), name: '名もなき星牙使い', gold: 500, heroes: {}, weapons: [], stages: {}, unlockedHeroes: START_HEROES.slice(), ach: {},
+    v: 1, id: genId(), key: genKey(), name: '名もなき星牙使い', gold: 500, heroes: {}, weapons: [], armors: null, stages: {}, unlockedHeroes: START_HEROES.slice(), ach: {},
     stats: { totalKO: 0, battles: 0, wins: 0, maxKO: 0, maxCombo: 0, officers: 0, perfect: 0, flawless: 0, playTime: 0 },
     endless: { ko: 0, wave: 0 }, story: {},
     settings: { quality: 'auto', bgm: 0.6, sfx: 0.8, voice: 0.9, camSens: 1, autoCam: true, vibe: true, fps: false, cloudUrl: '', btnScale: 1, btnLayout: null },
@@ -21,9 +21,15 @@ function fix(s) {
   if (s.name === '名もなき武将') s.name = d.name;
   for (const k in d.stats) if (s.stats[k] === undefined) s.stats[k] = d.stats[k];
   for (const k in d.settings) if (s.settings[k] === undefined) s.settings[k] = d.settings[k];
+  // 防具: 初めてなら紅蓮一式を配り、主人公に着せる
+  const first = !Array.isArray(s.armors);
+  if (first) s.armors = ARMOR_SLOT_KEYS.map(starterArmor);
   for (const h of HEROES) {
     if (!s.heroes[h.id]) s.heroes[h.id] = { lv: 1, exp: 0, weapon: null };
     const hs = s.heroes[h.id];
+    if (!hs.armor) hs.armor = emptyArmor();
+    for (const k of ARMOR_SLOT_KEYS) { const a = hs.armor[k] && s.armors.find((x) => x.uid === hs.armor[k]); if (!a || a.slot !== k) hs.armor[k] = null; }
+    if (first && h.id === START_HEROES[0]) for (const k of ARMOR_SLOT_KEYS) hs.armor[k] = 'a0_' + k;
     if (!s.weapons.some((w) => w.uid === hs.weapon)) {
       let w = s.weapons.find((x) => x.type === h.wtype);
       if (!w) { w = starterWeapon(h.wtype); s.weapons.push(w); }
@@ -71,6 +77,12 @@ export const Save = {
     S.stats.officers += r.offKO; S.stats.perfect += r.perfect; S.stats.playTime += Math.round(r.time);
     S.gold += r.gold; out.lv = this.addExp(r.heroId, r.exp);
     for (const w of r.loot) S.weapons.push(w);
+    for (const a of r.armorLoot || []) S.armors.push(a);
+    if (S.armors.length > 120) {   // 上限超過分は価値の低い物から自動売却
+      const eqA = new Set(Object.values(S.heroes).flatMap((h) => Object.values(h.armor || {})));
+      const cand = S.armors.filter((a) => !eqA.has(a.uid) && !a.lock).sort((a, b) => a.rar - b.rar || a.def - b.def);
+      while (S.armors.length > 120 && cand.length) { const a = cand.shift(); S.armors.splice(S.armors.indexOf(a), 1); S.gold += 30 * a.rar * a.rar; }
+    }
     if (S.weapons.length > 150) {   // 上限超過分は価値の低い物から自動売却
       const eq = new Set(Object.values(S.heroes).map((h) => h.weapon));
       const cand = S.weapons.filter((w) => !eq.has(w.uid) && !w.lock).sort((a, b) => a.rar - b.rar || a.atk - b.atk);

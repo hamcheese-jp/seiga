@@ -3,6 +3,8 @@
 import * as THREE from 'three';
 
 export const ARMOR_SLOTS = ['head', 'body', 'arms', 'legs'];
+// 鎧のファイルを用意してあるキャラ(tools/blender/vroid_armor.py で書き出す)。敵将は着せ替えの対象外
+const ARMOR_HEROES = new Set(['reiga', 'setsuna', 'raika', 'gandou', 'fuuka', 'yomi']);
 const cache = new Map();
 const ST = new WeakMap();   // VRMごとの状態(骨の表・着ている鎧・指定)
 const st = (vrm) => ST.get(vrm) || (ST.set(vrm, {}), ST.get(vrm));
@@ -63,6 +65,7 @@ function boneTable(vrm) {
 
 // equip = { head: 'guren', body: 'kurogane', ... }(無い部位は何も着ない)。着ている鎧と違う部位だけ入れ替える
 export async function wearArmor(vrm, hero, equip) {
+  if (!ARMOR_HEROES.has(hero)) return;
   const { tab, host } = boneTable(vrm); if (!host) return;
   const worn = st(vrm).armor || (st(vrm).armor = {});
   await Promise.all(ARMOR_SLOTS.map(async (slot) => {

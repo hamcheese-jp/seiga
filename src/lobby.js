@@ -5,6 +5,7 @@ import { Stage } from './stage.js';
 import { THEMES, HERO, ELEMENTS, calcStats } from './data.js';
 import { buildHero, disposeModel } from './models.js';
 import { loadVrm, VrmBody } from './vrmchar.js';
+import { setArmor } from './armor.js';
 import { Rig } from './rig.js';
 import { MS } from './moves.js';
 import { FX, Trail } from './fx.js';
@@ -48,7 +49,7 @@ export class Lobby {
       // 読み込みが終わるまでキャラは隠し、「読み込み中」を表示
       const model = this.model; model.root.visible = false; this._loading(true);
       const done = () => { if (this.model !== model) return; model.root.visible = true; this._loading(false); FX.shell(0, 1.5, 0, this.col, 0.6, 2.4, 0.35, 0.5); };
-      loadVrm(HERO[id].vrm || id).then((vrm) => { if (vrm && this.model === model) new VrmBody(model, vrm); done(); }).catch((e) => { console.warn(e); done(); });
+      loadVrm(HERO[id].vrm || id).then((vrm) => { if (vrm && this.model === model) { new VrmBody(model, vrm); setArmor(vrm, HERO[id].vrm || id, st.armor); } done(); }).catch((e) => { console.warn(e); done(); });
     }
     this.trails = [new Trail(E.glow), new Trail(E.glow)]; this.trailsL = this.model.dual ? [new Trail(E.glow), new Trail(E.glow)] : null;
     this.ringMat.color.setRGB(E.glow[0] * 0.3, E.glow[1] * 0.3, E.glow[2] * 0.3);
