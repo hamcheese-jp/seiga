@@ -169,6 +169,7 @@ body.btnedit #btns .btn { pointer-events: auto; }
 .cols > .r { flex: 1; display: flex; flex-direction: column; min-height: 0; min-width: 0; gap: 8px; }
 .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .tabs { display: flex; gap: 6px; margin-bottom: 8px; flex: none; flex-wrap: wrap; }
+.tabs.wtypes .tab { padding: 3px 9px; font-size: clamp(10px, 2.7vmin, 12px); }
 .tab { padding: 5px 12px; font-size: clamp(11px, 3vmin, 14px); opacity: .7; }
 .tab.on { opacity: 1; border-color: var(--gold); background: linear-gradient(rgba(120, 90, 20, .95), rgba(50, 34, 6, .95)); box-shadow: 0 0 10px rgba(243, 207, 109, .35); }
 .tab.lock { opacity: .35; }
