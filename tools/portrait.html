@@ -72,6 +72,7 @@ function rim(vrm, c, lv) {
   vrm.scene.traverse((o) => {
     if (!o.isMesh) return;
     for (const m of [].concat(o.material)) {
+      if (/spike/i.test(m.name || '')) { if (m.parametricRimColorFactor) m.parametricRimColorFactor.setRGB(0, 0, 0); continue; }
       if (m.parametricRimColorFactor) { { const k = lv ? 0.45 : 0.4; m.parametricRimColorFactor.setRGB(c[0] * k, c[1] * k, c[2] * k); } m.parametricRimFresnelPowerFactor = lv ? 3.2 : 3.5; m.parametricRimLiftFactor = 0; }
       if (lv && m.shadeColorFactor) m.shadeColorFactor.multiplyScalar(lv > 1 ? 0.6 : 0.75);
     }
@@ -110,8 +111,8 @@ for (const [id, url, e1, e2, c, lv] of LIST) {
   try {
     const vrm = await load(url);
     scene.add(vrm.scene); pose(vrm, lv); rim(vrm, c, lv); light(lv);
-    if (id === 'gandou') { vrm.scene.updateMatrixWorld(true); addSpikes(vrm, '#3b2a1c'); }
-    if (signatureArmor(id)) await setArmor(vrm, id, signatureArmor(id));   // 看板の鎧(盾は立ち絵では外す)
+    // ガンドウのツンツン頭は VRM に作り込み済み(tools/blender/gandou_body.py)
+    if (signatureArmor(id) && !new URLSearchParams(location.search).has('noarmor')) await setArmor(vrm, id, signatureArmor(id));   // 看板の鎧(盾は立ち絵では外す。noarmor で外す)
     face(vrm, e1); renderer.setSize(W, H); cam.aspect = W / H; cam.updateProjectionMatrix();
     await save(id, await shot(vrm, 'bust', id === 'gandou' ? 0.1 : 0));
     face(vrm, e2); await save(id + '_b', await shot(vrm, 'bust', id === 'gandou' ? 0.1 : 0));

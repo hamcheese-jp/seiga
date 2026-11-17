@@ -350,6 +350,7 @@ export class VrmBody {
     this.vrm.scene.traverse((o) => {
       if (!o.isMesh) return;
       for (const m of [].concat(o.material)) {
+        if (/spike/i.test(m.name || '')) { if (m.parametricRimColorFactor) m.parametricRimColorFactor.setRGB(0, 0, 0); continue; }   // 作り込んだツンツン頭はふちを光らせない
         if (m.parametricRimColorFactor) {
           if (enemy) m.parametricRimColorFactor.setRGB(lv > 1 ? 1.8 : 1.1, 0.06, lv > 1 ? 0.12 : 0.03);
           else m.parametricRimColorFactor.setRGB(col[0] * 0.18, col[1] * 0.18, col[2] * 0.18);
