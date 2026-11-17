@@ -166,15 +166,19 @@ MS.reiga = {
 };
 
 // ================= セツナ(長槍・氷) =================
+// 跳び上がって上から突き下ろす(突きの前半を宙に浮かせる)
+const airThrust = (o) => { const m = thrust(o); m.keys[0].y = o.jump ?? 0.6; m.keys[0].el = -20; m.keys[1].y = 0.05; m.keys[1].el = -22; m.keys[2].y = 0; return m; };
+
 MS.setsuna = {
   spName: '氷華絶槍',
+  // 通常攻撃: 突き → 払い上げ → 大きく薙ぐ → 二段突き → 跳び突き → 旋回して叩き下ろす
   n: [
-    thrust({ len: 4.4, w: 1.0, mv: 3 }),
-    thrust({ wind: 0.09, elv: 8, len: 4.4, w: 1.0, mv: 3 }),
-    slash({ from: [-110, 0], to: [100, -5], r: 3.5, ang: 85, dmg: 1.1, mv: 2.5, wr0: 10, wr1: 30 }),
-    slash({ from: [110, 0], to: [-100, 0], r: 3.5, ang: 85, dmg: 1.1, mv: 2.5, wr0: 10, wr1: 30 }),
-    seq(...rep(3, (i) => thrust({ wind: 0.07, hit: 0.05, rec: i === 2 ? 0.22 : 0.07, elv: -6 + i * 8, len: 4.6, w: 1.1, dmg: 0.6, kb: i === 2 ? 5 : 1, mv: 2.5 }))),
-    spin({ r: 3.9, dmg: 0.85, kb: 6, hit: 0.3, wind: 0.12 }),
+    thrust({ step: 1, len: 4.4, w: 1.0, mv: 4 }),
+    slash({ step: -1, from: [-40, -62], to: [62, 42], r: 3.5, ang: 85, dmg: 1.05, lift: 1.5, mv: 3, wr0: 10, wr1: 30, crouch0: 0.2 }),
+    slash({ step: 1, from: [115, 5], to: [-110, -5], r: 3.8, ang: 95, dmg: 1.1, mv: 2.5, wr0: 10, wr1: 30, crouch1: 0.22, lean1: 18 }),
+    seq(thrust({ step: -1, wind: 0.07, hit: 0.05, rec: 0.07, elv: -4, len: 4.6, w: 1.1, dmg: 0.65, kb: 1, mv: 3 }), thrust({ step: 1, wind: 0.06, hit: 0.05, rec: 0.2, elv: 6, len: 4.8, w: 1.1, dmg: 0.65, kb: 4, mv: 3 })),
+    airThrust({ step: -1, wind: 0.16, hit: 0.08, rec: 0.26, len: 4.8, w: 1.3, dmg: 1.8, kb: 5, lift: 3, mv: 6, shake: 0.12, stop: 0.03 }),
+    seq(spin({ r: 3.9, dmg: 0.5, kb: 2, hit: 0.24, wind: 0.08, n: 2 }), smash({ jump: 0.8, up: 0.18, r: 3.8, fwd: 2.2, dmg: 1.0, kb: 6, lift: 4, shake: 0.25, stop: 0.04 })),
   ],
   c: [
     X(thrust({ wind: 0.2, hit: 0.12, rec: 0.3, len: 7.5, w: 1.4, dmg: 2.0, kb: 7, el: 1, fx: 'line', mv: 8, shake: 0.18, stop: 0.04 }), { ghost: true }),
@@ -186,8 +190,10 @@ MS.setsuna = {
     smash({ jump: 1.5, r: 4.6, fwd: 2.4, dmg: 2.8, kb: 3, lift: 10, el: 1, fx: ['quake', 'pillar'], shake: 0.6, stop: 0.08 }),
     seq(spin({ turns: 3, hit: 0.6, n: 6, r: 3.9, dmg: 0.8, kb: 1.5, el: 1, mv: 6 }), X(thrust({ wind: 0.14, hit: 0.1, rec: 0.36, len: 8, w: 1.8, dmg: 3.2, kb: 10, lift: 4, el: 1, fx: ['line', 'nova'], mv: 10, shake: 0.8, stop: 0.1 }), { ghost: true })),
   ],
-  sp: X(seq(hold(0.2), ...rep(10, (i) => thrust({ wind: 0.05, hit: 0.045, rec: 0.05, elv: [-8, 8, 0, 12, -4, 6, -10, 4, 10, 0][i], len: 6.2, w: 2.0, dmg: 0.7, kb: 0.3, el: 1, mv: 2.5, fx: i % 3 === 0 ? 'burst' : undefined })),
-    smash({ jump: 2.2, up: 0.3, r: 7, fwd: 2.5, dmg: 5.2, kb: 6, lift: 11, el: 1, fx: ['quake', 'pillar', 'nova'], shake: 1.2, stop: 0.14 })), { steer: 2.6 }),
+  sp: X(seq(hold(0.2, { az: -60, el: -10, bend: 110, wr: 160, tw: -40, lean: 10, crouch: 0.3, stance: 0.9, step: 1 }),
+    ...rep(8, (i) => thrust({ step: i % 2 ? 1 : -1, wind: 0.05, hit: 0.045, rec: 0.05, elv: [-8, 8, 0, 12, -4, 6, -10, 4][i], len: 6.2, w: 2.0, dmg: 0.7, kb: 0.3, el: 1, mv: 2.5, fx: i % 3 === 0 ? 'burst' : undefined })),
+    slash({ step: -1, from: [-30, -70], to: [10, 104], wind: 0.08, hit: 0.1, rec: 0.12, r: 4.2, ang: 90, dmg: 1.4, kb: 1, lift: 8, el: 1, fx: 'burst', y1: 0.4, crouch0: 0.32 }),
+    smash({ jump: 2.4, up: 0.3, r: 7, fwd: 2.5, dmg: 5.2, kb: 6, lift: 11, el: 1, fx: ['quake', 'pillar', 'nova'], shake: 1.2, stop: 0.14 })), { steer: 2.6 }),
 };
 
 // ================= ライカ(双剣・雷) =================
