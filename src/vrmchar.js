@@ -234,7 +234,7 @@ export class VrmBody {
       if (keep) ['leftShoulder', 'leftUpperArm', 'leftLowerArm', 'leftHand'].forEach((b, i) => N[b].quaternion.copy(keep[i].slerp(N[b].quaternion, this._lw)));   // 離した姿勢 → 握った姿勢 を握る量で混ぜる
       this.vrm.humanoid.update();
     }
-    updateArmor(this.vrm, this.model.two);   // 両手武器の間は盾を背中へ
+    updateArmor(this.vrm, this.model.two || this.model.dual);   // 両手武器・二刀(左手にも武器)の間は盾を背中へ
   }
   // 表情: まばたきと、状態に合わせた顔(攻撃=怒り+口を開く、勝利=笑顔 など)。表情を持たないVRMでは何もしない
   _face(dt, rig) {

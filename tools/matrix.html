@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>全パターン点検ツール</title>
+<!-- 使い方: http://localhost:5173/tools/matrix.html?id=reiga  (id=all で全員。save で dev/check/<id>.webp に保存)
+     1段目: 鎧4セット(看板の武器で待機)+黄金の背面・黒鉄の横・決めポーズ
+     2段目: 7種類の武器で待機(紅蓮の鎧と盾を着た状態)  3段目: 各武器の通常技1の途中  4段目: 各武器の通常技3の途中 -->
+<style>body { margin: 0; background: #223; color: #ddd; font: 13px sans-serif; } #log { white-space: pre; padding: 4px 8px; } canvas { display: block; max-width: 100%; }</style>
+<script type="importmap">{ "imports": { "three": "../vendor/three.module.min.js" } }</script>
+</head>
+<body>
+<div id="log"></div>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
+import { VRMLoaderPlugin, VRMUtils } from '../vendor/three-vrm.module.min.js';
+import { GFX } from '../src/gfx.js';
+import { buildHero } from '../src/models.js';
+import { Rig } from '../src/rig.js';
+import { MS } from '../src/moves.js';
+import { HERO, HEROES, ELEMENTS, TYPE_MS, WEAPON_TYPE_NAMES, ARMOR_SETS } from '../src/data.js';
+import { VrmBody } from '../src/vrmchar.js';
+import { setArmor, ARMOR_SLOTS } from '../src/armor.js';
+import { preloadWeapons } from '../src/weaponglb.js';
+import { HERO_POSES } from '../src/poses.js';
+
+const Q = new URLSearchParams(location.search);
+const log = (s) => { document.getElementById('log').textContent += s + '\n'; };
+if (!GFX.uRim) GFX.uRim = { value: 0 };
+await preloadWeapons();
+const C = 220, COLS = 7, ROWS = 4, LBL = 18;
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1); renderer.setSize(C, C); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.setClearColor(0x556070, 1);
+const sheet = document.createElement('canvas'); sheet.width = C * COLS; sheet.height = (C + LBL) * ROWS; document.body.appendChild(sheet);
+const g2 = sheet.getContext('2d');
+const scene = new THREE.Scene();
+const cam = new THREE.PerspectiveCamera(22, 1, 0.1, 60);
+const key = new THREE.DirectionalLight(0xffffff, 2.4); key.position.set(-1.5, 2.5, 3); scene.add(key);
+const back = new THREE.DirectionalLight(0xffffff, 1.6); back.position.set(1.5, 1.5, -3); scene.add(back);
+scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+const WTYPES = Object.keys(WEAPON_TYPE_NAMES), SETS = Object.keys(ARMOR_SETS);
+
+async function loadVrm(url) {
+  const loader = new GLTFLoader(); loader.register((p) => new VRMLoaderPlugin(p));
+  const gltf = await loader.loadAsync('../' + url), vrm = gltf.userData.vrm;
+  VRMUtils.removeUnnecessaryVertices(gltf.scene);
+  if (vrm.meta && vrm.meta.metaVersion === '0') VRMUtils.rotateVRM0(vrm);
+  return vrm;
+}
+// 1体を用意: 武器の種類・鎧を指定。step(n) で動かす
+async function make(id, wtype, armor) {
+  const h = HERO[id], E = ELEMENTS[h.elem], key2 = h.vrm || id;
+  const model = buildHero({ ...h.look, pal: { ...h.look.pal, glow: E.glow } }, wtype, 2);
+  scene.add(model.root);
+  const rig = new Rig(model), vrm = await loadVrm(`vrm/${key2}.vrm`), vb = new VrmBody(model, vrm);
+  if (armor) await setArmor(vrm, key2, armor);
+  vb.rim([E.glow[0] * 0.5, E.glow[1] * 0.5, E.glow[2] * 0.5], h.foe ? 1 : 0);
+  const step = (n, dt = 1 / 60, mv) => { for (let i = 0; i < n; i++) { if (mv) rig.mt += dt; rig.update(dt); vb.sync(dt, rig); } };
+  step(90);
+  const ms = MS[wtype === h.wtype ? (h.ms || id) : TYPE_MS[wtype]];
+  return { model, rig, vrm, vb, step, ms, dispose() { scene.remove(model.root); VRMUtils.deepDispose(vrm.scene); } };
+}
+function shoot(o, cell, label, yaw = 30) {
+  const { model, vb } = o;
+  model.root.updateMatrixWorld(true);
+  const hp = vb.N.hips.getWorldPosition(new THREE.Vector3()), c = hp.clone(); c.y = Math.max(model.height * 0.5, hp.y);
+  const r = model.height * 0.66, d = r / Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)), a = THREE.MathUtils.degToRad(yaw);
+  cam.position.set(c.x + Math.sin(a) * d, c.y + 0.1 * d, c.z + Math.cos(a) * d); cam.lookAt(c);
+  renderer.render(scene, cam);
+  const x = (cell % COLS) * C, y = Math.floor(cell / COLS) * (C + LBL);
+  g2.drawImage(renderer.domElement, x, y + LBL);
+  g2.fillStyle = '#112'; g2.fillRect(x, y, C, LBL); g2.fillStyle = '#eee'; g2.font = '12px sans-serif'; g2.fillText(label, x + 4, y + 13);
+}
+async function play(o, mv, frac) { o.rig.play(mv); o.rig.mt = 0; o.step(Math.round(mv.dur * frac * 120), 1 / 120, true); }
+
+async function sheetFor(id) {
+  const h = HERO[id];
+  g2.fillStyle = '#223'; g2.fillRect(0, 0, sheet.width, sheet.height);
+  // 1段目: 鎧4セット
+  for (let i = 0; i < SETS.length; i++) {
+    const s = SETS[i], o = await make(id, h.wtype, Object.fromEntries(ARMOR_SLOTS.map((k) => [k, s])));
+    shoot(o, i, `${ARMOR_SETS[s].n} 前`);
+    if (s === 'ougon') shoot(o, 4, `${ARMOR_SETS[s].n} 背面`, 180);
+    if (s === 'kurogane') shoot(o, 5, `${ARMOR_SETS[s].n} 横`, 90);
+    o.dispose();
+  }
+  { const P = HERO_POSES[id], o = await make(id, h.wtype, Object.fromEntries(ARMOR_SLOTS.map((k) => [k, 'ougon'])));
+    if (P && P.p) { o.rig.customPose = P.p; o.rig.setMode('pose'); o.step(150); }
+    shoot(o, 6, P && P.p ? '決めポーズ(黄金)' : '待機(黄金)', P && P.cam ? -P.cam.yaw : 30); o.dispose(); }
+  // 2〜4段目: 7種類の武器
+  for (let i = 0; i < WTYPES.length; i++) {
+    const w = WTYPES[i], nm = WEAPON_TYPE_NAMES[w] + (w === h.wtype ? '' : '(適性外)');
+    const o = await make(id, w, Object.fromEntries(ARMOR_SLOTS.map((k) => [k, 'guren'])));
+    shoot(o, COLS + i, nm + ' 待機');
+    await play(o, o.ms.n[0], 0.45); shoot(o, COLS * 2 + i, nm + ' 通常1');
+    o.rig.stop(); o.step(20);
+    await play(o, o.ms.n[2] || o.ms.n[0], 0.5); shoot(o, COLS * 3 + i, nm + ' 通常3');
+    o.dispose();
+  }
+  if (Q.has('save')) {
+    const blob = await new Promise((res) => sheet.toBlob(res, 'image/webp', 0.85));
+    const rr = await fetch('/__save?f=' + encodeURIComponent(`dev/check/${id}.webp`), { method: 'POST', body: blob });
+    log(`${id} 保存 ${Math.round(blob.size / 1024)}KB ${rr.ok ? 'OK' : 'NG'}`);
+  } else log(`${id} 完了`);
+}
+const ids = Q.get('id') === 'all' ? HEROES.map((x) => x.id) : (Q.get('id') || 'reiga').split(',');
+for (const id of ids) { try { await sheetFor(id); } catch (e) { log(`${id} エラー: ${e.message}`); console.error(e); } }
+log('完了'); window.__done = true;
+</script>
+</body>
+</html>

@@ -1,6 +1,7 @@
 // 関節・握りの自動点検: 全技を少しずつ再生し、手の向き・めり込み・関節の不自然さを数える
 //   ブラウザのコンソール(tools/view.html を開いた状態)で:
 //   const m = await import('/tools/joint-check.mjs'); await m.check(['reiga', 'gandou'])
+//   適性外の武器: await m.check(['fuuka'], { wtype: 'hammer' })
 // 結果: 武将ごとの「問題のあった割合」と、ひどい順の技の一覧
 import * as THREE from 'three';
 import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
@@ -8,7 +9,7 @@ import { VRMLoaderPlugin, VRMUtils } from '../vendor/three-vrm.module.min.js';
 import { buildHero } from '../src/models.js';
 import { Rig } from '../src/rig.js';
 import { MS } from '../src/moves.js';
-import { HERO, ELEMENTS } from '../src/data.js';
+import { HERO, ELEMENTS, TYPE_MS } from '../src/data.js';
 import { VrmBody } from '../src/vrmchar.js';
 import { heroPose } from '../src/poses.js';
 import { preloadWeapons } from '../src/weaponglb.js';
@@ -26,7 +27,8 @@ export async function check(ids = ['reiga', 'setsuna', 'raika', 'gandou', 'fuuka
     const loader = new GLTFLoader(); loader.register((p) => new VRMLoaderPlugin(p));
     const gltf = await loader.loadAsync('/vrm/' + (h.vrm || id) + '.vrm'); const vrm = gltf.userData.vrm;
     if (vrm.meta && vrm.meta.metaVersion === '0') VRMUtils.rotateVRM0(vrm);
-    const model = buildHero({ ...h.look, pal: { ...h.look.pal, glow: E.glow } }, h.wtype, 2);
+    const wt = opt.wtype || h.wtype;   // opt.wtype で適性外の武器も点検できる
+    const model = buildHero({ ...h.look, pal: { ...h.look.pal, glow: E.glow } }, wt, 2);
     const rig = new Rig(model), vb = new VrmBody(model, vrm);
     const n = (b) => vb.vrm.humanoid.getNormalizedBoneNode(b);
     const P = (b) => n(b).getWorldPosition(V());
@@ -91,14 +93,14 @@ export async function check(ids = ['reiga', 'setsuna', 'raika', 'gandou', 'fuuka
     };
     for (let i = 0; i < 60; i++) { rig.update(1 / 60); vb.sync(1 / 60, rig); }
     sample('待機');
-    const ms = MS[h.ms || id];
+    const ms = MS[wt === h.wtype ? (h.ms || id) : TYPE_MS[wt]];
     const list = [...ms.n.map((m, i) => ['通常' + (i + 1), m]), ...ms.c.map((m, i) => ['チャージ' + (i + 1), m]), ['奥義', ms.sp]];
     for (const [name, mv] of list) {
       rig.play(mv); rig.mt = 0;
       for (let t = 0, k = 0; t < mv.dur; t += 1 / 120, k++) { rig.mt += 1 / 120; rig.update(1 / 120); vb.sync(1 / 120, rig); if (k % 4 === 0) sample(name); }
       rig.stop(); for (let i = 0; i < 20; i++) { rig.update(1 / 60); vb.sync(1 / 60, rig); }
     }
-    const HP = heroPose(id);
+    const HP = wt === h.wtype ? heroPose(id) : null;
     if (HP) { rig.customPose = HP.p; rig.setMode('pose'); for (let i = 0; i < 150; i++) { rig.update(1 / 60); vb.sync(1 / 60, rig); } sample('決めポーズ'); }
     rig.customPose = null; rig.setMode('loco'); rig.speed = 7.6; for (let i = 0; i < 120; i++) { rig.update(1 / 60); vb.sync(1 / 60, rig); if (i % 6 === 0) sample('走り'); }
     const sum = {}; for (const [k, s] of Object.entries(stats)) sum[k] = { 問題の割合: Math.round(s.bad / s.n * 100) + '%', 最大: +s.max.toFixed(1) };

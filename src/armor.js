@@ -4,8 +4,8 @@ import * as THREE from 'three';
 import { ARMOR_SETS } from './data.js';
 
 export const ARMOR_SLOTS = ['head', 'body', 'arms', 'legs', 'shield'];
-// 鎧のファイルを用意してあるキャラ(tools/blender/vroid_armor.py で書き出す)。敵将は着せ替えの対象外
-const ARMOR_HEROES = new Set(['reiga', 'setsuna', 'raika', 'gandou', 'fuuka', 'yomi']);
+// 鎧のファイルを用意してあるキャラ(tools/blender/vroid_armor.py で書き出す)。操作できるボス(boss1〜5)も着せ替えできる。雑兵の敵将は対象外
+const ARMOR_HEROES = new Set(['reiga', 'setsuna', 'raika', 'gandou', 'fuuka', 'yomi', 'boss1', 'boss2', 'boss3', 'boss4', 'boss5']);
 // 立ち絵・決めポーズで着せる、各武将の看板の鎧
 export const SIGNATURE = { reiga: 'guren', setsuna: 'souten', raika: 'kurogane', gandou: 'kurogane', fuuka: 'souten', yomi: 'kurogane' };
 export const signatureArmor = (id, shield = false) => { const s = SIGNATURE[id]; return s ? { head: s, body: s, arms: s, legs: s, shield: shield ? s : null } : null; };

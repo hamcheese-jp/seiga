@@ -362,7 +362,7 @@ export const maxCharges = (lv) => (lv >= 10 ? 6 : lv >= 5 ? 5 : 4);
 // 武器種ごとの重さ(本来の武器より重いと移動・攻撃が遅く、軽いと少し速い)と、その武器種の技セット
 export const WEAPON_WT = { fan: 0.6, twin: 0.8, sword: 1.0, spear: 1.2, scythe: 1.4, axe: 1.7, hammer: 1.8 };
 export const WEAPON_TYPE_NAMES = { sword: '大太刀', spear: '長槍', twin: '双剣', hammer: '大槌', fan: '双扇', scythe: '大鎌', axe: '大戦斧' };
-const TYPE_MS = { sword: 'reiga', spear: 'setsuna', twin: 'raika', hammer: 'gandou', fan: 'fuuka', scythe: 'yomi', axe: 'p_barga' };
+export const TYPE_MS = { sword: 'reiga', spear: 'setsuna', twin: 'raika', hammer: 'gandou', fan: 'fuuka', scythe: 'yomi', axe: 'p_barga' };
 export const OFF_ATK = 0.8, OFF_ASPD = 0.9;   // 適性外の武器: 攻撃と攻撃速度が下がる
 // 武器を持った時の補正: { native 適性か, spd 移動倍率, aspd 攻撃速度倍率, atk 攻撃倍率 }
 export function weaponFit(heroId, type) {
