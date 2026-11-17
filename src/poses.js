@@ -9,7 +9,7 @@ export const HERO_POSES = {
   setsuna: { cand: 0, cam: { yaw: -30, pitch: -10 } },
   raika: { p: { az: 15, el: -15, bend: 85, wr: 80, azL: 25, elL: 105, bendL: 70, wrL: 135, tw: 20, lean: 20, crouch: 0.4, stance: 1.0, head: -20 }, cam: { yaw: -65, pitch: -8 } },
   gandou: { p: { az: -150, el: 40, bend: 150, wr: 40, tw: -15, lean: 10, crouch: 0.5, stance: 0, wide: 0.45, head: 0 }, cam: { yaw: -20, pitch: -10 } },
-  fuuka: { p: { az: -85, el: -45, bend: 25, wr: -60, roll: 90, azL: 85, elL: -45, bendL: 25, wrL: -60, rollL: 90, tw: 0, lean: 0, crouch: 0.05, stance: 0.2, side: 0, head: 0, face: { relaxed: 0.7, happy: 0.25, aa: 0.3 } }, cam: { yaw: -10, pitch: -6 } },
+  fuuka: { p: { az: -85, el: -45, bend: 25, wr: -60, roll: 90, azL: 85, elL: -45, bendL: 25, wrL: -60, rollL: 90, tw: 0, lean: 0, crouch: 0.1, stance: 0.05, step: 1, spin: 20, side: 4, head: -18, face: { relaxed: 0.7, happy: 0.25, aa: 0.3 } }, cam: { yaw: -10, pitch: -6 } },
   yomi: { cand: 1, cam: { yaw: 15, pitch: -10 } },
   zenova: { cand: 1, cam: { yaw: 15, pitch: -14 } },
 };
