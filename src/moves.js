@@ -254,12 +254,12 @@ const blade = (t, yaw = 0, o = {}) => { const { proj, ...rest } = o; return P(t,
 MS.fuuka = {
   spName: '神風乱舞',
   n: [
-    slash({ from: [-110, 10], to: [80, -10], L: lIdle, wind: 0.08, hit: 0.08, rec: 0.2, r: 2.1, ang: 80, dmg: 0.5, kb: 1.5, extra: [blade(0.13)] }),
-    slash({ ...rIdle, L: { from: [110, 10], to: [-80, -10] }, wind: 0.07, hit: 0.08, rec: 0.2, r: 2.1, ang: 80, dmg: 0.5, kb: 1.5, extra: [blade(0.12)] }),
+    slash({ step: -1, from: [-110, 10], to: [80, -10], L: lIdle, wind: 0.08, hit: 0.08, rec: 0.2, r: 2.1, ang: 80, dmg: 0.5, kb: 1.5, extra: [blade(0.13)], lean1: 8, spin1: 25 }),
+    slash({ step: 1, ...rIdle, L: { from: [110, 10], to: [-80, -10] }, wind: 0.07, hit: 0.08, rec: 0.2, r: 2.1, ang: 80, dmg: 0.5, kb: 1.5, extra: [blade(0.12)], lean1: 8, spin0: 25, spin1: 0 }),
     slash({ from: [-100, 40], to: [50, -25], L: { from: [100, 40], to: [-50, -25] }, wind: 0.08, hit: 0.09, rec: 0.22, r: 2.2, ang: 80, dmg: 0.6, kb: 2, extra: [blade(0.14, -12), blade(0.14, 12)] }),
-    spin({ wind: 0.07, hit: 0.22, rec: 0.22, n: 2, r: 2.4, dmg: 0.5, kb: 2, extra: [blade(0.2, -24), blade(0.2, 0), blade(0.2, 24)] }),
-    slash({ from: [-50, -55], to: [-15, 95], L: { from: [50, -55], to: [15, 95] }, wind: 0.09, hit: 0.09, rec: 0.24, r: 2.3, ang: 75, dmg: 0.7, kb: 1, lift: 3, extra: [blade(0.15, 0, { dmg: 1.2, lift: 4, proj: { r: 1.9, speed: 22 } })] }),
-    spin({ turns: 2, wind: 0.09, hit: 0.4, rec: 0.3, n: 4, r: 2.6, dmg: 0.5, kb: 3, extra: rep(8, (i) => blade(0.14 + i * 0.045, i * 45, { dmg: 1.0, kb: 6 })) }),
+    spin({ wind: 0.07, hit: 0.22, rec: 0.22, n: 2, r: 2.4, dmg: 0.5, kb: 2, y1: 0.35, elv: 20, extra: [blade(0.2, -24), blade(0.2, 0), blade(0.2, 24)] }),   // 舞い上がる一回転
+    slash({ step: -1, from: [-50, -55], to: [-15, 95], L: { from: [50, -55], to: [15, 95] }, wind: 0.09, hit: 0.09, rec: 0.24, r: 2.3, ang: 75, dmg: 0.7, kb: 1, lift: 3, crouch0: 0.3, y1: 0.5, flip1: -30, flip2: 0, extra: [blade(0.15, 0, { dmg: 1.2, lift: 4, proj: { r: 1.9, speed: 22 } })] }),
+    spin({ turns: 2, wind: 0.09, hit: 0.4, rec: 0.3, n: 4, r: 2.6, dmg: 0.5, kb: 3, y1: 0.5, elv: 30, extra: rep(8, (i) => blade(0.14 + i * 0.045, i * 45, { dmg: 1.0, kb: 6 })) }),
   ],
   c: [
     slash({ from: [-90, 30], to: [40, 0], L: { from: [90, 30], to: [-40, 0] }, wind: 0.16, hit: 0.1, rec: 0.3, noHit: true, sfx: 'wind',
@@ -275,8 +275,8 @@ MS.fuuka = {
     seq(spin({ turns: 3, wind: 0.09, hit: 0.62, n: 6, r: 2.8, dmg: 0.5, kb: 1.5, mv: 3, extra: rep(12, (i) => blade(0.12 + i * 0.05, i * 30, { dmg: 0.9, kb: 5 })) }),
       slash({ from: [-115, 10], to: [100, -5], L: { from: [115, 10], to: [-100, -5] }, wind: 0.12, hit: 0.1, rec: 0.36, r: 9, ang: 55, dmg: 3.0, kb: 14, lift: 4, el: 1, fx: ['wave', 'nova'], shake: 0.7, stop: 0.08, sfx: 'wind' })),
   ],
-  sp: X(seq(hold(0.2, {}, { extra: [PULL(0.05, 10, 1.9, 0, 16)] }), spin({ turns: 5, wind: 0.06, hit: 1.5, n: 11, r: 5.4, dmg: 0.7, kb: 0, lift: 4.5, el: 1, fx: 'burst', extra: [FXO(0.1, 'tornado', 5), ...rep(10, (i) => blade(0.2 + i * 0.13, i * 77, { dmg: 0.8 }))] }),
-    slash({ from: [-30, 115], to: [-10, -35], L: { from: [30, 115], to: [10, -35] }, wind: 0.16, hit: 0.1, rec: 0.4, noHit: true, sfx: 'swingH',
+  sp: X(seq(hold(0.2, {}, { extra: [PULL(0.05, 10, 1.9, 0, 16)] }), spin({ turns: 5, wind: 0.06, hit: 1.5, n: 11, r: 5.4, dmg: 0.7, kb: 0, lift: 4.5, el: 1, fx: 'burst', y1: 1.6, elv: 35, extra: [FXO(0.1, 'tornado', 5), ...rep(10, (i) => blade(0.2 + i * 0.13, i * 77, { dmg: 0.8 }))] }),
+    slash({ from: [-30, 115], to: [-10, -35], L: { from: [30, 115], to: [10, -35] }, wind: 0.16, hit: 0.1, rec: 0.4, noHit: true, sfx: 'swingH', y0: 1.6, y1: 0, crouch1: 0.4, lean1: 30,
       extra: [{ ...DEF_HIT, t: 0.22, shape: 'circle', fwd: 0, r: 8.5, dmg: 5, kb: 12, lift: 12, el: 1, fx: ['pillar', 'nova', 'ring'], shake: 1.2, stop: 0.14 }] })), { steer: 2.5, spMove: 3 }),
 };
 
