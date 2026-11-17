@@ -239,13 +239,14 @@ export class VrmBody {
   // 表情: まばたきと、状態に合わせた顔(攻撃=怒り+口を開く、勝利=笑顔 など)。表情を持たないVRMでは何もしない
   _face(dt, rig) {
     const em = this.vrm.expressionManager; if (!em) return;
-    const F = this._fw || (this._fw = { blink: 0, happy: 0, angry: 0, sad: 0, surprised: 0, aa: 0 });
+    const F = this._fw || (this._fw = { blink: 0, happy: 0, relaxed: 0, angry: 0, sad: 0, surprised: 0, aa: 0, ih: 0 });
     const mode = rig ? rig.mode : 'loco', atk = !!(rig && rig.move);
     const want = atk ? { angry: 1, aa: 0.55 }
       : mode === 'hit' ? { surprised: 0.5, angry: 0.5, aa: 0.3 }
       : mode === 'stun' ? { sad: 0.9 }
       : mode === 'victory' ? { happy: 1 }
-      : mode === 'pose' || mode === 'cast' ? { angry: 0.7 }
+      : mode === 'pose' ? ((rig.customPose && rig.customPose.face) || { angry: 0.7 })   // 決めポーズは武将ごとの表情(poses.js の face)
+      : mode === 'cast' ? { angry: 0.7 }
       : mode === 'dead' || mode === 'down' ? { blink: 1, sad: 0.4 } : {};
     // まばたき: 2〜5秒おきに一瞬閉じる
     this._bt = (this._bt === undefined ? 1 + Math.random() * 3 : this._bt) - dt;
