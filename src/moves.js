@@ -284,12 +284,12 @@ MS.fuuka = {
 MS.yomi = {
   spName: '冥府葬送',
   n: [
-    slash({ from: [-118, 12], to: [100, -10], wind: 0.13, hit: 0.12, rec: 0.26, r: 3.4, ang: 95, dmg: 1.15, kb: 2.5, mv: 3, wr0: 10, wr1: 40 }),
-    slash({ from: [115, 8], to: [-105, -8], wind: 0.12, hit: 0.12, rec: 0.26, r: 3.4, ang: 95, dmg: 1.15, kb: 2.5, mv: 3, wr0: 10, wr1: 40 }),
-    slash({ from: [-20, 116], to: [8, -36], wind: 0.14, hit: 0.11, rec: 0.26, r: 3.4, ang: 70, dmg: 1.35, kb: -3, mv: 2, wr0: 10, wr1: 50, crouch1: 0.25 }),
-    slash({ from: [55, -58], to: [-35, 88], wind: 0.13, hit: 0.11, rec: 0.26, r: 3.4, ang: 80, dmg: 1.3, kb: 1, lift: 3.5, mv: 2.5, wr0: 10, wr1: 40 }),
-    spin({ wind: 0.12, hit: 0.3, rec: 0.26, r: 3.8, dmg: 0.8, kb: 4, mv: 2.5 }),
-    spin({ turns: 2, wind: 0.12, hit: 0.46, rec: 0.3, n: 4, r: 4.1, dmg: 0.75, kb: 8, mv: 3, shake: 0.12 }),
+    slash({ step: -1, from: [-118, 12], to: [100, -10], wind: 0.13, hit: 0.12, rec: 0.26, r: 3.4, ang: 95, dmg: 1.15, kb: 2.5, mv: 3, wr0: 10, wr1: 40, spin0: -30, spin1: 25, lean1: 16, crouch1: 0.2 }),
+    slash({ step: 1, spin0: 25, spin1: -20, lean1: 16, crouch1: 0.2, from: [115, 8], to: [-105, -8], wind: 0.12, hit: 0.12, rec: 0.26, r: 3.4, ang: 95, dmg: 1.15, kb: 2.5, mv: 3, wr0: 10, wr1: 40 }),
+    slash({ step: -1, from: [-20, 116], to: [8, -36], wind: 0.14, hit: 0.11, rec: 0.26, r: 3.4, ang: 70, dmg: 1.35, kb: -3, mv: 2, wr0: 10, wr1: 50, crouch1: 0.35, lean0: -10, lean1: 30 }),   // 振り下ろして刈り寄せる
+    slash({ step: 1, from: [55, -58], to: [-35, 88], wind: 0.13, hit: 0.11, rec: 0.26, r: 3.4, ang: 80, dmg: 1.3, kb: 1, lift: 3.5, mv: 2.5, wr0: 10, wr1: 40, crouch0: 0.3, y1: 0.45 }),
+    spin({ wind: 0.12, hit: 0.3, rec: 0.26, r: 3.8, dmg: 0.8, kb: 4, mv: 2.5, elv: -18 }),   // 地を這う一回転
+    spin({ turns: 2, wind: 0.12, hit: 0.46, rec: 0.3, n: 4, r: 4.1, dmg: 0.75, kb: 8, mv: 3, shake: 0.12, elv: 14, y1: 0.4 }),   // 昇りながら二回転
   ],
   c: [
     seq(X(dash({ dist: 7.5, wind: 0.1, hit: 0.07, rec: 0.02, noHit: true, sfx: 'dark' }), { cut: 0.18, vanish: [0.1, 0.17] }),
@@ -302,7 +302,7 @@ MS.yomi = {
     seq(spin({ turns: 3, wind: 0.12, hit: 0.66, n: 6, r: 4.3, dmg: 0.95, kb: -1.5, el: 1, mv: 3 }),
       slash({ from: [-30, 120], to: [20, -40], wind: 0.15, hit: 0.11, rec: 0.4, r: 6.2, ang: 120, dmg: 3.6, kb: 10, lift: 5, el: 1, fx: ['wave', 'nova'], shake: 0.9, stop: 0.1, sfx: 'swingH', wr0: 10, wr1: 50, crouch1: 0.3 })),
   ],
-  sp: X(seq(hold(0.24, { az: -20, el: 85, bend: 40 }, { extra: [PULL(0.05, 10.5, 1.5, 0, 18)] }), spin({ turns: 4, wind: 0.08, hit: 1.1, n: 8, r: 5.2, dmg: 0.8, kb: -2, el: 1, fx: 'burst' }),
+  sp: X(seq(hold(0.24, { az: -20, el: 85, bend: 40 }, { extra: [PULL(0.05, 10.5, 1.5, 0, 18)] }), spin({ turns: 4, wind: 0.08, hit: 1.1, n: 8, r: 5.2, dmg: 0.8, kb: -2, el: 1, fx: 'burst', y1: 1.2, elv: 20 }),
     slash({ from: [-40, 125], to: [30, -40], wind: 0.2, hit: 0.12, rec: 0.44, noHit: true, sfx: 'swingH', wr0: 10, wr1: 50, crouch1: 0.3, y0: 1.2,
       extra: [{ ...DEF_HIT, t: 0.27, shape: 'circle', fwd: 0, r: 8.8, dmg: 5.6, kb: 10, lift: 10, el: 1, fx: ['wave', 'nova', 'pillar'], shake: 1.2, stop: 0.15 }] })), { steer: 2.4, spMove: 2 }),
 };
