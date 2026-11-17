@@ -1,4 +1,4 @@
-// 3D武器(自作の大太刀 / Meshy製の長槍・双剣・大槌 CC BY 4.0)を読み込み、手に持てる向き・大きさにそろえる
+// 3D武器(tools/blender/weapons.py で自作)を読み込み、手に持てる向き・大きさにそろえる
 // 元データは縦向き(柄が下・刃先が上)、幅がX方向。ゲーム内の武器は
 // 「柄の中心が原点・刃先が+Y・刃の幅が+Z」なので、それに合わせる。
 import * as THREE from 'three';
@@ -7,9 +7,13 @@ import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
 // len: 全長(m) / grip: 下端から柄の中心までの割合 / trail: 軌跡を描く範囲(刃先側の割合) / trim: 柄の下端を切り落とす割合
 const DEF = {
   sword: { len: 1.36, grip: 0.16, trail: 0.3 },   // 右手は鍔のすぐ下、左手は柄頭側
-  twin: { len: 1.05, grip: 0.19, trim: 0.12, trail: 0.5 },   // 柄が長すぎるので下12%を切り落とす
-  spear: { len: 2.9, grip: 0.3, trail: 0.7 },
-  hammer: { len: 2.0, grip: 0.2, trail: 0.62 },
+  // native: 握る位置が原点の実寸モデル(拡大・中央寄せをしない)。tip/base は軌跡の刃先・根元 [刃の向き, 上] (m)
+  twin:   { native: true, tip: [0.0, 0.84], base: [0.0, 0.18] },
+  spear:  { native: true, tip: [0.0, 2.24], base: [0.0, 1.5] },
+  hammer: { native: true, tip: [0.33, 1.36], base: [0.0, 0.95] },
+  axe:    { native: true, tip: [0.64, 1.22], base: [0.0, 0.95] },
+  scythe: { native: true, tip: [1.12, 0.5], base: [0.0, 1.5] },
+  fan:    { native: true, tip: [0.0, 0.62], base: [0.0, 0.12] },
 };
 const lib = {};
 let loading = null;
@@ -27,10 +31,11 @@ export const hasWeaponGlb = (type) => !!lib[type];
 
 function prep(scene, d) {
   scene.updateMatrixWorld(true);
-  const box = new THREE.Box3().setFromObject(scene), h = Math.max(0.01, box.max.y - box.min.y), k = d.len / h;
+  const box = new THREE.Box3().setFromObject(scene), h = Math.max(0.01, box.max.y - box.min.y), k = d.native ? 1 : d.len / h;
   scene.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.userData.shared = true; } });
   if (d.trim) trimBottom(scene, box.min.y + h * d.trim);
-  const top = (1 - d.grip) * d.len;
+  const top = d.native ? box.max.y : (1 - d.grip) * d.len;
+  if (d.native) return { scene, d, top, off: new THREE.Vector3(), k: 1, mats: new Map() };
   return {
     scene, d, top,
     // 外側で 縮尺→回転 をかけ、内側で中心と柄の位置をずらす
@@ -90,5 +95,7 @@ export function weaponGlb(type, tier, glow) {
     return outer;
   };
   const top = W.top * s;
+  // 元の向き(X=刃の向き)は手の中では +Z になる
+  if (W.d.tip) return { make, tip: [0, W.d.tip[1] * s, W.d.tip[0] * s], base: [0, W.d.base[1] * s, W.d.base[0] * s] };
   return { make, tip: [0, top * 0.97, 0], base: [0, top * W.d.trail, 0] };
 }

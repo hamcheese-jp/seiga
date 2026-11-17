@@ -58,6 +58,7 @@ class Builder:
         """(高さ, 半径) の並びを回して壺や輪を作る"""
         self.loft([self.ring(z, r, r * ry_k, n) for z, r in profile], m, **kw)
     def finish(self):
+        bmesh.ops.recalc_face_normals(self.bm, faces=self.bm.faces[:])
         me = bpy.data.meshes.new(self.name); self.bm.normal_update(); self.bm.to_mesh(me); self.bm.free()
         for m in self.mats: me.materials.append(m)
         ob = bpy.data.objects.new(self.name, me); bpy.context.scene.collection.objects.link(ob)
@@ -135,6 +136,8 @@ def sword():
 MAKERS = {'sword': sword}
 
 if __name__ == '__main__':
+    import os; sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import weapons2; MAKERS.update(weapons2.MAKERS)
     args = sys.argv[sys.argv.index('--') + 1:]
     for o in list(bpy.data.objects): bpy.data.objects.remove(o, do_unlink=True)
     ob = MAKERS[args[0]]()
