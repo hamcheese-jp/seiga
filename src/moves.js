@@ -433,7 +433,9 @@ MS.p_zenova = { spName: '覇星墜天',
 
 // ---- 足さばき: 指定のない技に、一撃ごとに踏み出す足(step)を交互に割り振る ----
 function footwork(ms) {
-  for (const list of [ms.n, ms.c]) list.forEach((mv, i) => {
+  // 武将の技は n(通常)・c(チャージ)、敵将・士官の技は m(名前つきの一覧)
+  for (const list of [ms.n, ms.c, ms.m && Object.values(ms.m)].filter(Array.isArray)) list.forEach((mv, i) => {
+    if (!mv || !mv.keys) return;
     if (mv.keys.some((k) => k.step !== undefined)) return;       // 個別に決めてある技はそのまま
     const st = i % 2 ? 1 : -1; let alt = st;
     mv.keys.forEach((k, j) => {
@@ -445,3 +447,5 @@ function footwork(ms) {
   });
 }
 for (const id of ['setsuna', 'raika', 'gandou', 'fuuka', 'yomi']) footwork(MS[id]);
+// 敵将・士官・敵将の力を借りた技にも足さばきを入れる(個別に決めてある技はそのまま)
+for (const id in MS) if (/^(off_|boss_|p_)/.test(id)) footwork(MS[id]);

@@ -65,6 +65,8 @@ export const LOOKS = {
     pal: { skin: '#d8ccd8', hair: '#e8e2f6', c1: '#1a1230', c2: '#0c0a16', c3: '#d8b24a', metal: '#3c3866', gold: '#f2ce5a', glow: [4.6, 0.6, 2.6], eye: '#e01a5a', cape: '#2a0f3c' } },
 };
 // ---- 帝国の将: 章をクリアすると「星の記憶」として使えるようになる(見た目は vrm/boss*.vrm) ----
+// 敵将・士官も、星牙使いと同じ新しい歩き・走り(motion=2)にそろえる
+for (const k in LOOKS) LOOKS[k].motion = 2;
 const foeLook = (k, glow, armor = '') => ({ ...LOOKS[k], armor, pal: { ...LOOKS[k].pal, glow } });
 HEROES.push(
   { id: 'barga', name: 'バルガ', title: '鉄壁の猛将', wtype: 'axe', wname: '大戦斧', elem: 'earth', foe: true, vrm: 'boss1', ms: 'p_barga',
