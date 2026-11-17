@@ -50,6 +50,9 @@ class Base {
   }
 }
 
+// ボスの体格ごとの強さ: 太った巨漢(boss1 バルガ)は足が遅いが、打たれ強く一撃が重い
+const BOSS_BUILD = { def: { hp: 1, atk: 1, spd: 5.6 }, boss1: { hp: 1.3, atk: 1.25, spd: 4.6 } };
+
 export class Battle {
   constructor(cfg) {
     this.cfg = cfg; this.def = cfg.stage; this.diff = DIFFS[cfg.diff]; this.save = cfg.save; this.ui = cfg.ui; this.endless = !!this.def.endless;
@@ -165,7 +168,7 @@ export class Battle {
   _enemyOfficer(od, name, mul = 1) {
     const nd = this.stage.nodes[od.n], E = this.E; let f;
     if (od.boss) {
-      f = this._add({ team: 1, boss: true, vrmKey: od.look, name, title: od.title, look: LOOKS[od.look], wtype: od.wtype, tier: 2, ms: od.ms, elem: BOSS_ELEM[od.look], hp: E.oHp * od.hp * mul, atk: E.oAtk * 1.25 * mul, def: E.oDef * 1.2, spd: 5.6, exp: E.oExp * 4,
+      f = this._add({ team: 1, boss: true, vrmKey: od.look, name, title: od.title, look: LOOKS[od.look], wtype: od.wtype, tier: 2, ms: od.ms, elem: BOSS_ELEM[od.look], hp: E.oHp * od.hp * mul * (BOSS_BUILD[od.look] || BOSS_BUILD.def).hp, atk: E.oAtk * 1.25 * mul * (BOSS_BUILD[od.look] || BOSS_BUILD.def).atk, def: E.oDef * 1.2, spd: (BOSS_BUILD[od.look] || BOSS_BUILD.def).spd, exp: E.oExp * 4,
         x: nd.x, z: nd.z + (this.endless ? 0 : 3), yaw: PI });
       f.lookId = od.look; f.role = this.endless ? 'hunt' : 'boss'; if (!this.endless) this.boss = f;
     } else {

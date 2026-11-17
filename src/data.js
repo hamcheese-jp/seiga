@@ -53,7 +53,7 @@ export const LOOKS = {
     pal: { skin: '#d9a982', hair: '#1a1210', c1: '#7c1418', c2: '#1c181a', c3: '#b8862a', metal: '#585c6e', gold: '#c9982e', glow: [3.5, 0.5, 0.3], eye: '#200808', cape: '#5c0e12' } },
   allyOfficer: { scale: 1.06, bulk: 1.1, sw: 0.265, headScale: 1.1, hair: 'bald', gear: 'kabuto', cape: 'short', pauldron: 1, tasset: 'plate', tails: 0,
     pal: { skin: '#e2b48c', hair: '#1a1210', c1: '#1e4a9a', c2: '#161a26', c3: '#c8d4e8', metal: '#566078', gold: '#d8e2f2', glow: [0.5, 1.6, 4.0], eye: '#081020', cape: '#16387a' } },
-  boss1: { armor: 'heavy', scale: 1.3, bulk: 1.45, sw: 0.31, headScale: 1.0, hair: 'bald', beard: true, gear: 'kabuto horn hornbig', cape: 'long', pauldron: 2, tasset: 'plate', tails: 0,
+  boss1: { armor: 'heavy', scale: 1.45, bulk: 1.45, sw: 0.31, headScale: 1.0, hair: 'bald', beard: true, gear: 'kabuto horn hornbig', cape: 'long', pauldron: 2, tasset: 'plate', tails: 0,
     pal: { skin: '#c99672', hair: '#281410', c1: '#6a1014', c2: '#181416', c3: '#c08a2a', metal: '#4c4e5c', gold: '#d2a030', glow: [4.5, 0.7, 0.2], eye: '#3a0808', cape: '#4a0a0e' } },
   boss2: { scale: 1.1, bulk: 1.0, sw: 0.255, headScale: 1.1, hair: 'short', gear: 'hood mask', cape: 'scarf', pauldron: 0, tasset: 'none', tails: 3, arms: 'bare',
     pal: { skin: '#b9825a', hair: '#201810', c1: '#8a3a1e', c2: '#2a1c14', c3: '#e8c070', metal: '#6a5a44', gold: '#e8c070', glow: [4.2, 2.4, 0.4], eye: '#2a1408', cape: '#b0562a' } },
@@ -71,7 +71,7 @@ const foeLook = (k, glow, armor = '') => ({ ...LOOKS[k], armor, pal: { ...LOOKS[
 HEROES.push(
   { id: 'barga', name: 'バルガ', title: '鉄壁の猛将', wtype: 'axe', wname: '大戦斧', elem: 'earth', foe: true, vrm: 'boss1', ms: 'p_barga',
     desc: '覇星帝国の猛将。星牙に刻まれた記憶から、鉄壁の巨躯と大戦斧の剛撃を借り受ける。',
-    base: { hp: 1500, atk: 42, def: 44, spd: 6.4, aspd: 0.88 }, stars: [5, 4, 1, 5], heavy: true, look: foeLook('boss1', [3.9, 2.1, 0.4], 'heavy') },
+    base: { hp: 1800, atk: 50, def: 44, spd: 5.4, aspd: 0.88 }, stars: [5, 5, 1, 5], heavy: true, look: foeLook('boss1', [3.9, 2.1, 0.4], 'heavy') },
   { id: 'zahar', name: 'ザハル', title: '砂塵の蠍', wtype: 'twin', wname: '毒双剣', elem: 'wind', foe: true, vrm: 'boss2', ms: 'p_zahar',
     desc: '砂賊の頭目。砂嵐を呼ぶ双剣の連撃と、背後を突く奇襲が持ち味。',
     base: { hp: 900, atk: 30, def: 20, spd: 9.0, aspd: 1.15 }, stars: [3, 3, 5, 2], look: foeLook('boss2', [0.6, 3.7, 1.7]) },
