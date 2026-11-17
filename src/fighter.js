@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { GFX } from './gfx.js';
 import { buildHero, disposeModel } from './models.js';
 import { loadVrm, VrmBody, hasVrm } from './vrmchar.js';
-import { setArmor } from './armor.js';
+import { setArmor, cleanArmor } from './armor.js';
 import { Rig } from './rig.js';
 import { MS } from './moves.js';
 import { ELEMENTS, HERO } from './data.js';
@@ -29,7 +29,7 @@ export class Fighter {
     const vk = o.heroId || o.vrmKey;
     // VRoidのキャラが読み込まれるまでは姿を出さない(古い手作りモデルが一瞬映らないように)
     this.vrmPending = !!(vk && hasVrm(vk));
-    if (vk) loadVrm(vk).then((vrm) => { this.vrmPending = false; if (!vrm) return; if (this.disposed) { vrm.scene.traverse((x) => { if (x.geometry) x.geometry.dispose(); }); return; } new VrmBody(this.model, vrm).rim(this.col, this.team === 1 ? (this.boss ? 2 : 1) : 0); if (o.stats && o.stats.armor) setArmor(vrm, (HERO[vk] && HERO[vk].vrm) || vk, o.stats.armor); if (this.B.nearCam(this.x, this.z, 40)) FX.glow(this.x, 1.2, this.z, this.col[0] * 0.5, this.col[1] * 0.5, this.col[2] * 0.5, 3, 0.35); }).catch((e) => { this.vrmPending = false; console.warn(e); });
+    if (vk) loadVrm(vk).then((vrm) => { this.vrmPending = false; if (!vrm) return; if (this.disposed) { vrm.scene.traverse((x) => { if (x.geometry) x.geometry.dispose(); }); return; } new VrmBody(this.model, vrm).rim(this.col, this.team === 1 ? (this.boss ? 2 : 1) : 0); const arm = cleanArmor(o.armor || (o.stats && o.stats.armor)); if (arm) setArmor(vrm, (HERO[vk] && HERO[vk].vrm) || vk, arm); if (this.B.nearCam(this.x, this.z, 40)) FX.glow(this.x, 1.2, this.z, this.col[0] * 0.5, this.col[1] * 0.5, this.col[2] * 0.5, 3, 0.35); }).catch((e) => { this.vrmPending = false; console.warn(e); });
     this.ms = MS[o.ms];
     this.x = o.x; this.z = o.z; this.y = 0; this.vx = 0; this.vy = 0; this.vz = 0; this.yaw = o.yaw || 0;
     this.rad = 0.5 * this.model.scale; this.alive = true; this.hidden = false; this.ghost = false; this.gone = false; this.sealed = false;

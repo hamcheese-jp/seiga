@@ -8,6 +8,8 @@ import { Voice } from './voice.js';
 import { ST } from './horde.js';
 import { clamp, damp, angDamp } from './util.js';
 import { Input } from './input.js';
+import { WEAPON_TYPE_NAMES } from './data.js';
+import { cleanArmor } from './armor.js';
 
 const PREFIX = 'seiga-coop-v1-';
 export const MAX_PLAYERS = 4;   // 協力プレイの人数(ホストを含む)
@@ -108,6 +110,10 @@ export function sanitizeMember(d, HERO) {
     spGain: n(s.spGain, 0, 2.5, 1), rageGain: n(s.rageGain, 0, 2.5, 1), crit: n(s.crit, 0, 60, 5), steal: n(s.steal, 0, 30, 0),
     elem: n(s.elem, 0, 2.5, 1), charge: n(s.charge, 0, 2.5, 1), musou: n(s.musou, 0, 2.5, 1), exp: 1, gold: 1, luck: n(s.luck, 0, 50, 0), regen: n(s.regen, 0, 20, 0),
     maxN: n(s.maxN, 1, 8, 3) | 0, maxC: n(s.maxC, 0, 8, 1) | 0,
+    // 装備: 武器の種類・技の型・鎧(知っている名前だけ通す)
+    wtype: typeof s.wtype === 'string' && Object.hasOwn(WEAPON_TYPE_NAMES, s.wtype) ? s.wtype : h.wtype,
+    ms: typeof s.ms === 'string' && Object.hasOwn(MS, s.ms) ? s.ms : (h.ms || h.id),
+    armor: cleanArmor(s.armor),
   };
   const name = String(d.name || h.name).replace(/[<>&"'`]/g, '').slice(0, 16) || h.name;
   return { hero: h.id, name, stats: S, slot: d.slot | 0, team: d.team === 1 ? 1 : 0 };
@@ -115,7 +121,7 @@ export function sanitizeMember(d, HERO) {
 
 // 送る時に余計な参照を外した生成情報
 const SPAWN_KEYS = ['team', 'hero', 'heroId', 'vrmKey', 'name', 'title', 'look', 'wtype', 'tier', 'ms', 'elem', 'hp', 'boss'];
-export function spawnInfo(o) { const r = {}; for (const k of SPAWN_KEYS) if (o[k] !== undefined) r[k] = o[k]; return r; }
+export function spawnInfo(o) { const r = {}; for (const k of SPAWN_KEYS) if (o[k] !== undefined) r[k] = o[k]; const a = cleanArmor(o.armor || (o.stats && o.stats.armor)); if (a) r.armor = a; return r; }
 
 const RIG_MODES = ['loco', 'hit', 'air', 'down', 'getup', 'dodge', 'dead', 'stun', 'victory', 'cast', 'pose'];
 const STATES = ['idle', 'atk', 'sp', 'dodge', 'hit', 'air', 'down', 'getup', 'cast', 'dead'];

@@ -1,6 +1,7 @@
 // 着せ替え鎧: assets/armor/<キャラ>/<セット>_<部位>.arm を読み、VRMの骨に結び付けて着せる
 // ファイルは tools/blender/vroid_armor.py が各キャラの体の表面から作る(体に沿って曲がる)
 import * as THREE from 'three';
+import { ARMOR_SETS } from './data.js';
 
 export const ARMOR_SLOTS = ['head', 'body', 'arms', 'legs', 'shield'];
 // 鎧のファイルを用意してあるキャラ(tools/blender/vroid_armor.py で書き出す)。敵将は着せ替えの対象外
@@ -8,6 +9,13 @@ const ARMOR_HEROES = new Set(['reiga', 'setsuna', 'raika', 'gandou', 'fuuka', 'y
 // 立ち絵・決めポーズで着せる、各武将の看板の鎧
 export const SIGNATURE = { reiga: 'guren', setsuna: 'souten', raika: 'kurogane', gandou: 'kurogane', fuuka: 'souten', yomi: 'kurogane' };
 export const signatureArmor = (id, shield = false) => { const s = SIGNATURE[id]; return s ? { head: s, body: s, arms: s, legs: s, shield: shield ? s : null } : null; };
+// 通信で届いた鎧の指定を、知っている部位・セットだけに絞る(ファイル名に使うので必ず通す)
+export function cleanArmor(a) {
+  if (!a || typeof a !== 'object') return null;
+  const r = {}; let any = false;
+  for (const s of ARMOR_SLOTS) { const v = a[s]; r[s] = typeof v === 'string' && Object.hasOwn(ARMOR_SETS, v) ? v : null; if (r[s]) any = true; }
+  return any ? r : null;
+}
 const cache = new Map();
 const ST = new WeakMap();   // VRMごとの状態(骨の表・着ている鎧・指定)
 const st = (vrm) => ST.get(vrm) || (ST.set(vrm, {}), ST.get(vrm));
