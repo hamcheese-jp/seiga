@@ -7,8 +7,8 @@ export const HERO_POSES = {
   reiga: { p: { az: 15, el: 5, bend: 110, wr: -140, azL: 80, elL: 5, bendL: 10, tw: 0, lean: 5, crouch: 0.6, stance: 0, head: 0, wide: 0.5 }, cam: { yaw: -8, pitch: -6 } },
   setsuna: { cand: 0, cam: { yaw: -30, pitch: -10 } },
   raika: { p: { az: 15, el: -15, bend: 85, wr: 80, azL: 25, elL: 105, bendL: 70, wrL: 135, tw: 20, lean: 20, crouch: 0.4, stance: 1.0, head: -20 }, cam: { yaw: -65, pitch: -8 } },
-  gandou: { p: { az: -170, el: 55, bend: 120, wr: 40, tw: -25, lean: 10, crouch: 0.5, stance: 0, wide: 0.45, head: 30 }, cam: { yaw: -20, pitch: -10 } },
-  fuuka: { p: { az: -35, el: 115, bend: 140, wr: 0, roll: 90, azL: -60, elL: 0, bendL: 60, wrL: -90, rollL: 90, tw: 10, lean: 0, crouch: 0.05, stance: 0.3, side: 6, head: -10 }, cam: { yaw: -10, pitch: -6 } },
+  gandou: { p: { az: -150, el: 40, bend: 150, wr: 40, tw: -15, lean: 10, crouch: 0.5, stance: 0, wide: 0.45, head: 0 }, cam: { yaw: -20, pitch: -10 } },
+  fuuka: { p: { az: -70, el: 55, bend: 25, wr: 0, roll: 90, azL: 75, elL: -15, bendL: 25, wrL: 0, rollL: 90, tw: 0, lean: 0, crouch: 0.05, stance: 0.3, side: 6, head: 0 }, cam: { yaw: -10, pitch: -6 } },
   yomi: { cand: 1, cam: { yaw: 15, pitch: -10 } },
   zenova: { cand: 1, cam: { yaw: 15, pitch: -14 } },
 };
