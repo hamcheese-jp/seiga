@@ -97,7 +97,37 @@ export async function wearArmor(vrm, hero, equip) {
     const line = new THREE.SkinnedMesh(A.geometry, outlineMat());
     line.name = 'armor_line'; line.frustumCulled = false;
     mesh.add(line); line.bind(mesh.skeleton, host.bindMatrix);
-    worn[slot] = { set, mesh };
+    worn[slot] = { set, mesh, line };
+    if (slot === 'shield') prepShieldBack(vrm, worn[slot], A, ent, tab, host);
   }));
+}
+
+// 盾を背中に背負う: 両手武器を持つ間は、左腕ではなく背中(胸の骨)に付け替える
+const _m = new THREE.Matrix4();
+function prepShieldBack(vrm, W, A, ent, tab, host) {
+  const uc = tab.get('J_Bip_C_UpperChest') || tab.get('J_Bip_C_Chest'); if (!uc) return;
+  A.geometry.computeBoundingBox();
+  const c0 = A.geometry.boundingBox.getCenter(new THREE.Vector3());
+  const ucPos = new THREE.Vector3().setFromMatrixPosition(uc.inv.clone().invert());       // 胸の骨(基準姿勢)
+  const c1 = ucPos.add(new THREE.Vector3(0, -0.06, -0.17));                              // 背中の真ん中(VRM は +Z が正面)
+  // 盾の面(+Y を向いた椀)を背中側(-Z)へ向け、長い方を縦にする
+  const K = new THREE.Matrix4().makeTranslation(c1.x, c1.y, c1.z)
+    .multiply(new THREE.Matrix4().makeRotationZ(Math.PI / 2)).multiply(new THREE.Matrix4().makeRotationX(-Math.PI / 2))
+    .multiply(new THREE.Matrix4().makeTranslation(-c0.x, -c0.y, -c0.z));
+  const bind = host.bindMatrix, Kb = bind.clone().multiply(K).multiply(host.bindMatrixInverse);
+  const B = new THREE.Bone(); B.name = 'shield_back'; B.matrixAutoUpdate = false;
+  W.armSkel = W.mesh.skeleton;
+  W.backSkel = new THREE.Skeleton(ent.map(() => B), ent.map(() => new THREE.Matrix4()));
+  W.back = { B, uc, Kb, on: false };
+}
+// 毎フレーム呼ぶ: back=true で背中、false で左腕
+export function updateArmor(vrm, back) {
+  const W = (st(vrm).armor || {}).shield; if (!W || !W.back) return;
+  const S = W.back, bind = W.mesh.bindMatrix;
+  if (S.on !== !!back) {
+    S.on = !!back; const sk = back ? W.backSkel : W.armSkel;
+    W.mesh.bind(sk, bind); if (W.line) W.line.bind(sk, bind);
+  }
+  if (back) { S.uc.bone.updateWorldMatrix(true, false); S.B.matrixWorld.multiplyMatrices(S.uc.bone.matrixWorld, _m.copy(S.uc.inv)).multiply(S.Kb); }
 }
 export function setArmor(vrm, hero, equip) { st(vrm).armorWant = { ...(equip || {}) }; return wearArmor(vrm, hero, st(vrm).armorWant); }

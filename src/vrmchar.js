@@ -4,6 +4,7 @@ import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils } from '../vendor/three-vrm.module.min.js';
 import { VRM_FILES } from './config.js';
 import { HEROES } from './data.js';
+import { updateArmor } from './armor.js';
 
 // ?vrmtest を付けて開くと、全武将を開発用サンプル(dev/sample.vrm)で表示
 const TEST = new URLSearchParams(location.search).has('vrmtest');
@@ -50,6 +51,7 @@ export async function loadVrm(id) {
 
 const _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _v = new THREE.Vector3(), _w = new THREE.Vector3();
 const _f = new THREE.Vector3(), _g = new THREE.Vector3(), _x = new THREE.Vector3(), _y = new THREE.Vector3(), _m = new THREE.Matrix4();
+const _C1 = new THREE.Vector3(), _C2 = new THREE.Vector3();
 const _hq = new THREE.Quaternion(), _pq = new THREE.Quaternion(), _rq = new THREE.Quaternion();
 const _S = new THREE.Vector3(), _E = new THREE.Vector3(), _H = new THREE.Vector3(), _T = new THREE.Vector3(), _u = new THREE.Vector3(), _n = new THREE.Vector3(), _dq = new THREE.Quaternion(), _wq = new THREE.Quaternion();
 const CL = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -Math.PI / 2);   // 左腕: +X → 下向き
@@ -184,10 +186,11 @@ export class VrmBody {
     // 両手持ち: VRMの腕の長さで左手を柄に届かせる(元リグの角度を写すだけだと届かない)
     if (two) {
       this.wR.updateMatrixWorld(true);
-      this._reach(this.wR.localToWorld(_T.copy(this.model.grip)));
+      this._reach(this._leftGrip(dt));
       this._grip('leftHand', 'leftLowerArm', Q.handR, true);
       this.vrm.humanoid.update();
     }
+    updateArmor(this.vrm, this.model.two);   // 両手武器の間は盾を背中へ
   }
   // 表情: まばたきと、状態に合わせた顔(攻撃=怒り+口を開く、勝利=笑顔 など)。表情を持たないVRMでは何もしない
   _face(dt, rig) {
@@ -212,6 +215,31 @@ export class VrmBody {
     }
   }
   // 左腕の2関節IK: 肩→肘→手首で目標点に手を届かせる。肘は今の向き(元リグの肘)を保つ
+  // 左手で握る柄の位置を選ぶ: 届く範囲で、体や顔にめり込まず、肩から近い所。急に飛ばないよう滑らかに動かす
+  _leftGrip(dt) {
+    const g0 = this.model.grip.y, R = this.model.gripRange || [g0, g0], N = this.N;
+    if (!N.leftUpperArm || !N.hips || !N.head) return this.wR.localToWorld(_T.copy(this.model.grip));
+    N.leftUpperArm.getWorldPosition(_S); N.hips.getWorldPosition(_C1); N.head.getWorldPosition(_C2);
+    const torso = _C2.distanceTo(_C1) || 0.6, rb = torso * 0.36;
+    _C2.addScaledVector(_v.copy(_C2).sub(_C1).normalize(), torso * 0.3);                 // 頭のてっぺんまで
+    if (!this._armLen) {                                                                  // 腕の長さ(肩→肘→拳)
+      N.leftLowerArm.getWorldPosition(_E); N.leftHand.getWorldPosition(_H);
+      this._armLen = _S.distanceTo(_E) + _E.distanceTo(_H) * 1.25;
+    }
+    let best = Infinity, bt = g0;
+    for (let i = 0; i <= 16; i++) {
+      const t = R[0] + (R[1] - R[0]) * i / 16;
+      if (R[1] - R[0] > 0.2 && Math.abs(t) < 0.15) continue;                               // 右手と重ならない
+      const P = this.wR.localToWorld(_T.set(0, t, 0)), dS = P.distanceTo(_S);
+      let sc = Math.max(0, dS - this._armLen * 0.95) * 12 + dS * 0.4 + Math.abs(t - g0) * 0.25;
+      _v.copy(_C2).sub(_C1); const k = THREE.MathUtils.clamp(_w.copy(P).sub(_C1).dot(_v) / _v.lengthSq(), 0, 1);
+      const dc = P.distanceTo(_w.copy(_C1).addScaledVector(_v, k));
+      if (dc < rb) sc += (rb - dc) * 25;                                                  // 体・顔の中は避ける
+      if (sc < best) { best = sc; bt = t; }
+    }
+    this._gt = this._gt === undefined ? bt : this._gt + (bt - this._gt) * (1 - Math.exp(-(dt || 0.016) * 14));
+    return this.wR.localToWorld(_T.set(0, this._gt, 0));
+  }
   _reach(T) {
     const N = this.N, up = N.leftUpperArm, lo = N.leftLowerArm, hd = N.leftHand;
     if (!up || !lo || !hd) return;
@@ -222,8 +250,11 @@ export class VrmBody {
     const a = _S.distanceTo(_E), b = _E.distanceTo(_H) + off;
     const dist = _S.distanceTo(T); if (dist < 1e-4) return;
     const d = Math.min(dist, (a + b) * 0.999), u = _u.copy(T).sub(_S).normalize();
-    // 肘を出す向き: 今の肘の位置から、肩→目標の線に直交する成分(なければ下)
-    _n.copy(_E).sub(_S); _n.addScaledVector(u, -_n.dot(u));
+    // 肘を出す向き: 体の外側と下へ張る(内側に入ると腕が胸や顔にめり込む)。今の肘の向きも少し残す
+    const ch = N.upperChest || N.chest || N.spine; ch.getWorldPosition(_C1);
+    _C2.copy(_S).sub(_C1); _C2.y = 0; if (_C2.lengthSq() < 1e-8) _C2.set(1, 0, 0); _C2.normalize();
+    _n.copy(_E).sub(_S).normalize().multiplyScalar(0.3).add(_C2).add(_v.set(0, -0.9, 0));
+    _n.addScaledVector(u, -_n.dot(u));
     if (_n.lengthSq() < 1e-8) _n.set(0, -1, 0).addScaledVector(u, -u.y);
     _n.normalize();
     const cosA = THREE.MathUtils.clamp((a * a + d * d - b * b) / (2 * a * d), -1, 1), sinA = Math.sqrt(1 - cosA * cosA);
