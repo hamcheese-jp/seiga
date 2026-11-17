@@ -19,6 +19,15 @@ function gradient() {
   return _grad;
 }
 
+let _line = null;
+function outlineMat() {
+  if (!_line) {
+    _line = new THREE.MeshBasicMaterial({ color: 0x1a1210, side: THREE.BackSide });
+    _line.onBeforeCompile = (sh) => { sh.vertexShader = sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  transformed += normalize(objectNormal) * 0.0045;'); };
+  }
+  return _line;
+}
+
 function parse(buf) {
   const dv = new DataView(buf), jl = dv.getUint32(0, true);
   const J = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 4, jl)));
@@ -81,6 +90,10 @@ export async function wearArmor(vrm, hero, equip) {
     mesh.name = 'armor_' + slot; mesh.castShadow = true; mesh.frustumCulled = false;
     host.parent.add(mesh); mesh.matrix.copy(host.matrix); mesh.matrix.decompose(mesh.position, mesh.quaternion, mesh.scale);
     mesh.bind(new THREE.Skeleton(ent.map((e) => e.bone), ent.map((e) => e.inv.clone())), host.bindMatrix);
+    // 輪郭線(アニメ調の縁取り)
+    const line = new THREE.SkinnedMesh(A.geometry, outlineMat());
+    line.name = 'armor_line'; line.frustumCulled = false;
+    mesh.add(line); line.bind(mesh.skeleton, host.bindMatrix);
     worn[slot] = { set, mesh };
   }));
 }

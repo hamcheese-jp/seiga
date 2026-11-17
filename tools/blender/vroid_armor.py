@@ -16,7 +16,27 @@ ARMS = [J(n, s) for s in 'lr' for n in ('UpperArm', 'LowerArm')]
 SETS = {
     'guren': dict(plate=(0.55, 0.045, 0.035), dark=(0.07, 0.07, 0.085), trim=(0.9, 0.64, 0.2), cloth=(0.6, 0.05, 0.04), heavy=0),
     'kurogane': dict(plate=(0.11, 0.115, 0.14), dark=(0.3, 0.31, 0.35), trim=(0.62, 0.65, 0.72), cloth=(0.08, 0.1, 0.28), heavy=1),
+    # 蒼天: 青と銀の軽装。尖った肩当てと、額の立て物
+    'souten': dict(plate=(0.1, 0.27, 0.68), dark=(0.62, 0.66, 0.74), trim=(0.88, 0.9, 0.96), cloth=(0.85, 0.87, 0.93), heavy=0, point=1, crest='fin'),
+    # 黄金: 金と黒の最重装。五枚重ねの大肩当て、角付きの額当て、大盾
+    'ougon': dict(plate=(0.82, 0.57, 0.13), dark=(0.055, 0.05, 0.05), trim=(0.97, 0.86, 0.5), cloth=(0.36, 0.03, 0.03), heavy=2, crest='horn'),
 }
+
+def spike(name, mat, bone, base, tip, r, coll, flat=1.0):
+    """角・立て物: base から tip へ伸びる円錐(flat<1 で薄い板状)"""
+    bm = bmesh.new(); n = 10
+    ax = (tip - base); ln = ax.length; ax.normalize()
+    u = ax.cross(Vector((0, 1, 0)));  u = u.normalized() if u.length > 1e-4 else Vector((1, 0, 0)); v = ax.cross(u)
+    ring = [bm.verts.new(base + u * (r * math.cos(math.tau * i / n)) + v * (r * flat * math.sin(math.tau * i / n))) for i in range(n)]
+    top = bm.verts.new(tip)
+    for i in range(n): f = bm.faces.new([ring[i], ring[(i + 1) % n], top]); f.smooth = True
+    bm.faces.new(ring[::-1])
+    bm.normal_update()
+    me = bpy.data.meshes.new(name); bm.to_mesh(me); bm.free()
+    ob = bpy.data.objects.new(name, me); coll.objects.link(ob)
+    me.materials.append(mat); me.uv_layers.new(name='UVMap')
+    ob.vertex_groups.new(name=bone).add(list(range(len(me.vertices))), 1.0, 'REPLACE')
+    return ob
 
 def band(name, mat, trim, bone, c, rx, ry, z, h, coll, plate_w=0.5):
     """額当て: 頭を一周する帯と、額の金属板"""
@@ -93,14 +113,23 @@ def build(hero, set_id):
     out = {}
     # ── 胴: 胸当て・肩当て・帯・草摺
     cy = B[J('Chest')].y
-    o = [A.wrap(body, arm, 'cuirass', main, cy, waist + 0.02, neck.z - 0.025, offset=0.012, xmax=sh.x - 0.035, rings=14, segs=40, thick=0.006, trim=trim, coll=coll),
+    o = [A.wrap(body, arm, 'cuirass', main, cy, waist + 0.02, neck.z - 0.025, offset=0.012, xmax=sh.x - 0.035, rings=22, segs=44, thick=0.006, trim=trim, coll=coll),
          A.wrap(body, arm, 'belt', leather, cy, waist - 0.03, waist + 0.035, offset=0.02, rings=3, segs=40, thick=0.006, trim=trim, coll=coll)]
+    # 胸の飾り金具: 胸当ての一番前に出ている所へ付ける
+    cu = o[0]; cz = B[J('UpperChest')].z + 0.02
+    front = [v.co for v in cu.data.vertices if abs(v.co.x) < 0.035 and abs(v.co.z - cz) < 0.04]
+    if front:
+        fy = min(v.y for v in front)
+        o.append(A.shell('emblem', trim, J('UpperChest'), Vector((0, fy + 0.004, cz)), 0.04 + 0.008 * hv, scale=(1, 1, 0.45), rot=(math.pi / 2, 0, 0), cap=0.5, thick=0.003, coll=coll))
+        o.append(A.shell('emblem_gem', cloth, J('UpperChest'), Vector((0, fy - 0.006, cz)), 0.018, scale=(1, 1, 0.8), rot=(math.pi / 2, 0, 0), cap=0.5, thick=0.002, coll=coll))
+    pt = S.get('point', 0)
     for s in 'lr':
         sx = lx if s == 'l' else -lx
-        p = Vector((sx * sh.x, sh.y, sh.z)); k = 1.18 if hv else 1.0
+        p = Vector((sx * sh.x, sh.y, sh.z)); k = 1.0 + 0.16 * hv
         for i, (dx, dz, r, tilt) in enumerate(((-0.01, 0.035, 0.1, 0.2), (0.05, 0.012, 0.094, 0.7), (0.1, -0.02, 0.086, 1.05), (0.14, -0.05, 0.078, 1.3))[:3 + hv]):
             o.append(A.shell(f'pauldron_{s}{i}', plate, J('UpperArm', s) if i else J('Shoulder', s), p + Vector((sx * dx, 0.005, dz)), r * k,
-                             scale=(1.0, 1.08, 0.6), rot=(0, sx * tilt, 0), cap=0.5 - 0.05 * i, trim=trim, coll=coll))
+                             scale=(1.3, 0.95, 0.5) if pt else (1.0, 1.08, 0.6), rot=(0, sx * (tilt - 0.35 * pt), 0), cap=0.5 - 0.05 * i, trim=trim, coll=coll))
+        if pt: o.append(spike('pauldron_tip_' + s, trim, J('Shoulder', s), p + Vector((sx * 0.02, 0, 0.07)), p + Vector((sx * 0.2, 0.01, 0.16)), 0.028, coll, flat=0.5))
     hz = waist - 0.02; hipw = abs(B[J('UpperLeg', 'l')].x) + 0.085
     def hang(name, ang, bone, mat, ln, wd):
         a = math.radians(ang); nn = Vector((-math.sin(a), -math.cos(a), 0))
@@ -135,10 +164,17 @@ def build(hero, set_id):
     fb = [face.matrix_world @ Vector(c) for c in face.bound_box]
     fx = [v.x for v in fb]; fy = [v.y for v in fb]; fz = [v.z for v in fb]
     c = Vector(((min(fx) + max(fx)) / 2, (min(fy) + max(fy)) / 2 + 0.01, 0))
-    out['head'] = [band('band', cloth, plate if hv else trim, J('Head'), c, (max(fx) - min(fx)) / 2 * 0.9 + 0.006, (max(fy) - min(fy)) / 2 + 0.022, max(fz) - 0.062, 0.022, coll)]
+    hrx, hry, hz2 = (max(fx) - min(fx)) / 2 * 0.9 + 0.006, (max(fy) - min(fy)) / 2 + 0.022, max(fz) - 0.062
+    out['head'] = [band('band', cloth, plate if hv else trim, J('Head'), c, hrx, hry, hz2, 0.022, coll)]
+    fc = Vector((c.x, c.y - hry * 1.06, hz2 - 0.012))                 # 額の正面
+    if S.get('crest') == 'fin':      # 立て物: 額から上へ伸びる一枚の飾り
+        out['head'].append(spike('crest', trim, J('Head'), fc + Vector((0, 0, 0.01)), fc + Vector((0, 0.03, 0.17)), 0.03, coll, flat=0.22))
+    elif S.get('crest') == 'horn':   # 角: 左右へ跳ね上がる二本
+        for sx in (-1, 1):
+            out['head'].append(spike(f'horn{sx}', trim, J('Head'), fc + Vector((sx * 0.04, 0.012, 0.005)), fc + Vector((sx * 0.13, 0.05, 0.17)), 0.017, coll))
     # ── 盾: 左の前腕の外側に付ける(紅蓮=丸盾、黒鉄=縦長の大盾)
     sxl = lx; mid = Vector((sxl * (el.x + wr.x) / 2, el.y, el.z + 0.055))
-    sc = (1.5, 1.0, 0.22) if hv else (1.0, 1.0, 0.25)
+    sc = (1.45 + 0.15 * hv, 0.95 + 0.08 * hv, 0.22) if hv else ((1.25, 0.8, 0.24) if pt else (1.0, 1.0, 0.25))
     out['shield'] = [A.shell('shield', plate, J('LowerArm', 'l'), mid, 0.2 if hv else 0.19, scale=sc, cap=0.5, segs=28, rings=6, thick=0.008, trim=trim, coll=coll),
                      A.shell('boss', trim, J('LowerArm', 'l'), mid + Vector((0, 0, 0.03)), 0.05, scale=(1, 1, 0.7), cap=0.5, thick=0.004, coll=coll)]
     # 部位ごとに一つにまとめて書き出す
