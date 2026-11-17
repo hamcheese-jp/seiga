@@ -23,7 +23,17 @@ import glob
 eye_png = glob.glob(os.path.join(os.path.dirname(human.asset('eyes', 'low-poly', '.mhclo')), '..', 'materials', os.environ.get('EYE', 'brownlight') + '_eye.png'))[0]
 for n in parts['eyes'].data.materials[0].node_tree.nodes:
     if n.type == 'TEX_IMAGE': n.image = bpy.data.images.load(eye_png, check_existing=True)
-m = bm.modifiers.new('sub', 'SUBSURF'); m.levels = 1; m.render_levels = 1
-print('DIM', [round(v, 3) for v in bm.dimensions], {k: len(o.data.vertices) for k, o in parts.items()})
-bpy.ops.wm.save_as_mainfile(filepath=out + '.blend')
-human.render_views(out, height=bm.dimensions[2], shots=os.environ.get('SHOTS', 'face,face34,bust').split(','))
+import bake
+parts['body'] = bm
+if os.environ.get('PREVIEW'):
+    bpy.ops.wm.save_as_mainfile(filepath=out + '.blend')
+    human.render_views(out, height=bm.dimensions[2], shots=os.environ.get('SHOTS', 'face,face34,bust').split(','))
+else:
+    del parts['body']
+    bake.finish(bm, arm, parts)
+    meshes = [bm] + list(parts.values())
+    bake.setup_vrm(arm, meshes, 'レイガ')
+    bpy.ops.wm.save_as_mainfile(filepath=out + '.blend')
+    bake.export_vrm(arm, out + '.vrm')
+    bake.patch_alpha(out + '.vrm')
+    if os.environ.get('SHOTS'): human.render_views(out, height=1.85, shots=os.environ['SHOTS'].split(','))
