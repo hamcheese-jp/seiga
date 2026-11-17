@@ -159,7 +159,8 @@ tools/                開発用サーバーなど
 
 - 音楽: 魔王魂(https://maou.audio/) — CC BY 4.0
 - オンライン協力プレイ: PeerJS(MIT License)— 端末どうしをWebRTCで直接接続(無料の公開シグナリングサーバーを使用)
-- レイガの体・顔: [MPFB](https://static.makehumancommunity.org/mpfb.html)(MakeHuman / 素体と肌・目・眉などの素材は CC0)で作成。髪・鎧・服・大太刀は Blender のスクリプト(tools/blender/)で自作
+- 大太刀の3Dモデル: Blender のスクリプト(tools/blender/weapons.py)で自作
+- 着せ替え鎧(試作中): Blender のスクリプト(tools/blender/vroid_armor.py)で各キャラの体に合わせて自作
 - 武器の3Dモデル(長槍・双剣・大槌): Meshy AI で生成(CC BY 4.0 / https://www.meshy.ai/)。tools/glb-tex.mjs で軽量化
 - ガンドウ(ブロンズ)とバルガ(黒鉄)の鎧: 「黄金鎧 <金獅子のルー・アーリータイプ>」by 金獅子のルー(BOOTH / 改変・再配布OK)を色変えして使用
 - 衣装素材(BOOTH): セツナの騎士装束「VRoid Female Knight Crusader Clothing」by Vampiredirt(https://booth.pm/ja/items/4308595)/ 敵将の鎧「devil鎧」by shirokuro2020(https://booth.pm/ja/items/7918574)/ 敵将の兜「西洋鎧風の被り物」by くろの倉庫(https://booth.pm/ja/items/4429041)

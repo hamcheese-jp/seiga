@@ -48,16 +48,18 @@ def _weights(obj, groups, arm):
     idx = {obj.vertex_groups[g].index for g in groups if g in obj.vertex_groups}
     return [sum(g.weight for g in v.groups if g.group in idx) / max(1e-6, sum(g.weight for g in v.groups if g.group in bones)) for v in obj.data.vertices]
 
-def piece(body, arm, name, groups, mat, planes=(), offset=0.01, smooth=0, thick=0.0, rigid=None, trim=None, trim_w=0.012, min_w=0.5, hull_z=None):
-    """体の groups の領域を写し取って服や鎧の部品にする。planes=[(点, 法線)] は法線側を切り落とす"""
+def piece(body, arm, name, groups, mat, planes=(), offset=0.01, smooth=0, thick=0.0, rigid=None, trim=None, trim_w=0.012, min_w=0.5, hull_z=None, slots=None):
+    """体の groups の領域を写し取って服や鎧の部品にする。planes=[(点, 法線)] は法線側を切り落とす。slots=使う材質番号(肌だけ等)"""
     ob = body.copy(); ob.data = body.data.copy(); ob.name = name
     body.users_collection[0].objects.link(ob)
     if ob.data.shape_keys: ob.shape_key_clear()
+    slot_of = [p.material_index for p in ob.data.polygons]
     ob.data.materials.clear(); ob.data.materials.append(mat)      # 面の材質番号を振る前に入れ替える(後で消すと番号が0に戻る)
     if trim: ob.data.materials.append(trim)
     w = _weights(ob, groups, arm)
     bm = bmesh.new(); bm.from_mesh(ob.data); bm.verts.ensure_lookup_table()
-    bmesh.ops.delete(bm, geom=[f for f in bm.faces if min(w[v.index] for v in f.verts) < min_w], context='FACES')
+    bmesh.ops.delete(bm, geom=[f for f in bm.faces if min(w[v.index] for v in f.verts) < min_w or (slots is not None and slot_of[f.index] not in slots)], context='FACES')
+    for f in bm.faces: f.material_index = 0
     for co, no in planes:
         bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=co, plane_no=no, clear_outer=True)
     bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context='VERTS')
@@ -171,4 +173,76 @@ def join(objs, name, arm):
     ob = objs[0]; ob.name = name
     for m in list(ob.modifiers): ob.modifiers.remove(m)
     ob.parent = arm; md = ob.modifiers.new('Armature', 'ARMATURE'); md.object = arm
+    return ob
+
+def wrap(body, arm, name, mat, cy, z0, z1, offset=0.012, xmax=None, rings=14, segs=36, thick=0.005, trim=None, skip=('HAIR',), blur=2, coll=None):
+    """服ごと外側から包む胴当て: 高さごとに周囲から中心へ光線を当て、一番外の面に沿う筒を作る。
+    xmax を超える横方向は切り落として腕の通る穴にする。重みは近くの体の頂点から写す"""
+    from mathutils import bvhtree, kdtree
+    me = body.data
+    ok = {i for i, m in enumerate(me.materials) if not any(k in m.name for k in skip)}
+    mw = body.matrix_world
+    vs = [mw @ v.co for v in me.vertices]
+    polys = [tuple(p.vertices) for p in me.polygons if p.material_index in ok]
+    tree = bvhtree.BVHTree.FromPolygons(vs, polys)
+    R = np.zeros((rings + 1, segs))
+    for i in range(rings + 1):
+        z = z0 + (z1 - z0) * i / rings
+        for k in range(segs):
+            a = math.tau * k / segs; d = Vector((math.sin(a), -math.cos(a), 0))
+            hit = tree.ray_cast(Vector((0, cy, z)) + d * 0.7, -d, 0.7)
+            R[i, k] = (0.7 - hit[3]) if hit[0] is not None else 0.0
+    R[R <= 0] = np.median(R[R > 0])
+    if xmax is not None:                      # 腕に当たった光線は肩口で止める
+        for k in range(segs):
+            sn = abs(math.sin(math.tau * k / segs))
+            if sn > 1e-3: R[:, k] = np.minimum(R[:, k], (xmax + 0.02) / sn)
+    for _ in range(blur):                      # 襟や結び目の凹凸を均す(内側へは入れない)
+        S = (R + np.roll(R, 1, 1) + np.roll(R, -1, 1)) / 3
+        S[1:-1] = (S[1:-1] + S[:-2] + S[2:]) / 3
+        R = np.maximum(R, S)
+    bm = bmesh.new(); grid = []; cut = set()
+    for i in range(rings + 1):
+        z = z0 + (z1 - z0) * i / rings; row = []
+        for k in range(segs):
+            a = math.tau * k / segs; r = R[i, k] + offset
+            p = Vector((math.sin(a) * r, cy - math.cos(a) * r, z))
+            v = bm.verts.new(p)
+            if xmax is not None and abs(p.x) > xmax: cut.add(v)
+            row.append(v)
+        grid.append(row)
+    edge = set()
+    for i in range(rings):
+        for k in range(segs):
+            q = [grid[i][k], grid[i][(k + 1) % segs], grid[i + 1][(k + 1) % segs], grid[i + 1][k]]
+            if all(v in cut for v in q): continue
+            f = bm.faces.new(q); f.smooth = True
+    bm.normal_update()
+    if trim:
+        for f in bm.faces:
+            if any(e.is_boundary for e in f.edges): f.material_index = 1
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context='VERTS')
+    m2 = bpy.data.meshes.new(name); bm.to_mesh(m2); bm.free()
+    ob = bpy.data.objects.new(name, m2); (coll or body.users_collection[0]).objects.link(ob)
+    m2.materials.append(mat)
+    if trim: m2.materials.append(trim)
+    m2.uv_layers.new(name='UVMap')
+    if thick:
+        md = ob.modifiers.new('solid', 'SOLIDIFY'); md.thickness = thick; md.offset = 1.0
+        with bpy.context.temp_override(object=ob, active_object=ob, selected_objects=[ob]):
+            bpy.ops.object.modifier_apply(modifier=md.name)
+    bones = {g.index: g.name for g in body.vertex_groups if g.name in arm.data.bones}
+    kd = kdtree.KDTree(len(vs))
+    for i, p in enumerate(vs): kd.insert(p, i)
+    kd.balance()
+    for v in m2.vertices:
+        acc = {}
+        near = kd.find_n(v.co, 4)
+        for _, i, dist in near:
+            w = 1.0 / (dist + 1e-4)
+            for g in me.vertices[i].groups:
+                if g.group in bones: acc[bones[g.group]] = acc.get(bones[g.group], 0) + g.weight * w
+        s = sum(acc.values()) or 1.0
+        for n, w in acc.items():
+            if w / s > 0.02: (ob.vertex_groups.get(n) or ob.vertex_groups.new(name=n)).add([v.index], w / s, 'REPLACE')
     return ob

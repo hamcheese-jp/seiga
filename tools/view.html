@@ -20,6 +20,7 @@ import { Rig } from '../src/rig.js';
 import { MS } from '../src/moves.js';
 import { HERO, ELEMENTS } from '../src/data.js';
 import { VrmBody } from '../src/vrmchar.js';
+import { setArmor, ARMOR_SLOTS } from '../src/armor.js';
 import { preloadWeapons } from '../src/weaponglb.js';
 import { HERO_POSES } from '../src/poses.js';
 
@@ -50,6 +51,8 @@ const rig = new Rig(model);
 const key2 = h.vrm || id;
 const vrm = await loadVrm(`vrm/${key2}.vrm`);
 const vb = new VrmBody(model, vrm);
+// armor=guren(全部位) / armor=head:guren,body:kurogane(部位ごと) で着せ替え鎧を確認
+if (Q.get('armor')) { const a = Q.get('armor'); const eq = a.includes(':') ? Object.fromEntries(a.split(',').map((x) => x.split(':'))) : Object.fromEntries(ARMOR_SLOTS.map((s) => [s, a])); await setArmor(vrm, key2, eq); }
 vb.rim([E.glow[0] * 0.5, E.glow[1] * 0.5, E.glow[2] * 0.5], h.foe ? 1 : 0);
 const mvK = Q.get('move') || 'idle', t = +(Q.get('t') || 0);
 for (let i = 0; i < 90; i++) { rig.update(1 / 60); vb.sync(1 / 60, rig); }
