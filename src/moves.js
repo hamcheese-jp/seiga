@@ -227,12 +227,12 @@ MS.raika = {
 MS.gandou = {
   spName: '大地崩壊',
   n: [
-    slash({ from: [-115, 15], to: [95, -15], wind: 0.18, hit: 0.13, rec: 0.3, r: 3.2, ang: 85, dmg: 1.5, kb: 5, mv: 2.5, sfx: 'swingH', shake: 0.12, stop: 0.035, wr0: 0, wr1: 35 }),
-    slash({ from: [112, 10], to: [-100, -12], wind: 0.16, hit: 0.13, rec: 0.3, r: 3.2, ang: 85, dmg: 1.5, kb: 5, mv: 2.5, sfx: 'swingH', shake: 0.12, stop: 0.035, wr0: 0, wr1: 35 }),
+    slash({ step: -1, from: [-125, 25], to: [95, -20], wind: 0.2, hit: 0.13, rec: 0.3, r: 3.2, ang: 85, dmg: 1.5, kb: 5, mv: 2.5, sfx: 'swingH', shake: 0.12, stop: 0.035, wr0: 0, wr1: 35, tw0: -60, crouch0: 0.18, crouch1: 0.3, lean1: 22 }),
+    slash({ step: 1, from: [120, 15], to: [-100, -15], wind: 0.17, hit: 0.13, rec: 0.3, r: 3.2, ang: 85, dmg: 1.5, kb: 5, mv: 2.5, sfx: 'swingH', shake: 0.12, stop: 0.035, wr0: 0, wr1: 35, crouch1: 0.3, lean1: 22 }),
     smash({ jump: 0, up: 0.2, down: 0.11, rec: 0.3, r: 3.0, fwd: 1.8, dmg: 1.9, kb: 5, lift: 3, shake: 0.35, stop: 0.05, chain: 0.4 }),
-    slash({ from: [-30, -75], to: [5, 105], wind: 0.18, hit: 0.12, rec: 0.3, r: 3.1, ang: 70, dmg: 1.7, kb: 2, lift: 6, sfx: 'swingH', shake: 0.15, stop: 0.04, wr0: 0, wr1: 30 }),
-    spin({ wind: 0.16, hit: 0.34, rec: 0.3, r: 3.7, dmg: 1.0, kb: 7, mv: 2, shake: 0.15 }),
-    smash({ jump: 1.2, r: 4.5, fwd: 1.8, dmg: 3.2, kb: 9, lift: 6, shake: 0.75, stop: 0.09, mv: 4 }),
+    slash({ step: -1, from: [-30, -75], to: [5, 105], wind: 0.18, hit: 0.12, rec: 0.3, r: 3.1, ang: 70, dmg: 1.7, kb: 2, lift: 6, sfx: 'swingH', shake: 0.15, stop: 0.04, wr0: 0, wr1: 30, crouch0: 0.4, lean0: 24, y1: 0.2, lean1: -8 }),   // すくい上げ
+    spin({ wind: 0.2, hit: 0.34, rec: 0.3, r: 3.7, dmg: 1.0, kb: 7, mv: 2, shake: 0.15, elv: -14 }),
+    smash({ jump: 1.4, up: 0.26, r: 4.5, fwd: 1.8, dmg: 3.2, kb: 9, lift: 6, shake: 0.75, stop: 0.09, mv: 4 }),
   ],
   c: [
     X(dash({ dist: 6.5, wind: 0.16, hit: 0.24, rec: 0.3, w: 1.7, dmg: 2.0, kb: 11, lift: 2, shake: 0.3, stop: 0.05, sfx: 'swingH' }), { ghost: false }),
@@ -243,7 +243,8 @@ MS.gandou = {
     seq(smash({ jump: 0.6, up: 0.2, rec: 0.2, r: 3.8, fwd: 2, dmg: 2.0, kb: 2, lift: 5, shake: 0.5, mv: 3, chain: 0.3 }), smash({ jump: 0.8, up: 0.2, rec: 0.2, r: 4.6, fwd: 2.4, dmg: 2.5, kb: 2, lift: 6, el: 1, shake: 0.7, mv: 3, chain: 0.3 }),
       smash({ jump: 1.8, up: 0.3, r: 6.2, fwd: 2.4, dmg: 4.2, kb: 10, lift: 10, el: 1, fx: ['quake', 'pillar', 'nova'], shake: 1.1, stop: 0.12, mv: 3 })),
   ],
-  sp: X(seq(hold(0.24), smash({ jump: 1.0, up: 0.2, rec: 0.16, r: 5, fwd: 1.5, dmg: 1.8, kb: 1, lift: 5, el: 1, shake: 0.6, mv: 3, chain: 0.3 }), smash({ jump: 1.2, up: 0.2, rec: 0.16, r: 5.8, fwd: 1.5, dmg: 2.0, kb: 1, lift: 6, el: 1, shake: 0.7, mv: 3, chain: 0.3 }),
+  sp: X(seq(hold(0.24, { az: -150, el: -40, bend: 10, wr: 22, tw: -60, lean: 20, crouch: 0.4, stance: 1, step: -1 }),
+    spin({ turns: 2, wind: 0.08, hit: 0.5, n: 4, r: 5, dmg: 0.45, kb: 1, lift: 4, el: 1, mv: 3, fx: 'burst', elv: -10, shake: 0.3 }), smash({ jump: 1.2, up: 0.2, rec: 0.16, r: 5.8, fwd: 1.5, dmg: 2.0, kb: 1, lift: 6, el: 1, shake: 0.7, mv: 3, chain: 0.3 }),
     smash({ jump: 1.4, up: 0.2, rec: 0.16, r: 6.6, fwd: 1.5, dmg: 2.2, kb: 1, lift: 7, el: 1, fx: ['quake', 'pillar'], shake: 0.8, mv: 3, chain: 0.3 }),
     smash({ jump: 2.6, up: 0.36, r: 8.5, fwd: 1, dmg: 5.5, kb: 11, lift: 11, el: 1, fx: ['quake', 'pillar', 'nova'], shake: 1.4, stop: 0.16 })), { steer: 2.4 }),
 };
