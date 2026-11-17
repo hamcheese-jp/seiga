@@ -23,7 +23,8 @@ PRESETS = {
              (J('UpperLeg', 'l'), 0.03, None, (0.05, 1.0)), (J('UpperLeg', 'r'), 0.03, None, (0.05, 1.0)),
              (J('LowerLeg', 'l'), 0.022, None, (0.0, 0.8)), (J('LowerLeg', 'r'), 0.022, None, (0.0, 0.8))],
         skin=(0.86, 0.7, 0.6), shade=(0.66, 0.46, 0.4), parts=(0.32, 0.26, 0.22), scowl=(0.9, 0.35),
-        beard=dict(len=1.0, top=0.02, burn=0.03), legs=0.72, jowl=0.22, eyes=0.6, wrinkles=True, brows=dict(th=0.011), hair='topknot',
+        beard=dict(len=1.0, top=0.02, burn=0.03), legs=0.72, jowl=0.22, eyes=0.6, wrinkles=True,
+        outfit=dict(hakama=(0.03, 0.022, 0.02), sleeve=(0.07, 0.015, 0.012), hem=0.075, sode=0.035), brows=dict(th=0.011), hair='topknot',
     ),
 }
 P = PRESETS[PRESET]
@@ -312,6 +313,12 @@ sp.parent = arm; md = sp.modifiers.new('Armature', 'ARMATURE'); md.object = arm
 body = next(o for o in meshes if o.name == 'Body')
 with bpy.context.temp_override(object=body, active_object=body, selected_objects=[body, sp], selected_editable_objects=[body, sp]):
     bpy.ops.object.join()
+
+# 脚と腕のタイツ模様を隠す: 袴と広袖(設定の outfit)
+if P.get('outfit'):
+    import os; sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from outfit import add_outfit
+    add_outfit(arm, body, **P['outfit'])
 
 for o in bpy.data.objects: o.select_set(False)
 r = bpy.ops.export_scene.vrm(filepath=OUT, armature_object_name=arm.name, ignore_warning=True)

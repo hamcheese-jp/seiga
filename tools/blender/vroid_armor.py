@@ -114,6 +114,9 @@ def build(hero, set_id):
     kn, an = B[J('LowerLeg', 'l')], B[J('Foot', 'l')]
     waist = B[J('Spine')].z + 0.03; neck = B[J('Neck')]; hv = S['heavy']
     P = dict(slots=skin, min_w=0.9)
+    # 袴・広袖(tools/blender/outfit.py)を着ている時は、脛当て・籠手をその上に作る(肌から作ると服の下に隠れる)
+    hk = [i for i, m in enumerate(body.data.materials) if 'CLOTH_hakama' in m.name]; sl = [i for i, m in enumerate(body.data.materials) if 'CLOTH_sleeve' in m.name]
+    PL = dict(slots=hk, min_w=0.9) if hk else P; PA = dict(slots=sl, min_w=0.9) if sl else P
     PB = dict(slots=[i for i, m in enumerate(body.data.materials) if 'HAIR' not in m.name], min_w=0.9)   # 胴は服の上から覆う
     main = plate if hv else dark
     out = {}
@@ -154,7 +157,7 @@ def build(hero, set_id):
     for s in 'lr':
         sx = lx if s == 'l' else -lx
         o.append(A.piece(body, arm, 'bracer_' + s, [J('LowerArm', s), J('UpperArm', s), J('Hand', s)], main, offset=0.013, smooth=4, thick=0.005, rigid=J('LowerArm', s), trim=trim,
-                         planes=[(Vector((sx * (el.x + 0.03), 0, 0)), -X * sx), (Vector((sx * (wr.x - 0.012), 0, 0)), X * sx)], **P))
+                         planes=[(Vector((sx * (el.x + 0.03), 0, 0)), -X * sx), (Vector((sx * (wr.x - 0.012), 0, 0)), X * sx)], **PA))
         if hv: o.append(A.shell('elbow_' + s, plate, J('LowerArm', s), Vector((sx * el.x, el.y + 0.03, el.z)), 0.055, scale=(1.1, 0.7, 1), rot=(-1.4, 0, 0), cap=0.42, trim=trim, coll=coll))
     out['arms'] = o
     # ── 足: 脛当てと膝当て
@@ -163,7 +166,7 @@ def build(hero, set_id):
         sx = lx if s == 'l' else -lx
         k = Vector((sx * abs(kn.x), kn.y, kn.z))
         o.append(A.piece(body, arm, 'greave_' + s, [J('LowerLeg', s), J('UpperLeg', s), J('Foot', s)], main, offset=0.018, smooth=5, thick=0.005, rigid=J('LowerLeg', s), trim=trim,
-                         planes=[(Vector((0, 0, kn.z - 0.04)), Z), (Vector((0, 0, an.z + 0.13)), -Z)], **P))
+                         planes=[(Vector((0, 0, kn.z - 0.04)), Z), (Vector((0, 0, an.z + 0.13)), -Z)], **PL))
         o.append(A.shell('knee_' + s, plate, J('LowerLeg', s), k + Vector((0, -0.03, 0.0)), 0.064 + 0.008 * hv, scale=(1, 0.7, 1.2), rot=(1.35, 0, 0), cap=0.42, trim=trim, coll=coll))
     out['legs'] = o
     # ── 頭: 額当て

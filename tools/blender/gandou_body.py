@@ -214,6 +214,11 @@ with bpy.context.temp_override(object=body, active_object=body, selected_objects
 print('SPIKES', n_sp)
 
 
+# 脚と腕のタイツ模様を隠す: 袴と広袖を着せる(tools/blender/outfit.py)
+import os; sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from outfit import add_outfit
+add_outfit(arm, next(o for o in bpy.data.objects if o.type == 'MESH' and o.name == 'Body'), hakama=(0.035, 0.026, 0.02), sleeve=(0.05, 0.035, 0.026), hem=0.06, sode=0.03)
+
 for o in bpy.data.objects: o.select_set(False)
 r = bpy.ops.export_scene.vrm(filepath=OUT, armature_object_name=arm.name, ignore_warning=True)
 print('EXPORT', r)
