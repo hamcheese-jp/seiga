@@ -2,12 +2,13 @@
 import * as THREE from 'three';
 import { clamp, damp, ease, D2R, PI } from './util.js';
 
-export const PARAMS = ['az', 'el', 'bend', 'wr', 'azL', 'elL', 'bendL', 'wrL', 'tw', 'lean', 'side', 'crouch', 'stance', 'y', 'spin', 'flip', 'head'];
+export const PARAMS = ['az', 'el', 'bend', 'wr', 'azL', 'elL', 'bendL', 'wrL', 'tw', 'lean', 'side', 'crouch', 'stance', 'y', 'spin', 'flip', 'head', 'step'];   // step: 踏み出す足(1=左足が前, -1=右足が前)
 const _d = new THREE.Vector3(), _t = new THREE.Vector3(), _x = new THREE.Vector3(), _u = new THREE.Vector3(), _f = new THREE.Vector3();
 const _z = new THREE.Vector3(), _ny = new THREE.Vector3(), _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3(), _e = new THREE.Vector3(), _pole = new THREE.Vector3();
 const _qc = new THREE.Quaternion(), _qi = new THREE.Quaternion(), _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion(), _qt = new THREE.Quaternion();
 const _mat = new THREE.Matrix4();
 const FWD = new THREE.Vector3(0, 0, 1);
+const ARMK = new Set(['az', 'el', 'bend', 'wr']);
 const wrap180 = (a) => { a = a % 360; if (a > 180) a -= 360; else if (a < -180) a += 360; return a; };
 
 function basisQ(out, X, dir) {
@@ -45,7 +46,7 @@ export class Rig {
     this.speed = 0; this.phase = Math.random() * 6; this.t = Math.random() * 10;
     this.tanR = new THREE.Vector3(0, 0, 1); this.tanL = new THREE.Vector3(0, 0, 1);
     this.legs = { tl: 0, kl: 0, tr: 0, kr: 0 };
-    this.whirl = 0; this._ls = 0; this._flash = -1;
+    this.whirl = 0; this._ls = 0; this._flash = -1; this._sp = 0; this._acc = 0;
     this.wBase = new THREE.Vector3(); this.wTip = new THREE.Vector3(); this.wBaseL = new THREE.Vector3(); this.wTipL = new THREE.Vector3();
     this.update(0.016);
   }
@@ -81,7 +82,30 @@ export class Rig {
       rate = 44; armRate = 50; useTan = true;
     } else {
       for (const k of PARAMS) tp[k] = R[k];
-      if (mode === 'loco') {
+      if (mode === 'loco' && this.model.motion === 2) {
+        // 新しい歩き・走り: 歩きは腰を落としたすり足、走りは深い前傾で刀を後ろへ流す。加速・急停止で体が傾く
+        const walk = clamp(run * 2.4, 0, 1) * (1 - clamp((run - 0.4) / 0.3, 0, 1)), dash = clamp((run - 0.4) / 0.3, 0, 1);
+        this.phase += dt * (2.6 + sp * (1.5 - 0.3 * dash));
+        this._acc = damp(this._acc, clamp((sp - this._sp) / Math.max(dt, 1e-3), -40, 40), 10, dt); this._sp = sp;
+        const s = Math.sin(this.phase), c = Math.cos(this.phase), br = Math.sin(this.t * 1.8) * (1 - Math.min(1, run * 2));
+        tp.lean = R.lean + 6 * walk + 27 * dash + this._acc * 0.45 + br * 0.8;
+        tp.tw = s * (6 * walk + 15 * dash) - 12 * dash;                 // 肩は脚と逆に振り、走る時は刀の側を引く
+        tp.side = c * 2.5 * dash;
+        tp.y = Math.abs(c) * (0.02 * walk + 0.085 * dash) - 0.05 * dash;
+        tp.crouch = 0.06 * walk + 0.16 * dash; tp.stance = R.stance * (1 - Math.min(1, run * 2));
+        tp.head = 6 * dash;
+        // 右手(刀): 走る時は後ろ下へ流して切っ先を引きずる
+        tp.az = R.az + (-150 - R.az) * dash + s * 5 * walk; tp.el = R.el + (-32 - R.el) * dash + s * (6 * walk + 5 * dash) + br * 1.5;
+        tp.bend = R.bend + (14 - R.bend) * dash; tp.wr = R.wr + (26 - R.wr) * dash;
+        if (!two) {   // 左手: 歩きは軽く振り、走りは前に出して風を切る
+          tp.azL = R.azL + (-8 - R.azL) * dash - 6 * walk; tp.elL = R.elL - s * 22 * walk + (-14 - R.elL) * dash - s * 16 * dash + br;
+          tp.bendL = R.bendL + 18 * walk + (96 - R.bendL) * dash;
+        }
+        const I = this.model.idle;
+        // 構え: 体は止まっている時だけ、刀の持ち方は歩きの間も保つ(走ると後ろへ流す)
+        if (I) { const w = 1 - clamp(run * 2.4, 0, 1), wa = Math.max(w, 0.8 * (1 - dash)); for (const k in I) tp[k] += (I[k] + (k === 'el' || k === 'elL' ? br * 1.5 : 0) - tp[k]) * (ARMK.has(k) ? wa : w); }
+        rate = 12 + 10 * dash; armRate = 14 + 8 * dash;
+      } else if (mode === 'loco') {
         this.phase += dt * (3.2 + sp * 1.35);
         const s = Math.sin(this.phase), br = Math.sin(this.t * 1.8) * (1 - Math.min(1, run));
         tp.lean = R.lean + run * 13 + br * 0.8; tp.tw = s * 7 * run;
@@ -124,12 +148,25 @@ export class Rig {
     // 脚
     let tl, kl, tr, kr, splay = 0.05;
     const sq = Math.acos(clamp(1 - drop / 0.88, -1, 1));
-    if (!this.move && mode === 'loco' && run > 0.05) {
+    if (!this.move && mode === 'loco' && run > 0.05 && this.model.motion === 2) {
+      // 歩き: 小さな歩幅で膝を軽く曲げる / 走り: 大きく蹴り出し、戻す脚は膝を高く畳む
+      const s = Math.sin(this.phase), c = Math.cos(this.phase);
+      const walk = clamp(run * 2.4, 0, 1) * (1 - clamp((run - 0.4) / 0.3, 0, 1)), dash = clamp((run - 0.4) / 0.3, 0, 1);
+      const amp = 0.42 * walk + 1.12 * dash, bias = -0.1 * walk - 0.42 * dash, kn = 0.28 * walk + 0.22 * dash, lift = 0.55 * walk + 1.75 * dash;
+      tl = -s * amp + bias; kl = kn + lift * Math.max(0, c) ** 1.4;
+      tr = s * amp + bias; kr = kn + lift * Math.max(0, -c) ** 1.4;
+      splay = 0.04;
+    } else if (!this.move && mode === 'loco' && run > 0.05) {
       const s = Math.sin(this.phase), c = Math.cos(this.phase);
       tl = -s * 0.95 * run - 0.12 * run; kl = (0.3 + 1.15 * Math.max(0, c)) * run;
       tr = s * 0.95 * run - 0.12 * run; kr = (0.3 + 1.15 * Math.max(0, -c)) * run;
     } else if (!this.move && (mode === 'air' || mode === 'down' || mode === 'dead')) { tl = -0.35; kl = 0.6; tr = 0.1; kr = 0.3; }
-    else { const st = p.stance; tl = -0.55 * st - sq; kl = 0.5 * st + sq * 2; tr = 0.5 * st - sq * 0.55; kr = 0.35 * st + sq * 1.35; splay = 0.05 + 0.1 * st; }
+    else {
+      // 踏み込みの姿勢。step で前に出す足を入れ替える(1=左足が前, -1=右足が前)
+      const st = p.stance, f = clamp((p.step + 1) / 2, 0, 1);
+      const ft = -0.55 * st - sq, fk = 0.5 * st + sq * 2, bt = 0.5 * st - sq * 0.55, bk = 0.35 * st + sq * 1.35;
+      tl = bt + (ft - bt) * f; kl = bk + (fk - bk) * f; tr = ft + (bt - ft) * f; kr = fk + (bk - fk) * f; splay = 0.05 + 0.1 * st;
+    }
     // 決めポーズ: 足を左右に大きく開いて腰を落とす(wide = 開く角度[ラジアン])
     if (!this.move && mode === 'pose' && this.customPose && this.customPose.wide) { const w = this.customPose.wide; tl = tr = -sq * 0.7 - 0.05; kl = kr = sq * 1.5; splay = w; }
     const la = 1 - Math.exp(-(this.move ? 30 : 18) * dt), g = this.legs;

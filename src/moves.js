@@ -26,6 +26,7 @@ function slash(o) {
     crouch: o.crouch1 ?? 0.12, stance: o.stance1 ?? 1, y: o.y1 ?? 0, spin: s1, flip: o.flip1 ?? o.flip0 ?? 0 };
   const k2 = { t: w + h + rc * 0.55, e: 'out', az: a1 + (a1 - a0) * 0.07, el: e1 + (e1 - e0) * 0.05, bend: 32, wr: (o.wr1 ?? 52) + 14, lean: (o.lean1 ?? 14) * 0.6,
     crouch: 0.08, stance: 0.8, y: 0, spin: s1, flip: o.flip2 ?? k1.flip };
+  if (o.step !== undefined) { k1.step = o.step; k2.step = o.step; }
   if (o.L) {
     const [b0, f0] = o.L.from, [b1, f1] = o.L.to;
     k0.azL = b0; k0.elL = f0; k0.bendL = 78; k0.wrL = -20; k1.azL = b1; k1.elL = f1; k1.bendL = 16; k1.wrL = 52; k2.azL = b1 + (b1 - b0) * 0.07; k2.elL = f1; k2.bendL = 32; k2.wrL = 66;
@@ -42,6 +43,7 @@ function thrust(o) {
     { t: w + h, e: 'in', az, el: ev, bend: 4, wr: 2, tw: 36, lean: 20, crouch: 0.16, stance: 1, spin: s0, azL: 105, elL: -40, bendL: 35 },
     { t: w + h + rc * 0.55, e: 'out', az: az - 3, el: ev, bend: 28, wr: 6, tw: 24, lean: 12, crouch: 0.1, stance: 0.8, spin: s0 },
   ];
+  if (o.step !== undefined) { keys[1].step = o.step; keys[2].step = o.step; }
   if (o.dual) { keys[0].azL = 42; keys[0].elL = ev - 6; keys[0].bendL = 128; keys[1].azL = 6; keys[1].elL = ev; keys[1].bendL = 4; keys[1].wrL = 2; keys[2].azL = 8; keys[2].elL = ev; keys[2].bendL = 28; keys[0].tw = 0; keys[1].tw = 0; keys[2].tw = 0; }
   const hits = o.noHit ? [] : [hitOf(w + h * 0.6, { shape: 'line', len: 4.2, w: 0.9, kb: 4, ...o })];
   return finish(keys, w + h + rc, w + h + rc * (o.chain ?? 0.28), hits, o, o.mv ? [[w * 0.5, w + h, o.mv]] : [], [[w * 0.8, w + h + 0.05]], [[w * 0.8, o.sfx || 'swing']]);
@@ -128,19 +130,26 @@ export const MS = {};
 // ================= レイガ(大太刀・炎) =================
 MS.reiga = {
   spName: '紅蓮旋牙',
+  // 通常攻撃: 一太刀ごとに踏み出す足を替える(step: 1=左足, -1=右足)
   n: [
-    slash({ from: [-115, 12], to: [95, -12], r: 2.7, ang: 80, kb: 2.5, mv: 3.5 }),
-    slash({ from: [112, 6], to: [-100, -8], r: 2.7, ang: 80, kb: 2.5, mv: 3.5, wind: 0.09 }),
-    slash({ from: [-65, 82], to: [48, -46], r: 2.8, ang: 70, dmg: 1.15, mv: 3.5 }),
-    slash({ from: [62, -56], to: [-38, 86], r: 2.8, ang: 70, dmg: 1.2, lift: 2.5, mv: 3 }),
-    spin({ r: 3.0, dmg: 0.7, kb: 4, mv: 3 }),
-    slash({ from: [-10, 122], to: [-2, -42], wind: 0.16, rec: 0.3, r: 3.1, ang: 60, dmg: 1.9, kb: 7, heavy: true, shake: 0.22, stop: 0.05, sfx: 'swingH', crouch1: 0.3, lean1: 28, mv: 4, fx: 'ring' }),
+    // 1 袈裟斬り: 右上から左下へ、右足で踏み込む
+    slash({ from: [-72, 68], to: [78, -34], r: 2.7, ang: 80, kb: 2.5, mv: 4, step: -1, tw0: -48, lean0: -4, lean1: 20, crouch1: 0.16 }),
+    // 2 逆胴: 左から右へ水平に薙ぐ、左足を出す
+    slash({ from: [112, -2], to: [-104, -8], r: 2.7, ang: 80, kb: 2.5, mv: 3.5, wind: 0.09, step: 1, lean1: 16, crouch1: 0.18 }),
+    // 3 逆袈裟: 右下から左上へ斬り上げ、小さく跳ぶ
+    slash({ from: [-66, -52], to: [42, 82], r: 2.8, ang: 70, dmg: 1.15, lift: 2.5, mv: 3.5, step: -1, crouch0: 0.24, y1: 0.14, lean1: 4 }),
+    // 4 回転斬り: 腰を落として一回転
+    spin({ r: 3.0, dmg: 0.7, kb: 4, mv: 3.5 }),
+    // 5 突き: 深く踏み込んで貫く
+    thrust({ wind: 0.1, hit: 0.07, rec: 0.2, len: 4.6, w: 1.1, dmg: 1.2, kb: 4, mv: 7, step: 1 }),
+    // 6 兜割り: 跳び上がって真っ向から叩き斬る
+    slash({ from: [-8, 126], to: [-2, -46], wind: 0.18, rec: 0.32, r: 3.1, ang: 60, dmg: 1.9, kb: 7, heavy: true, shake: 0.22, stop: 0.05, sfx: 'swingH', y0: 0.55, crouch0: 0, crouch1: 0.36, lean0: -12, lean1: 30, mv: 4.5, fx: 'ring', step: -1 }),
   ],
   c: [
-    X(thrust({ wind: 0.16, hit: 0.12, rec: 0.26, len: 5.4, w: 1.25, dmg: 1.8, kb: 7, el: 1, fx: 'line', mv: 15, shake: 0.15, stop: 0.04 }), { ghost: true }),
-    slash({ from: [-35, -72], to: [12, 108], wind: 0.12, rec: 0.3, r: 2.9, ang: 70, dmg: 1.6, kb: 1, lift: 9.5, el: 1, fx: 'burst', y1: 0.35, shake: 0.15, stop: 0.04, sfx: 'swingH' }),
-    seq(slash({ from: [-100, 20], to: [80, -10], wind: 0.06, hit: 0.07, rec: 0.1, r: 2.8, dmg: 0.6, kb: 0.5, mv: 2 }), slash({ from: [100, 0], to: [-80, 10], wind: 0.05, hit: 0.07, rec: 0.1, r: 2.8, dmg: 0.6, kb: 0.5, mv: 2 }),
-      slash({ from: [-90, 50], to: [70, -30], wind: 0.05, hit: 0.07, rec: 0.1, r: 2.8, dmg: 0.6, kb: 0.5, mv: 2 }), slash({ from: [80, -40], to: [-60, 60], wind: 0.06, hit: 0.08, rec: 0.3, r: 3.0, dmg: 1.3, kb: 4, stun: 2.2, el: 1, fx: 'burst', shake: 0.15, stop: 0.04 })),
+    X(thrust({ step: 1, wind: 0.16, hit: 0.12, rec: 0.26, len: 5.4, w: 1.25, dmg: 1.8, kb: 7, el: 1, fx: 'line', mv: 15, shake: 0.15, stop: 0.04 }), { ghost: true }),
+    slash({ step: -1, crouch0: 0.3, from: [-35, -72], to: [12, 108], wind: 0.12, rec: 0.3, r: 2.9, ang: 70, dmg: 1.6, kb: 1, lift: 9.5, el: 1, fx: 'burst', y1: 0.5, shake: 0.15, stop: 0.04, sfx: 'swingH' }),
+    seq(slash({ step: -1, from: [-100, 20], to: [80, -10], wind: 0.06, hit: 0.07, rec: 0.1, r: 2.8, dmg: 0.6, kb: 0.5, mv: 2.6 }), slash({ step: 1, from: [100, 0], to: [-80, 10], wind: 0.05, hit: 0.07, rec: 0.1, r: 2.8, dmg: 0.6, kb: 0.5, mv: 2.6 }),
+      slash({ step: -1, from: [-90, 50], to: [70, -30], wind: 0.05, hit: 0.07, rec: 0.1, r: 2.8, dmg: 0.6, kb: 0.5, mv: 2.6 }), slash({ step: 1, y1: 0.18, from: [80, -40], to: [-60, 60], wind: 0.06, hit: 0.08, rec: 0.3, r: 3.0, dmg: 1.3, kb: 4, stun: 2.2, el: 1, fx: 'burst', shake: 0.15, stop: 0.04 })),
     spin({ wind: 0.14, hit: 0.26, rec: 0.32, r: 4.3, dmg: 1.25, kb: 10, lift: 3, el: 1, fx: 'ring', shake: 0.3, stop: 0.04 }),
     smash({ jump: 1.0, r: 4.2, fwd: 2, dmg: 2.8, kb: 3, lift: 10, el: 1, fx: ['quake', 'pillar'], shake: 0.6, stop: 0.08 }),
     seq(spin({ turns: 2, hit: 0.42, n: 4, r: 3.6, dmg: 0.9, kb: 2, el: 1, mv: 4 }), smash({ jump: 1.6, up: 0.24, r: 5.2, fwd: 1.5, dmg: 3.6, kb: 9, lift: 9, el: 1, fx: ['quake', 'nova'], shake: 0.9, stop: 0.1 })),

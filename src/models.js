@@ -26,7 +26,7 @@ export const IDLES = {
   fan:    { stance: 0.4, crouch: 0.04, lean: 2, tw: -15, head: 12, az: -70, el: -20, bend: 80, wr: 90, azL: 60, elL: 30, bendL: 100, wrL: 80 },
   scythe: { stance: 0.45, crouch: 0.05, lean: 4, tw: -25, head: 20, az: -30, el: -55, bend: 45, wr: 75 },
 };
-const REST_COMMON = { tw: 0, lean: 2, side: 0, crouch: 0, stance: 0.1, y: 0, spin: 0, flip: 0, head: 0 };
+const REST_COMMON = { tw: 0, lean: 2, side: 0, crouch: 0, stance: 0.1, y: 0, spin: 0, flip: 0, head: 0, step: 1 };
 
 class Builder {
   constructor() { this.parts = {}; }
@@ -378,7 +378,7 @@ export function buildHero(look, wtype, tier = 0) {
   J.root.scale.setScalar(L.scale);
 
   return {
-    root: J.root, J, M, dang, scale: L.scale, wtype, two: W.two, dual: W.dual, armor: L.armor || '', spiky: !!L.vrmSpiky, pal: P,
+    root: J.root, J, M, dang, scale: L.scale, wtype, two: W.two, dual: W.dual, armor: L.armor || '', spiky: !!L.vrmSpiky, pal: P, motion: L.motion || 1,
     tip: new THREE.Vector3(...W.tip), base: new THREE.Vector3(...W.base), grip: new THREE.Vector3(...W.grip),
     rest: { ...RESTS[wtype], ...REST_COMMON }, idle: IDLES[wtype], height: 1.95 * L.scale, glow: P.glow,
     wMeshes,

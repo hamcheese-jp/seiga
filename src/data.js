@@ -17,7 +17,7 @@ export const HEROES = [
   { id: 'reiga', name: 'レイガ', title: '焔牙の剣士', wtype: 'sword', wname: '大太刀', elem: 'fire',
     desc: '攻守に優れた万能型。炎をまとう斬撃で敵陣を切り裂く。',
     base: { hp: 1050, atk: 34, def: 28, spd: 7.6, aspd: 1.0 }, stars: [4, 3, 3, 3],
-    look: { armor: 'light', scale: 1.0, sw: 0.26, bulk: 1.02, hair: 'spiky', gear: 'band', cape: 'scarf', pauldron: 1, tasset: 'plate', tails: 2,
+    look: { motion: 2, armor: 'light', scale: 1.0, sw: 0.26, bulk: 1.02, hair: 'spiky', gear: 'band', cape: 'scarf', pauldron: 1, tasset: 'plate', tails: 2,
       pal: { skin: '#f0c8a0', hair: '#5a1c14', c1: '#cc262c', c2: '#2c2a3a', c3: '#d8a43c', metal: '#8c94a8', gold: '#e8b84e', eye: '#3a1208', cape: '#d82a2e' } } },
   { id: 'setsuna', name: 'セツナ', title: '氷華の槍姫', wtype: 'spear', wname: '長槍', elem: 'ice',
     desc: '長い間合いで敵を寄せつけない。氷の槍技は広範囲を凍てつかせる。',
