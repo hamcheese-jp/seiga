@@ -154,8 +154,15 @@ MS.reiga = {
     smash({ jump: 1.0, r: 4.2, fwd: 2, dmg: 2.8, kb: 3, lift: 10, el: 1, fx: ['quake', 'pillar'], shake: 0.6, stop: 0.08 }),
     seq(spin({ turns: 2, hit: 0.42, n: 4, r: 3.6, dmg: 0.9, kb: 2, el: 1, mv: 4 }), smash({ jump: 1.6, up: 0.24, r: 5.2, fwd: 1.5, dmg: 3.6, kb: 9, lift: 9, el: 1, fx: ['quake', 'nova'], shake: 0.9, stop: 0.1 })),
   ],
-  sp: X(seq(hold(0.22), spin({ turns: 3, hit: 0.72, n: 7, r: 4.0, dmg: 0.85, kb: 1.5, el: 1, mv: 5, fx: 'burst' }), spin({ turns: 2, hit: 0.46, n: 5, r: 4.3, dmg: 0.95, kb: 2, lift: 4, el: 1, mv: 5, fx: 'burst' }),
-    smash({ jump: 2.0, up: 0.3, r: 6.6, fwd: 1, dmg: 5, kb: 10, lift: 11, el: 1, fx: ['quake', 'pillar', 'nova'], shake: 1.2, stop: 0.14 })), { steer: 3.2 }),
+  // 奥義「紅蓮旋牙」: 腰だめに構え → 居合の突進斬りで駆け抜け → 踏み替えながら三連斬 → 斬り上げながら回転して舞い上がり → 高く跳んで叩き斬る
+  sp: X(seq(
+    hold(0.24, { az: -128, el: -28, bend: 46, wr: 18, azL: 30, elL: -40, bendL: 70, tw: -44, lean: 16, crouch: 0.38, stance: 0.9, step: 1 }),
+    dash({ wind: 0.08, hit: 0.16, rec: 0.2, dist: 7, n: 2, w: 1.6, dmg: 1.3, kb: 2, el: 1, fx: 'line', shake: 0.12, stop: 0.03 }),
+    slash({ step: -1, from: [-105, 30], to: [85, -18], wind: 0.05, hit: 0.07, rec: 0.1, r: 3.2, ang: 85, dmg: 1.0, kb: 1, el: 1, fx: 'burst', mv: 3, lean1: 20, crouch1: 0.2 }),
+    slash({ step: 1, from: [105, -6], to: [-90, 8], wind: 0.05, hit: 0.07, rec: 0.1, r: 3.2, ang: 85, dmg: 1.0, kb: 1, el: 1, fx: 'burst', mv: 3, lean1: 18, crouch1: 0.22 }),
+    slash({ step: -1, from: [-70, -58], to: [40, 86], wind: 0.05, hit: 0.08, rec: 0.12, r: 3.3, ang: 80, dmg: 1.0, kb: 1, lift: 5, el: 1, fx: 'burst', mv: 2.5, crouch0: 0.3, y1: 0.3 }),
+    spin({ turns: 2, wind: 0.06, hit: 0.46, n: 6, r: 4.3, dmg: 0.85, kb: 2, lift: 4, el: 1, mv: 4, fx: 'burst', elv: 18, y1: 0.7 }),
+    smash({ jump: 2.3, up: 0.3, r: 6.6, fwd: 1, dmg: 5, kb: 10, lift: 11, el: 1, fx: ['quake', 'pillar', 'nova'], shake: 1.2, stop: 0.14 })), { steer: 3.2 }),
 };
 
 // ================= セツナ(長槍・氷) =================
