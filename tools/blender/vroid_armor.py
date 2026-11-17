@@ -91,8 +91,14 @@ def export_arm(ob, path):
     js += b' ' * ((-len(js)) % 4)
     with open(path, 'wb') as f: f.write(struct.pack('<I', len(js)) + js + blob)
 
+# 武将ごとの調整: 元の衣装と重なる部品を外す、胴当てを体に近づける
+HERO_OPTS = {
+    'fuuka': dict(skirt=False, offset=0.005, blur=0, top=0.06),   # スカートの衣装: 草摺・前垂れなし。胴は胸元だけを薄く覆う
+    'gandou': dict(skirt=False),                                    # 元の衣装の金の腰鎧を生かす
+}
+
 def build(hero, set_id):
-    S = SETS[set_id]
+    S = SETS[set_id]; HO = HERO_OPTS.get(hero, {})
     for o in list(bpy.data.objects): bpy.data.objects.remove(o, do_unlink=True)
     bpy.ops.import_scene.vrm(filepath=os.path.join(ROOT, 'vrm', hero + '.vrm'))
     arm = next(o for o in bpy.data.objects if o.type == 'ARMATURE')
@@ -113,7 +119,7 @@ def build(hero, set_id):
     out = {}
     # ── 胴: 胸当て・肩当て・帯・草摺
     cy = B[J('Chest')].y
-    o = [A.wrap(body, arm, 'cuirass', main, cy, waist + 0.02, neck.z - 0.025, offset=0.012, xmax=sh.x - 0.035, rings=22, segs=44, thick=0.006, trim=trim, coll=coll),
+    o = [A.wrap(body, arm, 'cuirass', main, cy, waist + 0.02, neck.z - HO.get('top', 0.025), offset=HO.get('offset', 0.012), xmax=sh.x - 0.035, rings=22, segs=44, thick=0.006, trim=trim, blur=HO.get('blur', 2), coll=coll),
          A.wrap(body, arm, 'belt', leather, cy, waist - 0.03, waist + 0.035, offset=0.02, rings=3, segs=40, thick=0.006, trim=trim, coll=coll)]
     # 胸の飾り金具: 胸当ての一番前に出ている所へ付ける
     cu = o[0]; cz = B[J('UpperChest')].z + 0.02
@@ -137,11 +143,11 @@ def build(hero, set_id):
         pts = [(base + nn * (0.006 * t) + Vector((0, 0, -ln * t / 5)), (nn + Vector((0, 0, 0.22))).normalized()) for t in range(6)]
         bw = [(bone, 0.6), (J('Hips'), 0.4)] if bone != J('Hips') else [(bone, 1.0)]
         o.append(A.plate(name, mat, bw, pts, wd, trim=trim, coll=coll))
-    for ang in (48, 100, 148):
+    for ang in ((48, 100, 148) if HO.get('skirt', True) else ()):
         hang(f'tasset_l{ang}', -ang * lx, J('UpperLeg', 'l'), plate, 0.26 + 0.04 * hv, [0.11, 0.12, 0.125, 0.125, 0.12, 0.105])
         hang(f'tasset_r{ang}', ang * lx, J('UpperLeg', 'r'), plate, 0.26 + 0.04 * hv, [0.11, 0.12, 0.125, 0.125, 0.12, 0.105])
-    hang('tabard_f', 0, J('Hips'), cloth, 0.42, [0.15, 0.145, 0.14, 0.135, 0.13, 0.1])
-    hang('tabard_b', 180, J('Hips'), cloth, 0.46, [0.18, 0.18, 0.175, 0.17, 0.16, 0.13])
+    if HO.get('skirt', True): hang('tabard_f', 0, J('Hips'), cloth, 0.42, [0.15, 0.145, 0.14, 0.135, 0.13, 0.1])
+    if HO.get('skirt', True): hang('tabard_b', 180, J('Hips'), cloth, 0.46, [0.18, 0.18, 0.175, 0.17, 0.16, 0.13])
     out['body'] = o
     # ── 腕: 籠手(重装は肘当ても)
     o = []
