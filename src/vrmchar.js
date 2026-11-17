@@ -51,6 +51,7 @@ export async function loadVrm(id) {
 
 const _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _v = new THREE.Vector3(), _w = new THREE.Vector3();
 const _f = new THREE.Vector3(), _g = new THREE.Vector3(), _x = new THREE.Vector3(), _y = new THREE.Vector3(), _m = new THREE.Matrix4();
+const _lq = new THREE.Quaternion(), _L1 = new THREE.Vector3(), _L2 = new THREE.Vector3(), _L3 = new THREE.Vector3();
 const _C3 = new THREE.Vector3(), _C4 = new THREE.Vector3(), _C5 = new THREE.Vector3();
 const _q0 = new THREE.Quaternion(), _q1 = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _q3 = new THREE.Quaternion(), _eu = new THREE.Euler();
 const _C1 = new THREE.Vector3(), _C2 = new THREE.Vector3(), _T3 = new THREE.Vector3(), _T4 = new THREE.Vector3(), _F = new THREE.Vector3(), _H2 = new THREE.Vector3();
@@ -178,6 +179,9 @@ export class VrmBody {
     const root = this.model.root;
     root.updateMatrixWorld(true);
     root.getWorldQuaternion(_rq);
+    // 肩の関節で無理な形を直す: 腕を上げている時は手を首より前に保ち、肘を後ろへ引きすぎない(武器は手に付いてくるので頭の後ろへ倒れる)
+    this._limitArm('right');
+    if (!(this.model.two && !(rig && rig.oneHand))) this._limitArm('left');
     this._grip('rightHand', 'rightLowerArm', Q.handR, false);
     const two = this.model.two && !(rig && rig.oneHand);
     if (this.model.dual || two) this._grip('leftHand', 'leftLowerArm', this.model.dual ? Q.handL : Q.handR, true);
@@ -192,14 +196,18 @@ export class VrmBody {
       this.wR.updateMatrixWorld(true);
       let T = _T3.copy(this._leftGrip(dt));
       // 左手が届かない時は、右手ごと武器を左肩の方へ引き寄せて、両手で握ったまま振る(大きな両手武器を片手で振らない)
+      // 左手の目標が首より後ろ(腕を上げている時)なら、武器ごと前へ出す(左腕が頭の後ろへ回り込まないように)
+      const fwd = this._frontShift(T, _C5);
       N.leftUpperArm.getWorldPosition(_S);
-      const maxR = (this._armLen || 1) + 0.04 * this.k * this.model.root.scale.x, over = T.distanceTo(_S) - maxR * 0.95;
-      if (this._armLen && over > 0) {
-        const shift = _T4.copy(_S).sub(T).normalize().multiplyScalar(over);
+      const T2 = _L3.copy(T).add(fwd);
+      const maxR = (this._armLen || 1) + 0.04 * this.k * this.model.root.scale.x, over = T2.distanceTo(_S) - maxR * 0.95;
+      if (this._armLen && (over > 0 || fwd.lengthSq() > 1e-8)) {
+        const shift = _T4.copy(_S).sub(T2).normalize().multiplyScalar(Math.max(0, over)).add(fwd);
         const oldF = this._fistCenter(false, _C3), goal = _C4.copy(oldF).add(shift);
         for (let it = 0; it < 3; it++) {
           N.rightHand.getWorldPosition(_H2); this._fistCenter(false, _F);
           this._reach(_H2.add(_v.copy(goal).sub(_F)), false, 'right');
+          this._limitArm('right');
           this._grip('rightHand', 'rightLowerArm', Q.handR, false);
         }
         const delta = this._fistCenter(false, _F).sub(oldF);                    // 実際に動いた量だけ武器と軌跡を動かす
@@ -277,6 +285,43 @@ export class VrmBody {
     this._gt = this._gt === undefined ? bt : this._gt + (bt - this._gt) * (1 - Math.exp(-(dt || 0.016) * 14));
     return this.wR.localToWorld(_T.set(0, this._gt, 0));
   }
+  // 左手の目標 T が、腕を上げた状態で首より後ろにある時に、前へ出すべき量(ワールド)を out に返す
+  _frontShift(T, out) {
+    out.set(0, 0, 0); const N = this.N; if (!N.neck || !N.hips || !N.leftUpperArm) return out;
+    const u = this.k * this.model.root.scale.x;
+    N.hips.getWorldQuaternion(_lq); N.neck.getWorldPosition(_C1); const inv = _lq.clone().invert();
+    const Lt = _L1.copy(T).sub(_C1).applyQuaternion(inv), Ls = _L2.copy(N.leftUpperArm.getWorldPosition(_v)).sub(_C1).applyQuaternion(inv);
+    const cross = Lt.x < 0.02 * u;                                                      // 体の右側へ回り込む(高さに関係なく胴を突き抜けるので前へ)
+    if (!cross && Lt.y < Ls.y - 0.15 * u) return out;
+    const zmin = (cross ? 0.1 : -0.15) * u;   // 同じ側なら首より 15cm 後ろまでは無理のない形
+    if (Lt.z < zmin) out.set(0, 0, zmin - Lt.z).applyQuaternion(_lq);
+    return out;
+  }
+  _limitArm(side) {
+    const N = this.N, up = N[side + 'UpperArm'], lo = N[side + 'LowerArm'], hd = N[side + 'Hand'];
+    if (!up || !lo || !hd || !N.neck || !N.hips) return;
+    const sx = side === 'left' ? 1 : -1, u = this.k * this.model.root.scale.x;         // u: VRM の 1m がワールドで何か
+    N.hips.getWorldQuaternion(_lq); const inv = _lq.clone().invert(); N.neck.getWorldPosition(_C1);
+    const toL = (p, o) => o.copy(p).sub(_C1).applyQuaternion(inv);                      // 首を原点、+Z が正面、+X が体の左
+    const toW = (l, o) => o.copy(l).applyQuaternion(_lq).add(_C1);
+    const turn = (fromW, toWv) => {                                                      // 上腕を肩まわりに回して、fromW を toWv へ寄せる
+      up.getWorldPosition(_S); const a = _v.copy(fromW).sub(_S), b = _w.copy(toWv).sub(_S);
+      if (a.lengthSq() < 1e-8 || b.lengthSq() < 1e-8) return;
+      _dq.setFromUnitVectors(a.normalize(), b.normalize());
+      up.getWorldQuaternion(_wq); _wq.premultiply(_dq); up.parent.getWorldQuaternion(_pq); up.quaternion.copy(_pq.invert().multiply(_wq)); up.updateMatrixWorld(true);
+    };
+    up.getWorldPosition(_S); const Ls = toL(_S, _L1);
+    // 1) 肘: 腕を上げた状態で、肩より 12cm 以上後ろへ行かない
+    lo.getWorldPosition(_E); const Le = toL(_E, _L2);
+    if (Le.y > Ls.y - 0.05 * u && Ls.z - Le.z > 0.12 * u) { Le.z = Ls.z - 0.12 * u; turn(_E, toW(Le, _L3)); }
+    // 2) 手首: 肩の高さより上では首より前、体の反対側へ回り込む時は首より 8cm 前
+    hd.getWorldPosition(_H); const Lw = toL(_H, _L2);
+    const crossW = sx * Lw.x < 0.02 * u;
+    if (crossW || Lw.y > Ls.y - 0.15 * u) {
+      const zmin = (crossW ? 0.1 : -0.15) * u;
+      if (Lw.z < zmin) { Lw.z = zmin; turn(_H, toW(Lw, _L3)); }
+    }
+  }
   // 拳の中心(柄が通る穴): 手首から指の付け根へ 62%、さらに手のひら側へ少し
   _fistCenter(left, out) {
     const node = this.N[left ? 'leftHand' : 'rightHand'], mid = this.vrm.humanoid.getNormalizedBoneNode(left ? 'leftMiddleProximal' : 'rightMiddleProximal');
@@ -317,12 +362,16 @@ export class VrmBody {
     if (N.hips && N.neck) {
       N.hips.getWorldPosition(_C1); N.neck.getWorldPosition(_C2); const tax = _C2.sub(_C1);
       const torsoDist = (p) => { const k = THREE.MathUtils.clamp(_v.copy(p).sub(_C1).dot(tax) / tax.lengthSq(), 0, 1); return p.distanceTo(_v.copy(_C1).addScaledVector(tax, k)); };
-      const Rt = torsoDist(_S) * 0.95, base = _n.clone(), side = _f.crossVectors(u, base).normalize();
+      const Rt = torsoDist(_S) * 0.95, base = _n.clone(), sideV = _f.crossVectors(u, base).normalize();
+      // 肘が首より後ろで体の反対側へ回り込む向きは選ばない(肩の関節では無理)
+      const sxe = side === 'left' ? 1 : -1, uu = this.k * this.model.root.scale.x;
+      N.hips.getWorldQuaternion(_lq); const linv = _lq.clone().invert(); const nk = N.neck.getWorldPosition(new THREE.Vector3());
+      const wrapPen = (e) => { const l = _L1.copy(e).sub(nk).applyQuaternion(linv); const cross = -sxe * l.x, behind = -l.z; return (cross > 0.0 && behind > -0.04 * uu) ? Math.min(1, (behind + 0.04 * uu) / (0.15 * uu)) * 2 : 0; };
       let best = -1e9, bn = null;
       for (let i = -6; i <= 6; i++) {
-        const ph = i * Math.PI / 12, cand = base.clone().multiplyScalar(Math.cos(ph)).addScaledVector(side, Math.sin(ph));
+        const ph = i * Math.PI / 12, cand = base.clone().multiplyScalar(Math.cos(ph)).addScaledVector(sideV, Math.sin(ph));
         const e = _g.copy(_S).addScaledVector(u, a * cosA).addScaledVector(cand, a * sinA);
-        const sc = Math.min(1, torsoDist(e) / Rt) - Math.abs(ph) / Math.PI * 0.25;
+        const sc = Math.min(1, torsoDist(e) / Rt) - Math.abs(ph) / Math.PI * 0.25 - wrapPen(e);
         if (sc > best) { best = sc; bn = cand; }
       }
       _n.copy(bn);

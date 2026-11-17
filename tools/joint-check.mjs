@@ -16,7 +16,7 @@ import { preloadWeapons } from '../src/weaponglb.js';
 const V = () => new THREE.Vector3();
 const deg = (a, b) => THREE.MathUtils.radToDeg(a.angleTo(b));
 
-export const LIMIT = { axisDeg: 25, gapCm: 4, wristDeg: 75, elbowDeg: 155, kneeBackCm: 2, torsoCm: 6 };
+export const LIMIT = { axisDeg: 25, gapCm: 4, wristDeg: 75, elbowDeg: 155, kneeBackCm: 2, torsoCm: 6, behindCm: 4, elbowBackCm: 14 };
 
 export async function check(ids = ['reiga', 'setsuna', 'raika', 'gandou', 'fuuka', 'yomi'], opt = {}) {
   await preloadWeapons();
@@ -77,6 +77,16 @@ export async function check(ids = ['reiga', 'setsuna', 'raika', 'gandou', 'fuuka
         const shoulderR = near(S);                                   // 肩の芯からの距離 ≒ 胴の半径
         const depth = Math.max(0, shoulderR * 0.62 - Math.min(near(El), near(Wr)));
         add('腕の胴へのめり込みcm', depth > LIMIT.torsoCm, depth, mv);
+        // 腕の後ろ回り込み: 手や肘が首より後ろにあり、しかも体の反対側まで回り込んでいる(肩の関節では無理な形)
+        const inv = Qw('hips').invert(), nk = P('neck');
+        const loc = (p) => p.clone().sub(nk).applyQuaternion(inv).multiplyScalar(cm);   // 首を原点、+Z が正面、+X が体の左
+        let wrap = 0;
+        for (const p of [El, Wr]) { const l = loc(p), behind = -l.z, cross = -sx * l.x; if (cross > 3 && behind > 0) wrap = Math.max(wrap, behind); }
+        add('腕の後ろ回り込みcm', wrap > LIMIT.behindCm, wrap, mv);
+        if (opt.sides) add((s === 'left' ? '左' : '右') + '腕の後ろ回り込みcm', wrap > LIMIT.behindCm, wrap, mv);
+        // 肘を後ろへ引きすぎ: 腕を上げた状態で肘が肩より大きく後ろ(肩の水平伸展の限界を超える)
+        const ls = loc(S), le = loc(El), eback = (ls.z - le.z) * (le.y > ls.y - 5 ? 1 : 0);
+        add('肘の後ろ引きすぎcm', eback > LIMIT.elbowBackCm, Math.max(0, eback), mv);
       }
     };
     for (let i = 0; i < 60; i++) { rig.update(1 / 60); vb.sync(1 / 60, rig); }

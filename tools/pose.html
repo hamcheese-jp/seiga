@@ -76,8 +76,8 @@ async function shoot(id, o0, save) {
   // 技を途中まで再生
   const HP = heroPose(id);
   if (HP && !Q.has('move')) {
-    // 決めポーズ(src/poses.js)
-    rig.customPose = HP.p; rig.setMode('pose');
+    // 決めポーズ(src/poses.js)。p={...} で数値を試せる
+    rig.customPose = Q.get('p') ? { ...HP.p, ...JSON.parse(Q.get('p')) } : HP.p; rig.setMode('pose');
     for (let i = 0; i < 150; i++) { rig.update(1 / 60); vb.sync(1 / 60, rig); }
     o = { ...o, yaw: HP.cam.yaw, pitch: HP.cam.pitch };
   } else {
