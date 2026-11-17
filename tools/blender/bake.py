@@ -142,13 +142,14 @@ def export_vrm(arm, path):
     r = bpy.ops.export_scene.vrm(filepath=path, armature_object_name=arm.name, ignore_warning=True)
     print('EXPORT', r, os.path.getsize(path) if os.path.exists(path) else None)
 
-def patch_alpha(path, cutout=('hair', 'eyebrow', 'eyelash'), cutoff=0.35):
+def patch_alpha(path, cutout=('hair',), blend=('eyebrow', 'eyelash'), cutoff=0.35):
     """髪・眉・まつ毛は抜き(MASK)、それ以外は不透明にする"""
     d = open(path, 'rb').read()
     jl = struct.unpack_from('<I', d, 12)[0]
     j = json.loads(d[20:20 + jl].decode('utf8')); rest = d[20 + jl:]
     for m in j.get('materials', []):
         if any(k in m.get('name', '').lower() for k in cutout): m['alphaMode'] = 'MASK'; m['alphaCutoff'] = cutoff; m['doubleSided'] = True
+        elif any(k in m.get('name', '').lower() for k in blend): m['alphaMode'] = 'BLEND'; m.pop('alphaCutoff', None)
         else: m.pop('alphaMode', None); m.pop('alphaCutoff', None)
     js = json.dumps(j, ensure_ascii=False, separators=(',', ':')).encode('utf8'); js += b' ' * (-len(js) % 4)
     out = b'glTF' + struct.pack('<II', 2, 12 + 8 + len(js) + len(rest)) + struct.pack('<I', len(js)) + b'JSON' + js + rest

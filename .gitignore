@@ -7,3 +7,4 @@ Thumbs.db
 dev/
 vrm/*.orig.vrm
 vrm/*.vroid
+__pycache__/

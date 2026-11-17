@@ -174,6 +174,7 @@ export class VrmBody {
     root.getWorldQuaternion(_rq);
     this._grip('rightHand', 'rightLowerArm', Q.handR, false);
     if (this.model.dual || this.model.two) this._grip('leftHand', 'leftLowerArm', this.model.dual ? Q.handL : Q.handR, true);
+    this._face(dt, rig);
     this.vrm.update(dt);
     // 武器: 向きは元リグの手、位置はVRMの拳の中
     root.updateMatrixWorld(true);
@@ -185,6 +186,28 @@ export class VrmBody {
       this._reach(this.wR.localToWorld(_T.copy(this.model.grip)));
       this._grip('leftHand', 'leftLowerArm', Q.handR, true);
       this.vrm.humanoid.update();
+    }
+  }
+  // 表情: まばたきと、状態に合わせた顔(攻撃=怒り+口を開く、勝利=笑顔 など)。表情を持たないVRMでは何もしない
+  _face(dt, rig) {
+    const em = this.vrm.expressionManager; if (!em) return;
+    const F = this._fw || (this._fw = { blink: 0, happy: 0, angry: 0, sad: 0, surprised: 0, aa: 0 });
+    const mode = rig ? rig.mode : 'loco', atk = !!(rig && rig.move);
+    const want = atk ? { angry: 1, aa: 0.55 }
+      : mode === 'hit' ? { surprised: 0.5, angry: 0.5, aa: 0.3 }
+      : mode === 'stun' ? { sad: 0.9 }
+      : mode === 'victory' ? { happy: 1 }
+      : mode === 'pose' || mode === 'cast' ? { angry: 0.7 }
+      : mode === 'dead' || mode === 'down' ? { blink: 1, sad: 0.4 } : {};
+    // まばたき: 2〜5秒おきに一瞬閉じる
+    this._bt = (this._bt === undefined ? 1 + Math.random() * 3 : this._bt) - dt;
+    if (this._bt < -0.13) this._bt = 2 + Math.random() * 3;
+    const blink = Math.max(want.blink || 0, this._bt < 0 && !want.surprised && mode !== 'pose' ? 1 : 0);
+    const k = 1 - Math.exp(-dt * 14);
+    for (const n in F) {
+      const t = n === 'blink' ? blink : (want[n] || 0);
+      F[n] = n === 'blink' ? t : F[n] + (t - F[n]) * k;
+      em.setValue(n, F[n]);
     }
   }
   // 左腕の2関節IK: 肩→肘→手首で目標点に手を届かせる。肘は今の向き(元リグの肘)を保つ

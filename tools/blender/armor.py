@@ -53,6 +53,8 @@ def piece(body, arm, name, groups, mat, planes=(), offset=0.01, smooth=0, thick=
     ob = body.copy(); ob.data = body.data.copy(); ob.name = name
     body.users_collection[0].objects.link(ob)
     if ob.data.shape_keys: ob.shape_key_clear()
+    ob.data.materials.clear(); ob.data.materials.append(mat)      # 面の材質番号を振る前に入れ替える(後で消すと番号が0に戻る)
+    if trim: ob.data.materials.append(trim)
     w = _weights(ob, groups, arm)
     bm = bmesh.new(); bm.from_mesh(ob.data); bm.verts.ensure_lookup_table()
     bmesh.ops.delete(bm, geom=[f for f in bm.faces if min(w[v.index] for v in f.verts) < min_w], context='FACES')
@@ -80,8 +82,6 @@ def piece(body, arm, name, groups, mat, planes=(), offset=0.01, smooth=0, thick=
         for v in {v for f in r['faces'] for v in f.verts}: v.co += v.normal * 0.0025
     for f in bm.faces: f.smooth = True
     bm.to_mesh(ob.data); bm.free()
-    ob.data.materials.clear(); ob.data.materials.append(mat)
-    if trim: ob.data.materials.append(trim)
     if thick:
         md = ob.modifiers.new('solid', 'SOLIDIFY'); md.thickness = thick; md.offset = 1.0; md.use_rim = True
         with bpy.context.temp_override(object=ob, active_object=ob, selected_objects=[ob]):

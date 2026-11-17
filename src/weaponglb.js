@@ -1,4 +1,4 @@
-// AI生成の3D武器(Meshy / CC BY 4.0)を読み込み、手に持てる向き・大きさにそろえる
+// 3D武器(自作の大太刀 / Meshy製の長槍・双剣・大槌 CC BY 4.0)を読み込み、手に持てる向き・大きさにそろえる
 // 元データは縦向き(柄が下・刃先が上)、幅がX方向。ゲーム内の武器は
 // 「柄の中心が原点・刃先が+Y・刃の幅が+Z」なので、それに合わせる。
 import * as THREE from 'three';
@@ -65,6 +65,7 @@ function tierMat(W, src, tier, glow) {
   m.envMapIntensity = 0.6;
   if (tier >= 1) {
     m.emissive = new THREE.Color(1, 1, 1).lerp(g, 0.45).multiplyScalar(tier === 1 ? 0.12 : 0.28);
+    if (!src.map && m.color) m.emissive.multiply(m.color);   // 絵のない単色の材質は、地の色に沿って光らせる(白く飛ばさない)
     m.emissiveMap = src.map || null;
     m.emissiveIntensity = 1;
   }

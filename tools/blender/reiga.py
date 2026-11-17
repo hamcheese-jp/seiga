@@ -18,6 +18,8 @@ targets = {
 }
 bm, arm, parts = human.make_human(macro, targets, 'young_caucasian_male', eyebrows=os.environ.get('BROW', 'eyebrow009'), hair=None)
 parts['hair'] = hair.make_hair(bm, arm)
+for n in bm.data.materials[0].node_tree.nodes:
+    if n.type == 'BSDF_PRINCIPLED': n.inputs['Roughness'].default_value = 0.78; n.inputs['Metallic'].default_value = 0.0
 human.tint(bm, (0.95, 0.86, 0.8)); human.tint(parts['eyebrows'], (0.35, 0.25, 0.2))
 import glob
 eye_png = glob.glob(os.path.join(os.path.dirname(human.asset('eyes', 'low-poly', '.mhclo')), '..', 'materials', os.environ.get('EYE', 'brownlight') + '_eye.png'))[0]

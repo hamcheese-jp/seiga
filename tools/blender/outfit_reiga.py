@@ -10,8 +10,8 @@ def dress(body, arm):
     cloth = A.material('cloth_black', (0.022, 0.022, 0.027), 0.85, bump='cloth', scale=30)
     pants = A.material('cloth_charcoal', (0.06, 0.056, 0.065), 0.8, bump='cloth', scale=26)
     leather = A.material('leather', (0.07, 0.042, 0.03), 0.55, bump='leather', scale=28, strength=0.6)
-    lacquer = A.material('lacquer_red', (0.36, 0.028, 0.025), 0.3, 0.3, bump='metal', scale=5, strength=0.15)
-    steel = A.material('steel_black', (0.085, 0.09, 0.105), 0.36, 0.65, bump='metal', scale=5, strength=0.25)
+    lacquer = A.material('lacquer_red', (0.36, 0.028, 0.025), 0.3, 0.3)
+    steel = A.material('steel_black', (0.085, 0.09, 0.105), 0.36, 0.65)
     gold = A.material('gold', (0.72, 0.5, 0.17), 0.32, 0.7)
     red = A.material('cloth_red', (0.42, 0.03, 0.028), 0.78, bump='cloth', scale=24)
 
