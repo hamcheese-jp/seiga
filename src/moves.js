@@ -201,11 +201,11 @@ const rIdle = { from: [-60, -30], to: [-70, -42] }, lIdle = { from: [60, -30], t
 MS.raika = {
   spName: '千雷乱舞',
   n: [
-    slash({ from: [-110, 10], to: [90, -10], L: lIdle, wind: 0.07, hit: 0.07, rec: 0.17, r: 2.3, ang: 80, dmg: 0.75, kb: 1.5, mv: 4 }),
-    slash({ ...rIdle, L: { from: [110, 10], to: [-90, -10] }, wind: 0.06, hit: 0.07, rec: 0.17, r: 2.3, ang: 80, dmg: 0.75, kb: 1.5, mv: 4 }),
-    slash({ from: [-100, 45], to: [60, -30], L: { from: [100, 45], to: [-60, -30] }, wind: 0.07, hit: 0.08, rec: 0.18, r: 2.4, ang: 75, dmg: 1.0, kb: 2, mv: 4 }),
+    slash({ step: -1, from: [-110, 10], to: [90, -10], L: lIdle, wind: 0.07, hit: 0.07, rec: 0.17, r: 2.3, ang: 80, dmg: 0.75, kb: 1.5, mv: 4.5, crouch1: 0.22, lean1: 22 }),
+    slash({ step: 1, ...rIdle, L: { from: [110, 10], to: [-90, -10] }, wind: 0.06, hit: 0.07, rec: 0.17, r: 2.3, ang: 80, dmg: 0.75, kb: 1.5, mv: 4.5, crouch1: 0.22, lean1: 22 }),
+    slash({ step: -1, from: [-110, 60], to: [70, -40], L: { from: [110, 60], to: [-70, -40] }, wind: 0.08, hit: 0.08, rec: 0.18, r: 2.5, ang: 80, dmg: 1.0, kb: 2, mv: 4.5, crouch1: 0.3, lean1: 26, fx: 'burst' }),   // 交差斬り
     spin({ wind: 0.06, hit: 0.2, rec: 0.18, n: 3, r: 2.6, dmg: 0.5, kb: 1.5, mv: 4 }),
-    slash({ from: [-50, -60], to: [-20, 95], L: { from: [50, -60], to: [20, 95] }, wind: 0.07, hit: 0.08, rec: 0.2, r: 2.5, ang: 75, dmg: 1.05, kb: 1.5, lift: 3, mv: 3.5 }),
+    slash({ step: 1, from: [-50, -60], to: [-20, 95], L: { from: [50, -60], to: [20, 95] }, wind: 0.07, hit: 0.08, rec: 0.2, r: 2.5, ang: 75, dmg: 1.05, kb: 1.5, lift: 3, mv: 3.5, crouch0: 0.32, y1: 0.55 }),
     slash({ from: [-20, 120], to: [-10, -40], L: { from: [20, 120], to: [10, -40] }, wind: 0.14, hit: 0.1, rec: 0.28, r: 2.9, ang: 70, dmg: 1.8, kb: 7, y0: 0.9, flip0: 180, flip1: 360, flip2: 360, mv: 6, heavy: true, shake: 0.2, stop: 0.05, sfx: 'swingH', fx: 'ring' }),
   ],
   c: [
@@ -218,7 +218,8 @@ MS.raika = {
     seq(dash({ dual: true, dist: 6, hit: 0.11, rec: 0.1, dmg: 1.0, kb: 1, el: 1 }), turnAt(dash({ dual: true, dist: 6, wind: 0.05, hit: 0.11, rec: 0.1, dmg: 1.0, kb: 1, el: 1 }), 150),
       turnAt(dash({ dual: true, dist: 6, wind: 0.05, hit: 0.11, rec: 0.1, dmg: 1.0, kb: 1, el: 1 }), -150), turnAt(spin({ wind: 0.06, hit: 0.24, rec: 0.3, n: 3, r: 4.4, dmg: 1.1, kb: 9, lift: 5, el: 1, fx: ['pillar', 'nova'], shake: 0.7, stop: 0.08 }), 150)),
   ],
-  sp: X(seq(hold(0.18), ...rep(8, (i) => turnAt(dash({ dual: true, dist: 6.5, wind: 0.04, hit: 0.1, rec: 0.08, w: 2.4, dmg: 0.9, kb: 0.5, el: 1, fx: ['line', 'pillar'] }), i === 0 ? 0 : (i % 2 ? 140 : -140))),
+  sp: X(seq(hold(0.18), ...rep(8, (i) => turnAt(dash({ dual: true, dist: 6.5, wind: 0.04, hit: 0.1, rec: 0.08, w: 2.4, dmg: 0.65, kb: 0.5, el: 1, fx: ['line', 'pillar'] }), i === 0 ? 0 : (i % 2 ? 140 : -140))),
+    spin({ turns: 2, wind: 0.05, hit: 0.36, n: 4, r: 3.6, dmg: 0.5, kb: 1, lift: 5, el: 1, fx: 'burst', elv: 20, y1: 0.8 }),
     smash({ dual: true, jump: 2.4, up: 0.28, r: 7, fwd: 0.5, dmg: 5, kb: 9, lift: 11, el: 1, fx: ['pillar', 'nova', 'quake'], shake: 1.2, stop: 0.14 })), { steer: 0 }),
 };
 
