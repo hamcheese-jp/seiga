@@ -388,7 +388,7 @@ export function buildHero(look, wtype, tier = 0) {
   J.root.scale.setScalar(L.scale);
 
   return {
-    root: J.root, J, M, dang, scale: L.scale, wtype, two: W.two, dual: W.dual, armor: L.armor || '', spiky: !!L.vrmSpiky, pal: P, motion: L.motion || 1, armOut: L.armOut || 0,
+    root: J.root, J, M, dang, scale: L.scale, wtype, two: W.two, dual: W.dual, armor: L.armor || '', spiky: !!L.vrmSpiky, pal: P, motion: L.motion || 1, armOut: L.armOut || 0, belly: L.belly || 0,
     // 両手持ちで左手が握れる柄の範囲(右手からの距離, m)。この中で体にめり込まない位置を毎フレーム選ぶ
     gripRange: { sword: [-0.19, -0.08], spear: [-0.62, -0.2], hammer: [-0.54, -0.2], axe: [-0.54, -0.2], scythe: [-0.56, -0.2] }[wtype] || null,   /* 左手は右手の下の柄巻き */ run: RUNS[wtype] || RUNS.sword, oneRun: !!(RUNS[wtype] && RUNS[wtype].one),   // oneRun: 走る時は片手で持つ
     tip: new THREE.Vector3(...W.tip), base: new THREE.Vector3(...W.base), grip: new THREE.Vector3(...W.grip),

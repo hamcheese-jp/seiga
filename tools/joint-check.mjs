@@ -34,9 +34,9 @@ export async function check(ids = ['reiga', 'setsuna', 'raika', 'gandou', 'fuuka
     const P = (b) => n(b).getWorldPosition(V());
     const Qw = (b) => n(b).getWorldQuaternion(new THREE.Quaternion());
     const cm = 100 / (vb.k * model.root.scale.x || 1);          // ワールド長 → VRM 実寸 cm
-    const stats = {}, worst = {};
+    const stats = {}, worst = {}, when = {}; let curT = 0;   // when: 項目ごとに一番ひどかった技と時刻(秒)
     const add = (key, bad, val, mv) => {
-      const s = stats[key] || (stats[key] = { n: 0, bad: 0, max: 0 }); s.n++; if (bad) { s.bad++; (worst[mv] || (worst[mv] = {}))[key] = Math.max((worst[mv] || {})[key] || 0, +val.toFixed(1)); } s.max = Math.max(s.max, val);
+      const s = stats[key] || (stats[key] = { n: 0, bad: 0, max: 0 }); s.n++; if (bad) { s.bad++; (worst[mv] || (worst[mv] = {}))[key] = Math.max((worst[mv] || {})[key] || 0, +val.toFixed(1)); } if (val > s.max) when[key] = mv + '@' + curT.toFixed(2); s.max = Math.max(s.max, val);
     };
     const sample = (mv) => {
       model.root.updateMatrixWorld(true);
@@ -79,6 +79,7 @@ export async function check(ids = ['reiga', 'setsuna', 'raika', 'gandou', 'fuuka
         const shoulderR = near(S);                                   // 肩の芯からの距離 ≒ 胴の半径
         const depth = Math.max(0, shoulderR * 0.62 - Math.min(near(El), near(Wr)));
         add('腕の胴へのめり込みcm', depth > LIMIT.torsoCm, depth, mv);
+        if (opt.sides) add((s === 'left' ? '左' : '右') + '腕の胴へのめり込みcm', depth > LIMIT.torsoCm, depth, mv);
         // 腕の後ろ回り込み: 手や肘が首より後ろにあり、しかも体の反対側まで回り込んでいる(肩の関節では無理な形)
         const inv = Qw('hips').invert(), nk = P('neck');
         const loc = (p) => p.clone().sub(nk).applyQuaternion(inv).multiplyScalar(cm);   // 首を原点、+Z が正面、+X が体の左
@@ -97,14 +98,14 @@ export async function check(ids = ['reiga', 'setsuna', 'raika', 'gandou', 'fuuka
     const list = [...ms.n.map((m, i) => ['通常' + (i + 1), m]), ...ms.c.map((m, i) => ['チャージ' + (i + 1), m]), ['奥義', ms.sp]];
     for (const [name, mv] of list) {
       rig.play(mv); rig.mt = 0;
-      for (let t = 0, k = 0; t < mv.dur; t += 1 / 120, k++) { rig.mt += 1 / 120; rig.update(1 / 120); vb.sync(1 / 120, rig); if (k % 4 === 0) sample(name); }
+      for (let t = 0, k = 0; t < mv.dur; t += 1 / 120, k++) { curT = t; rig.mt += 1 / 120; rig.update(1 / 120); vb.sync(1 / 120, rig); if (k % 4 === 0) sample(name); }
       rig.stop(); for (let i = 0; i < 20; i++) { rig.update(1 / 60); vb.sync(1 / 60, rig); }
     }
     const HP = wt === h.wtype ? heroPose(id) : null;
     if (HP) { rig.customPose = HP.p; rig.setMode('pose'); for (let i = 0; i < 150; i++) { rig.update(1 / 60); vb.sync(1 / 60, rig); } sample('決めポーズ'); }
     rig.customPose = null; rig.setMode('loco'); rig.speed = 7.6; for (let i = 0; i < 120; i++) { rig.update(1 / 60); vb.sync(1 / 60, rig); if (i % 6 === 0) sample('走り'); }
     const sum = {}; for (const [k, s] of Object.entries(stats)) sum[k] = { 問題の割合: Math.round(s.bad / s.n * 100) + '%', 最大: +s.max.toFixed(1) };
-    out[id] = { 項目: sum, 問題のあった技: worst };
+    out[id] = { 項目: sum, 問題のあった技: worst, 最大の時: when };
     VRMUtils.deepDispose(vrm.scene);
     if (opt.onEach) opt.onEach(id, out[id]);
   }

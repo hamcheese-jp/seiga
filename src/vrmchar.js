@@ -293,6 +293,9 @@ export class VrmBody {
     N.hips.getWorldQuaternion(_lq); N.neck.getWorldPosition(_C1); const inv = _lq.clone().invert();
     const Lt = _L1.copy(T).sub(_C1).applyQuaternion(inv), Ls = _L2.copy(N.leftUpperArm.getWorldPosition(_v)).sub(_C1).applyQuaternion(inv);
     const cross = Lt.x < 0.02 * u;                                                      // 体の右側へ回り込む(高さに関係なく胴を突き抜けるので前へ)
+    // 胴の厚い武将(model.belly=首から腹の前面までの奥行き m): 胸〜腹の前で握る時は、腹より前へ出す
+    const bz = this.model.belly;
+    if (bz && Lt.y < 0.05 * u && Lt.y > -0.75 * u && Math.abs(Lt.x) < 0.3 * u && Lt.z < bz * u) { out.set(0, 0, bz * u - Lt.z).applyQuaternion(_lq); return out; }
     if (!cross && Lt.y < Ls.y - 0.15 * u) return out;
     const zmin = (cross ? 0.1 : -0.15) * u;   // 同じ側なら首より 15cm 後ろまでは無理のない形
     if (Lt.z < zmin) out.set(0, 0, zmin - Lt.z).applyQuaternion(_lq);
