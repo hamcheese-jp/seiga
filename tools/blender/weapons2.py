@@ -180,7 +180,7 @@ def fan():
              (d[0] * L - nr[0] * wd * 0.6, d[1] * L - nr[1] * wd * 0.6), (-nr[0] * wd, -nr[1] * wd)]
         blade(B, P, 0.012 if big else 0.006, 0.006 if big else 0.002, M['steel'] if big else M['dark'])
     B.lathe([(-0.025, 0.03), (0.025, 0.03)], M['gold'], n=12)           # 要(かなめ)
-    B.lathe([(-0.15, 0.016), (-0.025, 0.02)], M['black'], n=10)         # 持ち手
+    # 持ち手は付けない: 扇は要(かなめ)と親骨の根元をそのまま握る
     return B.finish()
 
 MAKERS = {'spear': spear, 'twin': twin, 'hammer': hammer, 'axe': axe, 'scythe': scythe, 'fan': fan}
