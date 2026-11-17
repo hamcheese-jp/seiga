@@ -357,20 +357,31 @@ export const maxNormals = (lv) => (lv >= 7 ? 6 : lv >= 3 ? 5 : 4);
 export const maxCharges = (lv) => (lv >= 10 ? 6 : lv >= 5 ? 5 : 4);
 
 // セーブデータから武将の最終能力値を算出
+// 武器種ごとの重さ(本来の武器より重いと移動・攻撃が遅く、軽いと少し速い)と、その武器種の技セット
+export const WEAPON_WT = { fan: 0.6, twin: 0.8, sword: 1.0, spear: 1.2, scythe: 1.4, axe: 1.7, hammer: 1.8 };
+export const WEAPON_TYPE_NAMES = { sword: '大太刀', spear: '長槍', twin: '双剣', hammer: '大槌', fan: '双扇', scythe: '大鎌', axe: '大戦斧' };
+const TYPE_MS = { sword: 'reiga', spear: 'setsuna', twin: 'raika', hammer: 'gandou', fan: 'fuuka', scythe: 'yomi', axe: 'p_barga' };
+export const OFF_ATK = 0.8, OFF_ASPD = 0.9;   // 適性外の武器: 攻撃と攻撃速度が下がる
+// 武器を持った時の補正: { native 適性か, spd 移動倍率, aspd 攻撃速度倍率, atk 攻撃倍率 }
+export function weaponFit(heroId, type) {
+  const h = HERO[heroId], native = !type || type === h.wtype, d = (WEAPON_WT[type] ?? 1) - (WEAPON_WT[h.wtype] ?? 1);
+  return { native, d, spd: clamp(1 - 0.12 * d, 0.72, 1.1), aspd: clamp(1 - 0.1 * d, 0.75, 1.08) * (native ? 1 : OFF_ASPD), atk: native ? 1 : OFF_ATK };
+}
 export function calcStats(save, heroId) {
   const h = HERO[heroId], hs = save.heroes[heroId] || { lv: 1 }, lv = hs.lv;
   const w = save.weapons.find((x) => x.uid === hs.weapon) || null;
+  const wtype = (w && w.type) || h.wtype, fit = weaponFit(heroId, wtype);
   const tr = {}; for (const k of TRAIT_KEYS) tr[k] = 0;
   if (w) for (const t of w.traits) tr[t.k] += t.v * synTr(w);
   const b = h.base;
   const worn = heroArmor(save, heroId), look = {}; let armDef = 0;
   for (const s of ARMOR_SLOT_KEYS) { look[s] = worn[s] ? worn[s].set : null; armDef += worn[s] ? worn[s].def : 0; }
   return {
-    lv, weapon: w, tier: weaponTier(w),
+    lv, weapon: w, tier: weaponTier(w), wtype, ms: fit.native ? (h.ms || h.id) : TYPE_MS[wtype], fit,
     hp: Math.round(b.hp * (1 + 0.045 * (lv - 1)) * (1 + tr.hp / 100)),
-    atk: Math.round((b.atk + 2.4 * (lv - 1) * (b.atk / 34) + (w ? weaponAtk(w) : 0)) * (1 + tr.atk / 100)),
+    atk: Math.round((b.atk + 2.4 * (lv - 1) * (b.atk / 34) + (w ? weaponAtk(w) : 0)) * (1 + tr.atk / 100) * fit.atk),
     def: Math.round((b.def + 1.0 * (lv - 1) + armDef) * (1 + tr.def / 100)), armor: look, armDef,
-    spd: b.spd * (1 + tr.spd / 100), aspd: b.aspd * (1 + tr.aspd / 100), range: 1 + tr.range / 100,
+    spd: b.spd * (1 + tr.spd / 100) * fit.spd, aspd: b.aspd * (1 + tr.aspd / 100) * fit.aspd, range: 1 + tr.range / 100,
     spGain: 1 + tr.sp / 100, rageGain: 1 + tr.rage / 100, crit: 5 + tr.crit, steal: (h.steal || 0) + tr.steal,
     elem: 1 + tr.elem / 100, charge: 1 + tr.charge / 100, musou: 1 + tr.musou / 100,
     exp: 1 + tr.exp / 100, gold: 1 + tr.gold / 100, luck: tr.luck, regen: tr.regen,
@@ -415,15 +426,15 @@ export const FOE_UNLOCKS = { s1: 'barga', s2: 'zahar', s3: 'volg', s4: 'ignas', 
 export const START_HEROES = ['reiga', 'setsuna', 'raika'];
 
 // ---- 防具: 頭・胴・腕・足の4部位。部位ごとに別のセットを着けられ、見た目(assets/armor/)と防御に反映する ----
-export const ARMOR_SLOT_KEYS = ['head', 'body', 'arms', 'legs'];
-export const ARMOR_SLOT_TAB = { head: '頭', body: '胴', arms: '腕', legs: '足' };
-export const ARMOR_SLOT_NAMES = { head: '額当て', body: '胴鎧', arms: '籠手', legs: '脛当て' };
+export const ARMOR_SLOT_KEYS = ['head', 'body', 'arms', 'legs', 'shield'];
+export const ARMOR_SLOT_TAB = { head: '頭', body: '胴', arms: '腕', legs: '足', shield: '盾' };
+export const ARMOR_SLOT_NAMES = { head: '額当て', body: '胴鎧', arms: '籠手', legs: '脛当て', shield: '盾' };
 // k: 防御の倍率(重い鎧ほど硬い)
 export const ARMOR_SETS = { guren: { n: '紅蓮', k: 1.0, d: '紅漆に金の縁取り。軽くて動きやすい。' }, kurogane: { n: '黒鉄', k: 1.15, d: '鍛えた鋼の重装。肩と肘まで覆う。' } };
-const ARMOR_SLOT_DEF = { head: 0.6, body: 1.6, arms: 0.8, legs: 1.0 }, ARMOR_RAR = [0, 1, 1.25, 1.55, 1.9, 2.4, 3];
+const ARMOR_SLOT_DEF = { head: 0.6, body: 1.6, arms: 0.8, legs: 1.0, shield: 1.3 }, ARMOR_RAR = [0, 1, 1.25, 1.55, 1.9, 2.4, 3];
 export const armorName = (a) => `${ARMOR_SETS[a.set].n}の${ARMOR_SLOT_NAMES[a.slot]}`;
 export const armorSell = (a) => Math.round(30 * a.rar * a.rar + a.def * 2);
-export const emptyArmor = () => ({ head: null, body: null, arms: null, legs: null });
+export const emptyArmor = () => ({ head: null, body: null, arms: null, legs: null, shield: null });
 export function rollArmor(power, luck = 0, minRar = 1, set = null, slot = null) {
   const p = clamp(power / 100, 0, 1), l = 1 + luck / 100;
   const w = [62 - 45 * p, 30, (8 + 30 * p) * l, (1.5 + 18 * p) * l, (0.2 + 6 * p * p) * l];
@@ -432,7 +443,7 @@ export function rollArmor(power, luck = 0, minRar = 1, set = null, slot = null) 
   for (let i = 0; i < w.length; i++) { r -= w[i]; if (r <= 0) { rar = i + 1; break; } }
   rar = Math.max(rar, minRar);
   const sets = Object.keys(ARMOR_SETS);
-  set = set || sets[(Math.random() * sets.length) | 0]; slot = slot || ARMOR_SLOT_KEYS[(Math.random() * 4) | 0];
+  set = set || sets[(Math.random() * sets.length) | 0]; slot = slot || ARMOR_SLOT_KEYS[(Math.random() * ARMOR_SLOT_KEYS.length) | 0];
   const def = Math.max(1, Math.round((3 + power * 0.3) * ARMOR_RAR[rar] * ARMOR_SLOT_DEF[slot] * ARMOR_SETS[set].k * (0.92 + Math.random() * 0.16)));
   return { uid: 'a' + Date.now().toString(36) + (_uid++).toString(36) + ((Math.random() * 1296) | 0).toString(36), set, slot, rar, def, isNew: true };
 }

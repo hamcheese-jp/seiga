@@ -42,9 +42,9 @@ export class Lobby {
     this._drop();
     const h = HERO[id], st = calcStats(Save.data, id), E = ELEMENTS[h.elem];
     this.heroId = id; this.col = E.glow;
-    this.model = buildHero({ ...h.look, pal: { ...h.look.pal, glow: E.glow } }, h.wtype, st.tier);
+    this.model = buildHero({ ...h.look, pal: { ...h.look.pal, glow: E.glow } }, st.wtype, st.tier);
     this.model.root.position.set(0, 0.5, 0); GFX.scene.add(this.model.root);
-    this.rig = new Rig(this.model); this.ms = MS[HERO[id].ms || id]; this.move = null; this.showT = 1.6;
+    this.rig = new Rig(this.model); this.ms = MS[st.ms] || MS[HERO[id].ms || id]; this.move = null; this.showT = 1.6;
     {
       // 読み込みが終わるまでキャラは隠し、「読み込み中」を表示
       const model = this.model; model.root.visible = false; this._loading(true);

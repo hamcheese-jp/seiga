@@ -1,6 +1,6 @@
 // 画面UI: 合戦HUD・演出テロップ・各メニュー画面(DOM)
 import { Save, Cloud } from './save.js';
-import { ARMOR_SLOT_KEYS, ARMOR_SLOT_TAB, ARMOR_SLOT_NAMES, ARMOR_SETS, armorName, armorSell, heroArmor,
+import { weaponFit, WEAPON_WT, WEAPON_TYPE_NAMES, ARMOR_SLOT_KEYS, ARMOR_SLOT_TAB, ARMOR_SLOT_NAMES, ARMOR_SETS, armorName, armorSell, heroArmor,
   HEROES, HERO, ELEMENTS, STAGES, ENDLESS, STAGE, DIFFS, RARITY, RAR_MAXLV, traitText, weaponName, weaponAtk, synthInfo, doSynth, SYN_MAX, starterWeapon, forgeCost, sellPrice, GACHA_COST, rollWeapon, calcStats, expNeed,
   ACHIEVEMENTS, STAR_LABELS, UNLOCKS, FOE_UNLOCKS, GAME_TITLE, GAME_SUB, MAX_LV, maxNormals, maxCharges } from './data.js';
 import { VERSION } from './config.js';
@@ -312,21 +312,24 @@ export const UI = {
     const S = Save.data; if (!this.armHero || !S.unlockedHeroes.includes(this.armHero)) this.armHero = S.unlockedHeroes.includes(this.sel.hero) ? this.sel.hero : S.unlockedHeroes[0];
     const h = HERO[this.armHero], hs = S.heroes[h.id];
     if (this.armMode && this.armMode !== 'weapon') return this.r_armorView(h, hs);
-    const list = S.weapons.filter((w) => w.type === h.wtype).sort((a, b) => b.rar - a.rar || weaponAtk(b) - weaponAtk(a));
+    // どの武器でも装備できる。本来の武器種(適性)を先頭に並べる
+    const list = S.weapons.slice().sort((a, b) => (b.type === h.wtype) - (a.type === h.wtype) || (a.type < b.type ? -1 : a.type > b.type ? 1 : 0) || b.rar - a.rar || weaponAtk(b) - weaponAtk(a));
+    const pc = (x) => (x >= 1 ? '+' : '') + Math.round((x - 1) * 100) + '%';
     const cur = list.find((w) => w.uid === this.armSel) || list.find((w) => w.uid === hs.weapon) || list[0];
     this.armSel = cur.uid; if (cur.isNew) { cur.isNew = false; }
     const eq = cur.uid === hs.weapon, mx = RAR_MAXLV[cur.rar], cost = forgeCost(cur), R = RARITY[cur.rar];
     this.html('armory', `${this.head('装備', 'home')}
       <div class="tabs">${HEROES.filter((x) => S.unlockedHeroes.includes(x.id)).map((x) => `<button class="tab ${x.id === h.id ? 'on' : ''}" data-a="ahero" data-v="${x.id}">${x.name}</button>`).join('')}</div>
       ${this.armTabs()}
-      <div class="cols"><div class="l scroll">${list.map((w) => `<div class="card wcard ${w.uid === cur.uid ? 'on' : ''}" style="border-left-color:${RARITY[w.rar].col}" data-a="wsel" data-v="${w.uid}"><div class="n"><div class="a" style="color:${RARITY[w.rar].col}">${weaponName(w)}${w.uid === hs.weapon ? '<span class="eq">装備中</span>' : ''}${w.isNew ? '<span class="new">NEW</span>' : ''}${w.lock ? ' 🔒' : ''}</div><div class="b">${RARITY[w.rar].star}　特性${w.traits.length}</div></div><div class="atk">攻+${weaponAtk(w)}</div></div>`).join('')}
-        <p class="note">${h.wname} ${list.length}本(全武器 ${S.weapons.length}/150)</p></div>
+      <div class="cols"><div class="l scroll">${list.map((w) => `<div class="card wcard ${w.uid === cur.uid ? 'on' : ''}" style="border-left-color:${RARITY[w.rar].col}" data-a="wsel" data-v="${w.uid}"><div class="n"><div class="a" style="color:${RARITY[w.rar].col}">${weaponName(w)}${w.uid === hs.weapon ? '<span class="eq">装備中</span>' : ''}${w.isNew ? '<span class="new">NEW</span>' : ''}${w.lock ? ' 🔒' : ''}</div><div class="b">${RARITY[w.rar].star}　${WEAPON_TYPE_NAMES[w.type] || w.type}${w.type === h.wtype ? '' : '<span style="color:#ff8a6a">(適性外)</span>'}　特性${w.traits.length}</div></div><div class="atk">攻+${weaponAtk(w)}</div></div>`).join('')}
+        <p class="note">${h.name}の適性: ${h.wname}(全武器 ${S.weapons.length}/150)</p></div>
       <div class="r"><div class="panel scroll" style="flex:1">
         <div class="dim-t" style="color:${R.col}">${R.star}　${R.n}</div><h3 style="color:${R.col}">${weaponName(cur)}</h3>
         <div class="stat"><span>攻撃<b>+${weaponAtk(cur)}</b></span><span>強化<b>${cur.lv}/${mx}</b></span></div>
+        ${(() => { const f = weaponFit(h.id, cur.type); return `<div class="stat"><span>種類<b>${WEAPON_TYPE_NAMES[cur.type] || cur.type}</b></span><span>重さ<b>${WEAPON_WT[cur.type] ?? 1}</b></span></div><div class="stat"><span>${h.name}が持つと</span><span>移動<b>${pc(f.spd)}</b></span><span>攻撃速度<b>${pc(f.aspd)}</b></span>${f.native ? '<span style="color:var(--gold)">適性◎</span>' : `<span style="color:#ff8a6a">適性外 攻撃${pc(f.atk)}</span>`}</div>`; })()}
         ${cur.syn ? `<div class="stat"><span>合成<b style="color:${cur.syn > 0 ? 'var(--gold)' : '#ff6a6a'}">${cur.syn > 0 ? '+' : ''}${cur.syn}</b></span><span class="dim-t">攻撃${cur.syn > 0 ? '+' : ''}${cur.syn * 6}% 特性${cur.syn > 0 ? '+' : ''}${cur.syn * 4}%</span></div>` : ''}
         ${cur.traits.length ? cur.traits.map((t) => `<div class="trait"><b>${traitName(t.k)}</b>${traitText(t, cur)}</div>`).join('') : '<p class="dim-t">特性なし</p>'}
-        <p class="note">敵将を倒すと武器を落とします。難易度が高いほど良質に。</p></div>
+        <p class="note">敵将を倒すと武器を落とします。難易度が高いほど良質に。<br>どの武器も装備できますが、適性外は攻撃と攻撃速度が下がり、重い武器ほど動きが遅くなります。技は武器の種類で決まります。</p></div>
         <div class="row"><button class="sbtn" data-a="equip" ${eq ? 'disabled' : ''}>${eq ? '装備中' : '装備'}</button>
           <button class="sbtn" data-a="forge" ${cur.lv >= mx || S.gold < cost ? 'disabled' : ''}>強化 ${cur.lv >= mx ? '(最大)' : cost + '金'}</button>
           <button class="sbtn" data-a="sell" ${eq ? 'disabled' : ''}>売却 +${sellPrice(cur)}</button>
@@ -369,6 +372,7 @@ export const UI = {
   synthPick(uid) {
     const S = Save.data, base = S.weapons.find((x) => x.uid === this.synBase), mat = S.weapons.find((x) => x.uid === uid);
     if (!base || !mat || mat === base) { Audio.sfx('deny'); return; }
+    if (mat.type !== base.type) { this.toast('同じ種類の武器だけ素材にできます'); Audio.sfx('deny'); return; }
     if (mat.lock) { this.toast('保護中の武器は素材にできません'); Audio.sfx('deny'); return; }
     if (Object.values(S.heroes).some((h) => h.weapon === mat.uid)) { this.toast('装備中の武器は素材にできません'); Audio.sfx('deny'); return; }
     const I = synthInfo(base, mat), pct = (x) => Math.round(x * 100) + '%';

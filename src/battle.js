@@ -72,7 +72,7 @@ export class Battle {
     this._scale();
     this.pvp = cfg.pvp || null; this.myTeam = cfg.pvpTeam === 1 ? 1 : 0; this.score = [0, 0]; this.pvpLimit = 300; this.pRespawn = 0; this.cpuRespawn = [];
     const sn = this.stage.nodes[this.def.start];
-    this.player = this._add({ player: true, hero: true, heroId: hero.id, team: this.myTeam, name: hero.name, look: hero.look, wtype: hero.wtype, tier: S.tier, ms: hero.ms || hero.id, elem: hero.elem,
+    this.player = this._add({ player: true, hero: true, heroId: hero.id, team: this.myTeam, name: hero.name, look: hero.look, wtype: S.wtype || hero.wtype, tier: S.tier, ms: S.ms || hero.ms || hero.id, elem: hero.elem,
       hp: S.hp, atk: S.atk, def: S.def, spd: S.spd, aspd: S.aspd, stats: S, heavy: hero.heavy, x: sn.x + (this.endless ? 0 : 1.6), z: sn.z - (this.endless ? 0 : 5), yaw: 0 });
     this.guest = !!cfg.guest;
     this.remotes = []; this.respawns = [];
@@ -151,7 +151,7 @@ export class Battle {
     const m = sanitizeMember(m0, HERO); if (!m) return null;
     const h = HERO[m.hero], S = m.stats, off = [[-1.6, -5], [0, -6.6], [-3.2, -6.6], [3.2, -6.6], [-1.6, -8.2], [1.6, -8.2], [0, -9.8]][i % 7];
     const team = this.pvp ? m.team : 0, sn = team === 1 ? (this.bases.find((b) => b.main && b.orig === 1) || this.stage.nodes[this.def.start]) : this.stage.nodes[this.def.start], dir = team === 1 ? -1 : 1;
-    const f = this._add({ player: true, remote: true, hero: true, heroId: h.id, team, name: m.name, look: h.look, wtype: h.wtype, tier: S.tier, ms: h.ms || h.id, elem: h.elem,
+    const f = this._add({ player: true, remote: true, hero: true, heroId: h.id, team, name: m.name, look: h.look, wtype: S.wtype || h.wtype, tier: S.tier, ms: S.ms || h.ms || h.id, elem: h.elem,
       hp: S.hp, atk: S.atk, def: S.def, spd: S.spd, aspd: S.aspd, stats: S, heavy: h.heavy, x: x ?? sn.x + off[0] * dir, z: z ?? sn.z + off[1] * dir, yaw: team === 1 ? Math.PI : 0 });
     f.netSlot = m.slot; f.member = m0; f.memberI = i;
     return f;
@@ -792,7 +792,7 @@ export class Battle {
   // 対戦で倒された自分を本拠に戻す
   _respawnPlayer() {
     const old = this.player, h = HERO[old.heroId], S = old.S || calcStats(this.save, h.id), main = this.bases.find((b) => b.main && b.team === 0) || this.stage.nodes[this.def.start];
-    const p = this._add({ player: true, hero: true, heroId: h.id, team: 0, name: h.name, look: h.look, wtype: h.wtype, tier: S.tier, ms: h.ms || h.id, elem: h.elem,
+    const p = this._add({ player: true, hero: true, heroId: h.id, team: 0, name: h.name, look: h.look, wtype: S.wtype || h.wtype, tier: S.tier, ms: S.ms || h.ms || h.id, elem: h.elem,
       hp: S.hp, atk: S.atk, def: S.def, spd: S.spd, aspd: S.aspd, stats: S, heavy: h.heavy, x: main.x + rnd(-2, 2), z: main.z + 4, yaw: 0 });
     this.player = p; Voice.play(Voice.idFor(p), 'back', { force: true });
   }

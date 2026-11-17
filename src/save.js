@@ -24,6 +24,8 @@ function fix(s) {
   // 防具: 初めてなら紅蓮一式を配り、主人公に着せる
   const first = !Array.isArray(s.armors);
   if (first) s.armors = ARMOR_SLOT_KEYS.map(starterArmor);
+  // 盾は後から増えた部位: 持っていなければ1つ配る
+  if (!s.armors.some((a) => a.slot === 'shield')) s.armors.push(starterArmor('shield'));
   for (const h of HEROES) {
     if (!s.heroes[h.id]) s.heroes[h.id] = { lv: 1, exp: 0, weapon: null };
     const hs = s.heroes[h.id];

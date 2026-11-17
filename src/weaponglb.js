@@ -6,7 +6,7 @@ import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
 
 // len: 全長(m) / grip: 下端から柄の中心までの割合 / trail: 軌跡を描く範囲(刃先側の割合) / trim: 柄の下端を切り落とす割合
 const DEF = {
-  sword: { len: 1.36, grip: 0.1, trail: 0.3 },
+  sword: { len: 1.36, grip: 0.16, trail: 0.3 },   // 右手は鍔のすぐ下、左手は柄頭側
   twin: { len: 1.05, grip: 0.19, trim: 0.12, trail: 0.5 },   // 柄が長すぎるので下12%を切り落とす
   spear: { len: 2.9, grip: 0.3, trail: 0.7 },
   hammer: { len: 2.0, grip: 0.2, trail: 0.62 },

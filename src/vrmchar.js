@@ -173,7 +173,8 @@ export class VrmBody {
     root.updateMatrixWorld(true);
     root.getWorldQuaternion(_rq);
     this._grip('rightHand', 'rightLowerArm', Q.handR, false);
-    if (this.model.dual || this.model.two) this._grip('leftHand', 'leftLowerArm', this.model.dual ? Q.handL : Q.handR, true);
+    const two = this.model.two && !(rig && rig.oneHand);
+    if (this.model.dual || two) this._grip('leftHand', 'leftLowerArm', this.model.dual ? Q.handL : Q.handR, true);
     this._face(dt, rig);
     this.vrm.update(dt);
     // 武器: 向きは元リグの手、位置はVRMの拳の中
@@ -181,7 +182,7 @@ export class VrmBody {
     this._place(this.wR, 'rightHand', J.handR, Q.handR, rig, false);
     if (this.model.dual) this._place(this.wL, 'leftHand', J.handL, Q.handL, rig, true);
     // 両手持ち: VRMの腕の長さで左手を柄に届かせる(元リグの角度を写すだけだと届かない)
-    if (this.model.two) {
+    if (two) {
       this.wR.updateMatrixWorld(true);
       this._reach(this.wR.localToWorld(_T.copy(this.model.grip)));
       this._grip('leftHand', 'leftLowerArm', Q.handR, true);

@@ -2,7 +2,7 @@
 // ファイルは tools/blender/vroid_armor.py が各キャラの体の表面から作る(体に沿って曲がる)
 import * as THREE from 'three';
 
-export const ARMOR_SLOTS = ['head', 'body', 'arms', 'legs'];
+export const ARMOR_SLOTS = ['head', 'body', 'arms', 'legs', 'shield'];
 // 鎧のファイルを用意してあるキャラ(tools/blender/vroid_armor.py で書き出す)。敵将は着せ替えの対象外
 const ARMOR_HEROES = new Set(['reiga', 'setsuna', 'raika', 'gandou', 'fuuka', 'yomi']);
 const cache = new Map();

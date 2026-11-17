@@ -136,6 +136,11 @@ def build(hero, set_id):
     fx = [v.x for v in fb]; fy = [v.y for v in fb]; fz = [v.z for v in fb]
     c = Vector(((min(fx) + max(fx)) / 2, (min(fy) + max(fy)) / 2 + 0.01, 0))
     out['head'] = [band('band', cloth, plate if hv else trim, J('Head'), c, (max(fx) - min(fx)) / 2 * 0.9 + 0.006, (max(fy) - min(fy)) / 2 + 0.022, max(fz) - 0.062, 0.022, coll)]
+    # ── 盾: 左の前腕の外側に付ける(紅蓮=丸盾、黒鉄=縦長の大盾)
+    sxl = lx; mid = Vector((sxl * (el.x + wr.x) / 2, el.y, el.z + 0.055))
+    sc = (1.5, 1.0, 0.22) if hv else (1.0, 1.0, 0.25)
+    out['shield'] = [A.shell('shield', plate, J('LowerArm', 'l'), mid, 0.2 if hv else 0.19, scale=sc, cap=0.5, segs=28, rings=6, thick=0.008, trim=trim, coll=coll),
+                     A.shell('boss', trim, J('LowerArm', 'l'), mid + Vector((0, 0, 0.03)), 0.05, scale=(1, 1, 0.7), cap=0.5, thick=0.004, coll=coll)]
     # 部位ごとに一つにまとめて書き出す
     d = os.path.join(ROOT, 'assets', 'armor', hero); os.makedirs(d, exist_ok=True)
     for slot, objs in out.items():

@@ -71,9 +71,12 @@ export class Rig {
   }
 
   update(dt) {
-    const J = this.J, p = this.p, tp = this.tp, R = this.rest, two = this.model.two;
+    const J = this.J, p = this.p, tp = this.tp, R = this.rest;
     this.t += dt; this.modeT += dt;
     const sp = this.speed, run = clamp(sp / 6.5, 0, 1.25);
+    // 両手持ちでも、走っている間だけ片手で持つ武器がある(大太刀)
+    this.oneHand = !!this.model.oneRun && !this.move && this.mode === 'loco' && run > 0.5;
+    const two = this.model.two && !this.oneHand;
     let rate = 14, armRate = 16, useTan = false;
     const mode = this.mode;
     if (this.move) {

@@ -91,7 +91,7 @@ function buildWeapon(type, tier, P) {
     add('m', at(flat(at(cone(w * 0.5, len * 0.2, steel, 4), 0, 0, 0, 0, PI / 4, 0), 0.38), 0, b0 + len * 0.96, 0, 0, 0, 0, 1, 1, 1.42));
     add('g', at(box(0.024, len * 0.88, 0.01, glow), 0, b0 + len * 0.44, w * 0.52));
     for (let i = 0; i < 2 + tier * 2; i++) add('g', at(box(0.036, 0.06, 0.022, glow), 0, b0 + 0.16 + i * len * 0.13, -w * 0.05));
-    tip = [0, b0 + len * 1.04, 0]; base = [0, 0.3, 0];
+    tip = [0, b0 + len * 1.04, 0]; base = [0, 0.3, 0]; two = true; grip = [0, -0.13, 0];   // 両手持ち: 左手は柄頭側
   } else if (type === 'spear') {
     // 長槍: 大きな穂先+三日月の副刃+房
     const hl = 0.62 + tier * 0.07;
@@ -378,7 +378,7 @@ export function buildHero(look, wtype, tier = 0) {
   J.root.scale.setScalar(L.scale);
 
   return {
-    root: J.root, J, M, dang, scale: L.scale, wtype, two: W.two, dual: W.dual, armor: L.armor || '', spiky: !!L.vrmSpiky, pal: P, motion: L.motion || 1,
+    root: J.root, J, M, dang, scale: L.scale, wtype, two: W.two, dual: W.dual, armor: L.armor || '', spiky: !!L.vrmSpiky, pal: P, motion: L.motion || 1, oneRun: wtype === 'sword',   // oneRun: 走る時は片手で持つ
     tip: new THREE.Vector3(...W.tip), base: new THREE.Vector3(...W.base), grip: new THREE.Vector3(...W.grip),
     rest: { ...RESTS[wtype], ...REST_COMMON }, idle: IDLES[wtype], height: 1.95 * L.scale, glow: P.glow,
     wMeshes,
