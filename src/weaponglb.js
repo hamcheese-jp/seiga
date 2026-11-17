@@ -9,10 +9,11 @@ const DEF = {
   sword: { len: 1.36, grip: 0.16, trail: 0.3 },   // 右手は鍔のすぐ下、左手は柄頭側
   // native: 握る位置が原点の実寸モデル(拡大・中央寄せをしない)。tip/base は軌跡の刃先・根元 [刃の向き, 上] (m)
   twin:   { native: true, tip: [0.0, 0.84], base: [0.0, 0.18] },
-  spear:  { native: true, tip: [0.0, 2.24], base: [0.0, 1.5] },
-  hammer: { native: true, tip: [0.33, 1.36], base: [0.0, 0.95] },
-  axe:    { native: true, tip: [0.64, 1.22], base: [0.0, 0.95] },
-  scythe: { native: true, tip: [1.12, 0.5], base: [0.0, 1.5] },
+  // hold: 右手で握る高さ(柄巻きの上端の少し下)。左手はその下の柄巻きを握る(models.js の gripRange)
+  spear:  { native: true, hold: 0.5, tip: [0.0, 2.24], base: [0.0, 1.5] },
+  hammer: { native: true, hold: 0.5, tip: [0.33, 1.36], base: [0.0, 0.95] },
+  axe:    { native: true, hold: 0.5, tip: [0.64, 1.22], base: [0.0, 0.95] },
+  scythe: { native: true, hold: 0.5, tip: [1.12, 0.5], base: [0.0, 1.5] },
   fan:    { native: true, tip: [0.0, 0.62], base: [0.0, 0.12] },
 };
 const lib = {};
@@ -34,8 +35,9 @@ function prep(scene, d) {
   const box = new THREE.Box3().setFromObject(scene), h = Math.max(0.01, box.max.y - box.min.y), k = d.native ? 1 : d.len / h;
   scene.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.userData.shared = true; } });
   if (d.trim) trimBottom(scene, box.min.y + h * d.trim);
-  const top = d.native ? box.max.y : (1 - d.grip) * d.len;
-  if (d.native) return { scene, d, top, off: new THREE.Vector3(), k: 1, mats: new Map() };
+  const hold = d.hold || 0;
+  const top = d.native ? box.max.y - hold : (1 - d.grip) * d.len;
+  if (d.native) return { scene, d, top, off: new THREE.Vector3(0, -hold, 0), k: 1, mats: new Map() };
   return {
     scene, d, top,
     // 外側で 縮尺→回転 をかけ、内側で中心と柄の位置をずらす
@@ -96,6 +98,7 @@ export function weaponGlb(type, tier, glow) {
   };
   const top = W.top * s;
   // 元の向き(X=刃の向き)は手の中では +Z になる
-  if (W.d.tip) return { make, tip: [0, W.d.tip[1] * s, W.d.tip[0] * s], base: [0, W.d.base[1] * s, W.d.base[0] * s] };
+  const h0 = W.d.hold || 0;
+  if (W.d.tip) return { make, tip: [0, (W.d.tip[1] - h0) * s, W.d.tip[0] * s], base: [0, (W.d.base[1] - h0) * s, W.d.base[0] * s] };
   return { make, tip: [0, top * 0.97, 0], base: [0, top * W.d.trail, 0] };
 }

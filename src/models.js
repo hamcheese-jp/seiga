@@ -116,7 +116,7 @@ function buildWeapon(type, tier, P) {
     add('c', at(cone(0.075, 0.26, P.c1, 8), 0, 1.36, 0, PI, 0, 0));
     add('g', side([[0, 1.62], [0.035, 1.72], [0, 1.52 + hl * 0.95], [-0.035, 1.72]], 0.034, glow));
     add('g', at(sph(0.034, glow, 6, 5), 0, 1.5, 0.045));
-    tip = [0, 1.58 + hl, 0]; base = [0, 1.46, 0]; two = true; grip = [0, -0.25, 0];   // 左手は右手より柄尻側
+    tip = [0, 1.58 + hl, 0]; base = [0, 1.46, 0]; two = true; grip = [0, -0.38, 0];   // 左手は右手より柄尻側
   } else if (type === 'twin') {
     // 双剣: 反りのある刃+鉤爪の鍔
     const len = 0.72 + tier * 0.06;
@@ -141,7 +141,7 @@ function buildWeapon(type, tier, P) {
     }
     add('m', at(cone(0.07, 0.26, gold, 6), 0, 1.38 + 0.31 * hs, 0));
     add('g', at(box(0.35 * hs, 0.12, 0.66 * hs, glow), 0, 1.38, 0));
-    tip = [0, 1.55, 0.15]; base = [0, 0.95, 0]; two = true; grip = [0, -0.25, 0];   // 左手は右手より柄尻側
+    tip = [0, 1.55, 0.15]; base = [0, 0.95, 0]; two = true; grip = [0, -0.38, 0];   // 左手は右手より柄尻側
   } else if (type === 'axe') {
     // 大戦斧: 両刃の三日月+棘
     const s = 1.08 + tier * 0.1, Y = (y) => 1.22 + (y - 1.22) * s;
@@ -154,7 +154,7 @@ function buildWeapon(type, tier, P) {
     add('m', at(cone(0.05, 0.3, steel, 6), 0, Y(1.62) + 0.1, 0));
     add('g', side([[0.5 * s, Y(0.96)], [0.6 * s, Y(1.22)], [0.5 * s, Y(1.5)], [0.54 * s, Y(1.22)]], 0.04, glow));
     add('g', at(sph(0.04, glow, 6, 5), 0, 1.22, 0.06));
-    tip = [0, 1.22, 0.6 * s]; base = [0, 0.95, 0]; two = true; grip = [0, -0.25, 0];   // 左手は右手より柄尻側
+    tip = [0, 1.22, 0.6 * s]; base = [0, 0.95, 0]; two = true; grip = [0, -0.38, 0];   // 左手は右手より柄尻側
   } else if (type === 'fan') {
     // 鉄扇: 刃付きの骨+光る縁
     const R = 0.62 + tier * 0.06, pts = [[0, 0]], inner = [[0, 0]];
@@ -185,7 +185,7 @@ function buildWeapon(type, tier, P) {
     add('m', at(cone(0.04, 0.26, gold, 6), 0, 1.68, 0));
     for (let i = 1; i <= 9; i++) { const a = (98 - i * 9.5) * PI / 180; add('g', at(sph(0.022, glow, 5, 4), 0, 0.585 + Math.sin(a) * 0.85 * bs, Math.cos(a) * 0.85 * bs)); }
     add('g', at(sph(0.04, glow, 6, 5), 0, 1.44, 0.055));
-    tip = [0, 0.55, 1.1 * bs]; base = [0, 1.48, 0]; two = true; grip = [0, -0.25, 0];   // 左手は右手より柄尻側
+    tip = [0, 0.55, 1.1 * bs]; base = [0, 1.48, 0]; two = true; grip = [0, -0.38, 0];   // 左手は右手より柄尻側
   }
   return { parts, tip, base, two, dual, grip };
 }
@@ -390,7 +390,7 @@ export function buildHero(look, wtype, tier = 0) {
   return {
     root: J.root, J, M, dang, scale: L.scale, wtype, two: W.two, dual: W.dual, armor: L.armor || '', spiky: !!L.vrmSpiky, pal: P, motion: L.motion || 1, armOut: L.armOut || 0,
     // 両手持ちで左手が握れる柄の範囲(右手からの距離, m)。この中で体にめり込まない位置を毎フレーム選ぶ
-    gripRange: { sword: [-0.19, -0.08], spear: [-0.75, 0.75], hammer: [-0.42, 0.6], axe: [-0.48, 0.6], scythe: [-0.72, 0.75] }[wtype] || null, run: RUNS[wtype] || RUNS.sword, oneRun: !!(RUNS[wtype] && RUNS[wtype].one),   // oneRun: 走る時は片手で持つ
+    gripRange: { sword: [-0.19, -0.08], spear: [-0.62, -0.2], hammer: [-0.54, -0.2], axe: [-0.54, -0.2], scythe: [-0.56, -0.2] }[wtype] || null,   /* 左手は右手の下の柄巻き */ run: RUNS[wtype] || RUNS.sword, oneRun: !!(RUNS[wtype] && RUNS[wtype].one),   // oneRun: 走る時は片手で持つ
     tip: new THREE.Vector3(...W.tip), base: new THREE.Vector3(...W.base), grip: new THREE.Vector3(...W.grip),
     rest: { ...RESTS[wtype], ...REST_COMMON }, idle: IDLES[wtype], height: 1.95 * L.scale, glow: P.glow,
     wMeshes,
