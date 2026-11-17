@@ -51,7 +51,8 @@ export async function loadVrm(id) {
 
 const _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _v = new THREE.Vector3(), _w = new THREE.Vector3();
 const _f = new THREE.Vector3(), _g = new THREE.Vector3(), _x = new THREE.Vector3(), _y = new THREE.Vector3(), _m = new THREE.Matrix4();
-const _C1 = new THREE.Vector3(), _C2 = new THREE.Vector3();
+const _q0 = new THREE.Quaternion(), _q1 = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _q3 = new THREE.Quaternion(), _eu = new THREE.Euler();
+const _C1 = new THREE.Vector3(), _C2 = new THREE.Vector3(), _T3 = new THREE.Vector3(), _T4 = new THREE.Vector3(), _F = new THREE.Vector3(), _H2 = new THREE.Vector3();
 const _hq = new THREE.Quaternion(), _pq = new THREE.Quaternion(), _rq = new THREE.Quaternion();
 const _S = new THREE.Vector3(), _E = new THREE.Vector3(), _H = new THREE.Vector3(), _T = new THREE.Vector3(), _u = new THREE.Vector3(), _n = new THREE.Vector3(), _dq = new THREE.Quaternion(), _wq = new THREE.Quaternion();
 const CL = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -Math.PI / 2);   // 左腕: +X → 下向き
@@ -164,6 +165,8 @@ export class VrmBody {
     for (const [b, parents, j, c] of MAP) {
       const node = N[b]; if (!node) continue;
       const want = (D[b] || (D[b] = new THREE.Quaternion())).copy(Q[j]).multiply(c);
+      // 体の太い武将は腕を外へ少し開く(胴にめり込まないように)
+      if (this.model.armOut && (b === 'leftUpperArm' || b === 'rightUpperArm')) want.premultiply(_dq.setFromAxisAngle(_v.set(0, 0, 1), THREE.MathUtils.degToRad(b === 'leftUpperArm' ? this.model.armOut : -this.model.armOut)));
       let par = null; for (const pb of parents) if (N[pb]) { par = D[pb]; break; }
       if (par) node.quaternion.copy(_q.copy(par).invert().multiply(want)); else node.quaternion.copy(want);
     }
@@ -186,8 +189,22 @@ export class VrmBody {
     // 両手持ち: VRMの腕の長さで左手を柄に届かせる(元リグの角度を写すだけだと届かない)
     if (two) {
       this.wR.updateMatrixWorld(true);
-      this._reach(this._leftGrip(dt));
+      const T = _T3.copy(this._leftGrip(dt));
+      // 腕が届かない時は柄から手を離し、届くようになったら握り直す(伸ばしきった手が柄の近くで浮かないように)
+      N.leftUpperArm.getWorldPosition(_S);
+      const reach = this._armLen ? T.distanceTo(_S) / (this._armLen + 0.04 * this.k * this.model.root.scale.x) : 0;   // 肩を出せば少し遠くまで届く
+      this._lw = this._lw === undefined ? 1 : this._lw + ((reach < 1.04 ? 1 : 0) - this._lw) * (1 - Math.exp(-(dt || 0.016) * 10));
+      // 柄から手を離している間の左腕: 体の外側へ下ろし、肘を軽く曲げて勢いをとる姿勢(胴を横切らない)
+      const keep = this._lw < 0.999 ? [_q0.identity(), _q1.setFromEuler(_eu.set(0.35, 0.3, -0.95)), _q2.setFromEuler(_eu.set(0, -0.7, 0)), _q3.identity()].map((q) => q.clone()) : null;
+      this._reach(T);
       this._grip('leftHand', 'leftLowerArm', Q.handR, true);
+      // 手首を回すと拳の中心がずれるので、実際の拳の中心と柄のずれを測って腕を合わせ直す(柄が指や手のひらを貫かないように)
+      for (let it = 0; it < 2; it++) {
+        this._fistCenter(true, _F); N.leftHand.getWorldPosition(_H2);
+        this._reach(_H2.add(_T4.copy(T).sub(_F)), false);
+        this._grip('leftHand', 'leftLowerArm', Q.handR, true);
+      }
+      if (keep) ['leftShoulder', 'leftUpperArm', 'leftLowerArm', 'leftHand'].forEach((b, i) => N[b].quaternion.copy(keep[i].slerp(N[b].quaternion, this._lw)));   // 離した姿勢 → 握った姿勢 を握る量で混ぜる
       this.vrm.humanoid.update();
     }
     updateArmor(this.vrm, this.model.two);   // 両手武器の間は盾を背中へ
@@ -222,9 +239,10 @@ export class VrmBody {
     N.leftUpperArm.getWorldPosition(_S); N.hips.getWorldPosition(_C1); N.head.getWorldPosition(_C2);
     const torso = _C2.distanceTo(_C1) || 0.6, rb = torso * 0.36;
     _C2.addScaledVector(_v.copy(_C2).sub(_C1).normalize(), torso * 0.3);                 // 頭のてっぺんまで
-    if (!this._armLen) {                                                                  // 腕の長さ(肩→肘→拳)
+    if (!this._armLen) {                                                                  // 腕の長さ(肩→肘→手首→拳の中心)
       N.leftLowerArm.getWorldPosition(_E); N.leftHand.getWorldPosition(_H);
-      this._armLen = _S.distanceTo(_E) + _E.distanceTo(_H) * 1.25;
+      const mid = this.vrm.humanoid.getNormalizedBoneNode('leftMiddleProximal');
+      this._armLen = _S.distanceTo(_E) + _E.distanceTo(_H) + (mid ? mid.getWorldPosition(_v).distanceTo(_H) * 0.62 : 0);
     }
     let best = Infinity, bt = g0;
     for (let i = 0; i <= 16; i++) {
@@ -240,14 +258,32 @@ export class VrmBody {
     this._gt = this._gt === undefined ? bt : this._gt + (bt - this._gt) * (1 - Math.exp(-(dt || 0.016) * 14));
     return this.wR.localToWorld(_T.set(0, this._gt, 0));
   }
-  _reach(T) {
+  // 拳の中心(柄が通る穴): 手首から指の付け根へ 62%、さらに手のひら側へ少し
+  _fistCenter(left, out) {
+    const node = this.N[left ? 'leftHand' : 'rightHand'], mid = this.vrm.humanoid.getNormalizedBoneNode(left ? 'leftMiddleProximal' : 'rightMiddleProximal');
+    node.getWorldPosition(out); if (!mid) return out;
+    mid.getWorldPosition(_v); out.lerp(_v, 0.62); node.getWorldQuaternion(_hq);
+    return out.addScaledVector(_y.set(0, -1, 0).applyQuaternion(_hq), 0.018 * this.k * this.model.root.scale.x);
+  }
+  _reach(T, fist = true) {
     const N = this.N, up = N.leftUpperArm, lo = N.leftLowerArm, hd = N.leftHand;
     if (!up || !lo || !hd) return;
     up.getWorldPosition(_S); lo.getWorldPosition(_E); hd.getWorldPosition(_H);
     // 手首ではなく拳の中心を柄に合わせる
     const mid = this.vrm.humanoid.getNormalizedBoneNode('leftMiddleProximal');
-    let off = 0; if (mid) { mid.getWorldPosition(_v); off = _v.distanceTo(_H) * 0.62; }
-    const a = _S.distanceTo(_E), b = _E.distanceTo(_H) + off;
+    let off = 0; if (mid && fist) { mid.getWorldPosition(_v); off = _v.distanceTo(_H) * 0.62; }
+    let a = _S.distanceTo(_E), b = _E.distanceTo(_H) + off;
+    // 届かない時は左肩(鎖骨)を目標の方へ少し出して、腕の付け根ごと近づける(最大25°)
+    const sh = N.leftShoulder;
+    if (sh && _S.distanceTo(T) > (a + b) * 0.97) {
+      sh.getWorldPosition(_C1); const from = _C2.copy(_S).sub(_C1), to = _v.copy(T).sub(_C1);
+      const need = Math.min(1, (_S.distanceTo(T) - (a + b) * 0.97) / Math.max(1e-4, from.length() * 0.45));
+      _dq.setFromUnitVectors(from.clone().normalize(), to.normalize()); _wq.identity().slerp(_dq, need);
+      const ang = 2 * Math.acos(Math.min(1, Math.abs(_wq.w))), lim = THREE.MathUtils.degToRad(25);
+      if (ang > lim) _wq.slerpQuaternions(new THREE.Quaternion(), _wq, lim / ang);
+      sh.getWorldQuaternion(_hq); _hq.premultiply(_wq); sh.parent.getWorldQuaternion(_pq); sh.quaternion.copy(_pq.invert().multiply(_hq)); sh.updateMatrixWorld(true);
+      up.getWorldPosition(_S); lo.getWorldPosition(_E); hd.getWorldPosition(_H); a = _S.distanceTo(_E); b = _E.distanceTo(_H) + off;
+    }
     const dist = _S.distanceTo(T); if (dist < 1e-4) return;
     const d = Math.min(dist, (a + b) * 0.999), u = _u.copy(T).sub(_S).normalize();
     // 肘を出す向き: 体の外側と下へ張る(内側に入ると腕が胸や顔にめり込む)。今の肘の向きも少し残す
@@ -258,6 +294,20 @@ export class VrmBody {
     if (_n.lengthSq() < 1e-8) _n.set(0, -1, 0).addScaledVector(u, -u.y);
     _n.normalize();
     const cosA = THREE.MathUtils.clamp((a * a + d * d - b * b) / (2 * a * d), -1, 1), sinA = Math.sqrt(1 - cosA * cosA);
+    // 肘の位置: 基本の向き(外・下)から ±90° の範囲で回して、胴の芯から一番離れる所を選ぶ(太い胴に肘がめり込まないように)
+    if (N.hips && N.neck) {
+      N.hips.getWorldPosition(_C1); N.neck.getWorldPosition(_C2); const tax = _C2.sub(_C1);
+      const torsoDist = (p) => { const k = THREE.MathUtils.clamp(_v.copy(p).sub(_C1).dot(tax) / tax.lengthSq(), 0, 1); return p.distanceTo(_v.copy(_C1).addScaledVector(tax, k)); };
+      const Rt = torsoDist(_S) * 0.95, base = _n.clone(), side = _f.crossVectors(u, base).normalize();
+      let best = -1e9, bn = null;
+      for (let i = -6; i <= 6; i++) {
+        const ph = i * Math.PI / 12, cand = base.clone().multiplyScalar(Math.cos(ph)).addScaledVector(side, Math.sin(ph));
+        const e = _g.copy(_S).addScaledVector(u, a * cosA).addScaledVector(cand, a * sinA);
+        const sc = Math.min(1, torsoDist(e) / Rt) - Math.abs(ph) / Math.PI * 0.25;
+        if (sc > best) { best = sc; bn = cand; }
+      }
+      _n.copy(bn);
+    }
     const elbow = _w.copy(_S).addScaledVector(u, a * cosA).addScaledVector(_n, a * sinA);
     // 上腕: 今の向き → 新しい肘の向き へ回す
     const rot = (node, from, to) => {
@@ -277,15 +327,27 @@ export class VrmBody {
     hand.getWorldPosition(_w); arm.getWorldPosition(_v);
     const f = _f.copy(_w).sub(_v).normalize();                  // 前腕の向き
     const g = _g.set(0, 1, 0).applyQuaternion(q).applyQuaternion(_rq).normalize();   // 武器の柄の向き
-    const d = f.dot(g); if (Math.abs(d) > 0.96) return;
-    f.addScaledVector(g, -d).normalize();                       // 指の向き(柄と直交)
+    const lf = (this._lf || (this._lf = {}))[bone] || (this._lf[bone] = new THREE.Vector3(0, -1, 0));
+    let d = f.dot(g);
+    if (Math.abs(d) > 0.9) {                                    // 前腕と柄がほぼ一直線: 前の場面の指の向きへ寄せる
+      const k = (Math.abs(d) - 0.9) / 0.1; f.lerp(lf, Math.min(1, k)).normalize(); d = f.dot(g);
+      if (Math.abs(d) > 0.98) { f.copy(lf); d = f.dot(g); }
+    }
+    f.addScaledVector(g, -d);
+    if (f.lengthSq() < 1e-6) f.set(0, -1, 0).addScaledVector(g, -g.y);
+    f.normalize(); lf.copy(f);                                  // 指の向き(柄と直交)
     // 手のローカルX(右手は指が -X)。両手持ちの左手は、柄の軸まわりに裏返して右手と同じ側から巻く(手の甲が同じ向き)
-    const flip = left && this.model.two && !this.model.dual ? (window.__lgFlip ?? 2) : 0;
+    // 大太刀(レイガ)は元の向きのまま。長柄の武器だけ裏返す
+    const flip = left && this.model.two && !this.model.dual && this.model.wtype !== 'sword' ? (window.__lgFlip ?? 2) : 0;
     const xw = left ? (flip === 1 ? _x.copy(f).negate() : f) : _x.copy(f).negate();
     const yw = _y.crossVectors(g, xw).normalize();
     if (flip === 2) { yw.negate(); g.negate(); }
     _m.makeBasis(xw, yw, g);
     _hq.setFromRotationMatrix(_m);
+    // 手首の折れは 90° まで(それ以上は柄とのずれを少し許して、手首を前腕の方へ戻す)
+    const fore = _C1.copy(_w).sub(_v).normalize(), fing = _C2.set(left ? 1 : -1, 0, 0).applyQuaternion(_hq);
+    const ang = fore.angleTo(fing), lim = Math.PI / 2;
+    if (ang > lim) { const axis = fing.clone().cross(fore).normalize(); if (axis.lengthSq() > 0.5) _hq.premultiply(_dq.setFromAxisAngle(axis, ang - lim)); }
     hand.parent.getWorldQuaternion(_pq);
     hand.quaternion.copy(_pq.invert().multiply(_hq));
   }
