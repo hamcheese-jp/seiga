@@ -77,6 +77,17 @@ def t_pose(arm):
         q = d.rotation_difference(tgt).to_matrix().to_4x4()
         pb.matrix = Matrix.Translation(pb.head) @ q @ Matrix.Translation(-pb.head) @ pb.matrix
         bpy.context.view_layer.update()
+    # 手のひらを真下へ向け、指をまっすぐ伸ばす(ゲームの握り処理の前提)
+    for s, sx in (("_l", 1), ("_r", -1)):
+        pb = arm.pose.bones["hand" + s]; H = pb.head.copy()
+        n = (arm.pose.bones["index_01" + s].head - H).cross(arm.pose.bones["pinky_01" + s].head - H); n.x = 0
+        q = n.normalized().rotation_difference(Vector((0, 0, sx))).to_matrix().to_4x4()
+        pb.matrix = Matrix.Translation(H) @ q @ Matrix.Translation(-H) @ pb.matrix; bpy.context.view_layer.update()
+        for f in ("index", "middle", "ring", "pinky"):
+            for i in (1, 2, 3):
+                fb = arm.pose.bones[f"{f}_0{i}{s}"]; d = (fb.tail - fb.head).normalized()
+                q = d.rotation_difference(Vector((sx, 0, 0))).to_matrix().to_4x4()
+                fb.matrix = Matrix.Translation(fb.head) @ q @ Matrix.Translation(-fb.head) @ fb.matrix; bpy.context.view_layer.update()
     bpy.ops.object.mode_set(mode='OBJECT')
 
 def deformed(obj, coords):

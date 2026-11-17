@@ -23,7 +23,7 @@ import glob
 eye_png = glob.glob(os.path.join(os.path.dirname(human.asset('eyes', 'low-poly', '.mhclo')), '..', 'materials', os.environ.get('EYE', 'brownlight') + '_eye.png'))[0]
 for n in parts['eyes'].data.materials[0].node_tree.nodes:
     if n.type == 'TEX_IMAGE': n.image = bpy.data.images.load(eye_png, check_existing=True)
-import bake
+import bake, outfit_reiga
 parts['body'] = bm
 if os.environ.get('PREVIEW'):
     bpy.ops.wm.save_as_mainfile(filepath=out + '.blend')
@@ -31,6 +31,7 @@ if os.environ.get('PREVIEW'):
 else:
     del parts['body']
     bake.finish(bm, arm, parts)
+    parts['outfit'] = outfit_reiga.dress(bm, arm)
     meshes = [bm] + list(parts.values())
     bake.setup_vrm(arm, meshes, 'レイガ')
     bpy.ops.wm.save_as_mainfile(filepath=out + '.blend')

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>キャラ確認ツール</title>
 <!-- 使い方: http://localhost:5173/tools/view.html?id=gandou&move=idle&t=0
-     立ち姿(待機)か技の途中を、正面・斜め・横・背面の4方向から並べて表示。zoom=upper で上半身を大きく -->
+     立ち姿(待機)か技の途中を、正面・斜め・横・背面の4方向から並べて表示。zoom=upper で上半身を大きく、zoom=hand で右手の握りを大きく -->
 <style>body { margin: 0; background: #223; color: #ddd; font: 13px sans-serif; } #log { white-space: pre; padding: 4px 8px; }</style>
 <script type="importmap">{ "imports": { "three": "../vendor/three.module.min.js" } }</script>
 </head>
@@ -68,6 +68,7 @@ function draw() {
   const box = new THREE.Box3().setFromObject(model.root), c = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
   const hp = vb.N.hips.getWorldPosition(new THREE.Vector3()); let r = model.height * 0.62; c.copy(hp); c.y = Math.max(model.height * 0.5, hp.y);
   if (Q.get('zoom') === 'upper') { c.y = hp.y + model.height * 0.3; r = model.height * 0.32; }
+  if (Q.get('zoom') === 'hand' && vb.N.rightHand) { vb.N.rightHand.getWorldPosition(c); r = model.height * 0.13; }   // 握りの確認用
   const d = r / Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
   [0, 45, 90, 180].forEach((deg, i) => {
     const a = THREE.MathUtils.degToRad(deg + (+(Q.get('yaw') || 0)));
