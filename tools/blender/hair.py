@@ -27,17 +27,18 @@ def strand_texture(name, base, hi, size=(256, 512), cols=4, seed=1):
         edge = np.clip(1 - np.abs(x) ** 3, 0, 1)
         taper = np.clip((tip - v) / 0.3 + 1, 0, 1) * np.clip(1.25 - np.abs(x) * (0.35 + v * 1.1), 0, 1)
         a = np.clip(streak * 1.6, 0, 1) * edge * taper
-        a = np.where(v < 0.25, np.maximum(a, edge * 0.95), a)        # 根元は詰まっている
+        a = np.where(v < 0.3, np.maximum(a, np.clip(edge * 3, 0, 1)), a)   # 根元は詰まっている
         t = np.clip(0.45 + tone * 0.35 + v * 0.15, 0, 1)[..., None]
         col = np.array(base)[None, None, :] * (1 - t) + np.array(hi)[None, None, :] * t
         col = col * (0.55 + 0.45 * np.clip(streak, 0, 1))[..., None]
         img[:, c * cw:(c + 1) * cw, :3] = col; img[:, c * cw:(c + 1) * cw, 3] = a
+    img[0:8, 0:8, :3] = np.array(base) * 1.6; img[0:8, 0:8, 3] = 1   # 下地用の塗りつぶし
     im = bpy.data.images.new(name, w, h, alpha=True)
     im.pixels = img[::-1].ravel(); im.pack()
     return im
 
 def make_hair(bm, armature, base=(0.10, 0.06, 0.04), hi=(0.42, 0.30, 0.20), seed=7, style=None):
-    st = dict(bang=-0.12, top=0.085, side=0.05, nape=0.035, lift=0.6, gravity=0.3, sweep=0.3, width=0.024, per=3, segs=6, cap=0.004)
+    st = dict(bang=-0.12, top=0.085, side=0.05, nape=0.035, lift=0.6, gravity=0.3, sweep=0.75, width=0.022, per=3, segs=6, cap=0.004)
     st.update(style or {})
     random.seed(seed)
     co = mixed_coords(bm)
@@ -65,7 +66,7 @@ def make_hair(bm, armature, base=(0.10, 0.06, 0.04), hi=(0.42, 0.30, 0.20), seed
             for v in p.vertices:
                 if v not in remap: remap[v] = len(verts); verts.append(co[v] + nrm[v] * st['cap'])
                 f.append(remap[v])
-            faces.append(f); uvs.append([(0.06, 0.03)] * len(f))
+            faces.append(f); uvs.append([(0.012, 0.992)] * len(f))
     N = st['segs']
     for i in scalp:
         for _ in range(st['per']):
@@ -78,8 +79,9 @@ def make_hair(bm, armature, base=(0.10, 0.06, 0.04), hi=(0.42, 0.30, 0.20), seed
             hgt = (p.z - zmin) / (zmax - zmin)                    # 0=襟足 1=頭頂
             front = max(0.0, min(1.0, (crown.y - p.y) / 0.11))    # 前髪ほど 1
             L = (st['nape'] + (st['side'] - st['nape']) * min(1, hgt * 2.2)) if hgt < 0.55 else (st['side'] + (st['top'] - st['side']) * ((hgt - 0.55) / 0.45))
-            L *= (1 + st['bang'] * front) * random.uniform(0.78, 1.18)
-            t = (t + Vector((st['sweep'] * front, -0.25 * front, 0))).normalized()
+            L *= (1 + st['bang'] * front) * random.uniform(0.78 - 0.3 * front, 1.18)
+            sgn = 1.0 if p.x > -0.025 else -1.0                    # 分け目(少し左寄り)から左右へ流す
+            t = (t + Vector((st['sweep'] * front * sgn, -0.15 * front, 0))).normalized()
             lift = st['lift'] * (0.25 + 0.75 * hgt) * random.uniform(0.7, 1.2)
             d = (n * lift + t).normalized()
             w0 = st['width'] * random.uniform(0.7, 1.25); tw = random.uniform(-0.5, 0.5)

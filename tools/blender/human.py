@@ -31,7 +31,7 @@ def make_human(macro, targets, skin, eyes_mat='brown', eyebrows='eyebrow001', la
     parts['eyes'] = HumanService.add_mhclo_asset(asset('eyes', 'low-poly', '.mhclo'), bm, asset_type='Eyes', **kw)
     parts['eyebrows'] = HumanService.add_mhclo_asset(asset('eyebrows', eyebrows, '.mhclo'), bm, asset_type='Eyebrows', **kw)
     parts['lashes'] = HumanService.add_mhclo_asset(asset('eyelashes', lashes, '.mhclo'), bm, asset_type='Eyelashes', **kw)
-    parts['teeth'] = HumanService.add_mhclo_asset(asset('teeth', teeth, '.mhclo'), bm, asset_type='Teeth', **kw)
+    if teeth: parts['teeth'] = HumanService.add_mhclo_asset(asset('teeth', teeth, '.mhclo'), bm, asset_type='Teeth', **kw)
     if hair: parts['hair'] = HumanService.add_mhclo_asset(asset('hair', hair, '.mhclo'), bm, asset_type='Hair', **kw)
     return bm, armature, parts
 
