@@ -14,6 +14,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils } from '../vendor/three-vrm.module.min.js';
 import { addSpikes } from '../src/vrmchar.js';
+import { setArmor, signatureArmor } from '../src/armor.js';
 
 // [保存名, VRMファイル, 表情(普段), 表情(差分), 輪郭光の色, 敵か]
 const LIST = [
@@ -110,6 +111,7 @@ for (const [id, url, e1, e2, c, lv] of LIST) {
     const vrm = await load(url);
     scene.add(vrm.scene); pose(vrm, lv); rim(vrm, c, lv); light(lv);
     if (id === 'gandou') { vrm.scene.updateMatrixWorld(true); addSpikes(vrm, '#3b2a1c'); }
+    if (signatureArmor(id)) await setArmor(vrm, id, signatureArmor(id));   // 看板の鎧(盾は立ち絵では外す)
     face(vrm, e1); renderer.setSize(W, H); cam.aspect = W / H; cam.updateProjectionMatrix();
     await save(id, await shot(vrm, 'bust', id === 'gandou' ? 0.1 : 0));
     face(vrm, e2); await save(id + '_b', await shot(vrm, 'bust', id === 'gandou' ? 0.1 : 0));

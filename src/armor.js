@@ -5,6 +5,9 @@ import * as THREE from 'three';
 export const ARMOR_SLOTS = ['head', 'body', 'arms', 'legs', 'shield'];
 // 鎧のファイルを用意してあるキャラ(tools/blender/vroid_armor.py で書き出す)。敵将は着せ替えの対象外
 const ARMOR_HEROES = new Set(['reiga', 'setsuna', 'raika', 'gandou', 'fuuka', 'yomi']);
+// 立ち絵・決めポーズで着せる、各武将の看板の鎧
+export const SIGNATURE = { reiga: 'guren', setsuna: 'souten', raika: 'kurogane', gandou: 'ougon', fuuka: 'souten', yomi: 'kurogane' };
+export const signatureArmor = (id, shield = false) => { const s = SIGNATURE[id]; return s ? { head: s, body: s, arms: s, legs: s, shield: shield ? s : null } : null; };
 const cache = new Map();
 const ST = new WeakMap();   // VRMごとの状態(骨の表・着ている鎧・指定)
 const st = (vrm) => ST.get(vrm) || (ST.set(vrm, {}), ST.get(vrm));

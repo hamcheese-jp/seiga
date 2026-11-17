@@ -217,6 +217,7 @@ def wrap(body, arm, name, mat, cy, z0, z1, offset=0.012, xmax=None, rings=14, se
             q = [grid[i][k], grid[i][(k + 1) % segs], grid[i + 1][(k + 1) % segs], grid[i + 1][k]]
             if all(v in cut for v in q): continue
             f = bm.faces.new(q); f.smooth = True
+    for v in cut: v.co.x = math.copysign(xmax, v.co.x)        # 腕の穴の切り口をまっすぐにそろえる(階段状にしない)
     bm.normal_update()
     if trim:
         for f in bm.faces:

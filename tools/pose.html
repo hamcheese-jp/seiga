@@ -21,6 +21,7 @@ import { Rig } from '../src/rig.js';
 import { MS } from '../src/moves.js';
 import { HERO, ELEMENTS } from '../src/data.js';
 import { VrmBody } from '../src/vrmchar.js';
+import { setArmor, signatureArmor } from '../src/armor.js';
 import { preloadWeapons } from '../src/weaponglb.js';
 import { heroPose } from '../src/poses.js';
 await preloadWeapons();
@@ -68,6 +69,7 @@ async function shoot(id, o0, save) {
   const f = h.vrm || id, orig = `vrm/${f}.orig.vrm`;
   let vrm; try { vrm = await loadVrm(orig); } catch (_) { vrm = await loadVrm(`vrm/${f}.vrm`); }
   const vb = new VrmBody(model, vrm);
+  if (signatureArmor(f)) await setArmor(vrm, f, signatureArmor(f, true));   // 看板の鎧
   vb.rim([E.glow[0] * 0.5, E.glow[1] * 0.5, E.glow[2] * 0.5], h.foe ? 1 : 0);
   back.color.setRGB(E.glow[0] / 5, E.glow[1] / 5, E.glow[2] / 5);
   const em = vrm.expressionManager; if (em) { em.setValue('angry', h.look.fem ? 0.3 : 0.55); }

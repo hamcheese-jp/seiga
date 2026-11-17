@@ -15,7 +15,7 @@ ARMS = [J(n, s) for s in 'lr' for n in ('UpperArm', 'LowerArm')]
 # 鎧のセット: 色と重さ(heavy=1 で肩当てを増やし、肘当てを足す)
 SETS = {
     'guren': dict(plate=(0.55, 0.045, 0.035), dark=(0.07, 0.07, 0.085), trim=(0.9, 0.64, 0.2), cloth=(0.6, 0.05, 0.04), heavy=0),
-    'kurogane': dict(plate=(0.11, 0.115, 0.14), dark=(0.3, 0.31, 0.35), trim=(0.62, 0.65, 0.72), cloth=(0.08, 0.1, 0.28), heavy=1),
+    'kurogane': dict(plate=(0.045, 0.048, 0.06), dark=(0.16, 0.17, 0.2), trim=(0.62, 0.65, 0.72), cloth=(0.08, 0.1, 0.28), heavy=1),
     # 蒼天: 青と銀の軽装。尖った肩当てと、額の立て物
     'souten': dict(plate=(0.1, 0.27, 0.68), dark=(0.62, 0.66, 0.74), trim=(0.88, 0.9, 0.96), cloth=(0.85, 0.87, 0.93), heavy=0, point=1, crest='fin'),
     # 黄金: 金と黒の最重装。五枚重ねの大肩当て、角付きの額当て、大盾
