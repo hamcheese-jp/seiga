@@ -25,6 +25,7 @@ import { preloadWeapons } from '../src/weaponglb.js';
 import { HERO_POSES } from '../src/poses.js';
 
 const Q = new URLSearchParams(location.search);
+if (Q.has('lg')) window.__lgFlip = +Q.get('lg');   // 両手持ちの左手の向きの候補(確認用)
 const log = (s) => { document.getElementById('log').textContent += s + '\n'; };
 if (!GFX.uRim) GFX.uRim = { value: 0 };
 await preloadWeapons();

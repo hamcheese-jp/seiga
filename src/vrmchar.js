@@ -279,8 +279,11 @@ export class VrmBody {
     const g = _g.set(0, 1, 0).applyQuaternion(q).applyQuaternion(_rq).normalize();   // 武器の柄の向き
     const d = f.dot(g); if (Math.abs(d) > 0.96) return;
     f.addScaledVector(g, -d).normalize();                       // 指の向き(柄と直交)
-    const xw = left ? f : _x.copy(f).negate();                  // 手のローカルX(右手は指が -X)
+    // 手のローカルX(右手は指が -X)。両手持ちの左手は、柄の軸まわりに裏返して右手と同じ側から巻く(手の甲が同じ向き)
+    const flip = left && this.model.two && !this.model.dual ? (window.__lgFlip ?? 2) : 0;
+    const xw = left ? (flip === 1 ? _x.copy(f).negate() : f) : _x.copy(f).negate();
     const yw = _y.crossVectors(g, xw).normalize();
+    if (flip === 2) { yw.negate(); g.negate(); }
     _m.makeBasis(xw, yw, g);
     _hq.setFromRotationMatrix(_m);
     hand.parent.getWorldQuaternion(_pq);
