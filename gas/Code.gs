@@ -17,6 +17,8 @@
 const SHEET_SAVE = 'saves';
 const SHEET_RANK = 'ranking';
 const SHEET_ROOM = 'rooms';
+const SHEET_FB = 'feedback';
+const FB_HEAD = ['date', 'id', 'name', 'text', 'ver', 'device'];
 const ROOM_HEAD = ['code', 'mode', 'n', 'max', 'updated'];
 const ROOM_TTL = 45000;
 const SAVE_HEAD = ['id', 'name', 'updated', 'level', 'totalKO', 'gold', 'weapons', 'chunks', 'data1', 'data2', 'data3', 'data4', 'data5', 'data6', 'keyhash'];
@@ -80,6 +82,7 @@ function doPost(e) {
       if (b.action === 'save') return out_(save_(b));
       if (b.action === 'score') return out_(score_(b));
       if (b.action === 'room') return out_(room_(b));
+      if (b.action === 'feedback') return out_(feedback_(b));
       return out_({ ok: false, error: 'unknown action' });
     } finally {
       lock.releaseLock();
@@ -135,7 +138,7 @@ function score_(b) {
   const sc = Number(b.score), ko = Number(b.ko), tm = Number(b.time);
   if (!(sc >= 0 && sc <= 5000000) || !(ko >= 0 && ko <= 30000) || !(tm >= 20 && tm <= 36000)) return { ok: false, error: 'bad score' };
   const sh = sheet_(SHEET_RANK, RANK_HEAD);
-  const n = sh.getLastRow();
+  let n = sh.getLastRow();
   const score = Number(b.score) || 0;
   let r = -1;
   if (n >= 2) {
@@ -150,11 +153,33 @@ function score_(b) {
   }
   const row = [board, b.id, clean_(b.name, 20), clean_(b.hero, 16), score, Number(b.ko) || 0, Number(b.time) || 0, clean_(b.rank, 12), new Date().toISOString()];
   if (r < 0) {
+    if (n >= 4000) { pruneWeekly_(sh); n = sh.getLastRow(); }
     if (n >= 5000) return { ok: false, error: 'full' };                 // 番付も上限あり
     r = n + 1;
   }
   sh.getRange(r, 1, 1, row.length).setValues([row]);
   return { ok: true, best: true };
+}
+
+// 3週間より前の週間番付の行を消す
+function pruneWeekly_(sh) {
+  const last = sh.getLastRow(); if (last < 2) return;
+  const v = sh.getRange(2, 1, last - 1, 9).getValues(), old = Date.now() - 21 * 864e5;
+  for (let i = v.length - 1; i >= 0; i--) if (/^wk_/.test(String(v[i][0])) && new Date(v[i][8]).getTime() < old) sh.deleteRow(i + 2);
+}
+
+// 感想・要望(1人1分に1回まで・500文字まで)
+function feedback_(b) {
+  if (!validId_(b.id)) return { ok: false, error: 'bad id' };
+  const text = clean_(b.text, 500);
+  if (text.length < 2) return { ok: false, error: 'empty' };
+  const cache = CacheService.getScriptCache(), ck = 'fb_' + b.id;
+  if (cache.get(ck)) return { ok: false, error: 'too fast' };
+  const sh = sheet_(SHEET_FB, FB_HEAD);
+  if (sh.getLastRow() >= 5000) return { ok: false, error: 'full' };
+  sh.appendRow([new Date().toISOString(), b.id, clean_(b.name, 20), text, clean_(b.ver, 12), clean_(b.dev, 40)]);
+  cache.put(ck, '1', 60);
+  return { ok: true };
 }
 
 // 公開部屋の登録・更新・削除(close: true で削除)

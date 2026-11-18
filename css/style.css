@@ -406,3 +406,19 @@ body.field #touch .btn { display: none; }
 .op-logo { font-size: clamp(34px, min(15vmin, 13vw), 130px); }
 .op-logo-s { white-space: nowrap; }
 @media (max-width: 520px) { .op-logo-s { letter-spacing: .14em; font-size: clamp(11px, 3.4vw, 16px); } }
+
+/* 今日の目標ボタン(町・地図の上部) */
+.daily-btn { margin-left: 10px; padding: 4px 10px; font-size: clamp(11px, 3vmin, 13px); color: #fff3cf; background: rgba(9, 13, 30, .72); border: 1px solid var(--line); border-radius: 3px; pointer-events: auto; }
+.daily-btn b { color: var(--gold); margin-left: 4px; }
+/* ログインボーナスの7日表 */
+.ldays { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; margin: 6px 0; }
+.lday { display: grid; gap: 2px; text-align: center; padding: 6px 2px; border: 1px solid var(--line); border-radius: 3px; background: rgba(0, 0, 0, .35); font-size: 11px; opacity: .6; }
+.lday b { font-size: clamp(11px, 3vmin, 14px); color: var(--gold); }
+.lday.got { opacity: 1; } .lday.now { border-color: var(--gold); box-shadow: 0 0 10px rgba(243, 207, 109, .5); }
+/* 招待URL */
+.invite { display: grid; gap: 6px; margin: 8px 0 4px; padding: 8px; border: 1px dashed var(--line); border-radius: 4px; background: rgba(0, 0, 0, .3); }
+.iurl { font-size: 12px; word-break: break-all; color: #e8dcc0; user-select: text; -webkit-user-select: text; }
+.invite a.sbtn { text-decoration: none; color: inherit; display: inline-block; }
+.invite a.sbtn.line { background: #06c755; border-color: #06c755; color: #fff; }
+/* 感想入力 */
+.set textarea { width: 100%; background: rgba(0, 0, 0, .55); border: 1px solid var(--line); color: #fff; padding: 6px 8px; border-radius: 3px; font: inherit; font-size: 13px; resize: vertical; user-select: text; -webkit-user-select: text; }

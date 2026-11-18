@@ -15,6 +15,7 @@ import { Net } from './net.js';
 import { Story, STORY } from './story.js';
 import { Voice, VOICES } from './voice.js';
 import { BOSS_VOICE } from './voicedata.js';
+import { Daily, weekKey } from './daily.js';
 
 const App = {
   mode: 'menu', battle: null, field: null, fieldKind: 'town', paused: false, last: 0, busy: false,
@@ -82,7 +83,7 @@ const App = {
           if (this.battle) { this.battle.dispose(); this.battle = null; }
           if (this.field) { this.field.dispose(); this.field = null; }
           this.battle = new Battle({ stage: STAGE[sel.stage], heroId: sel.hero, diff: sel.diff, save: Save.data, ui: UI, onEnd: (r) => this.endBattle(r), ...extra });
-          UI.hudStart(this.battle);
+          UI.hudStart(this.battle); this.guide(this.battle);
           this.mode = 'battle'; this.paused = false;
           UI.show('');
         } catch (e) { console.error(e); UI.toast('戦いの開始に失敗しました'); try { this.toMenu('home'); } catch (e2) { console.error(e2); } }
@@ -90,8 +91,32 @@ const App = {
       }, 120);
     }, 380);
   },
+  // 初めての2戦は、操作の案内を流す(スマホを縦で持っていたら横向きをすすめる)
+  guide(B) {
+    const S = Save.data;
+    if (S.stats.battles >= 2 || B.remotes && B.remotes.length) return;
+    const touch = Input.usedTouch, port = innerHeight > innerWidth;
+    const lines = touch ? [
+      port ? 'スマホを横向きにすると、広い画面で戦えます' : null,
+      '画面の左側をドラッグで移動、「攻撃」は押しっぱなしで連続攻撃',
+      '攻撃の途中で「チャージ」を押すと、強力な派生技が出ます',
+      'ゲージが満タンになったら「奥義」で周りの敵を一掃!',
+      '敵の攻撃は「回避」で。当たる直前ならば「見切り」が発動',
+    ] : [
+      'WASDで移動、J(押しっぱなし)で連続攻撃',
+      '攻撃の途中でKを押すと、強力な派生技が出ます',
+      'ゲージが満タンになったら I で奥義、U で覚醒!',
+      'Space で回避。当たる直前ならば「見切り」が発動',
+    ];
+    // 開幕の演出が終わって戦い始めてから流す
+    const go = () => lines.filter(Boolean).forEach((t, i) => setTimeout(() => { if (this.battle === B && B.state === 'play') UI.say('案内', t, true); }, 1500 + i * 7000));
+    const wait = setInterval(() => { if (this.battle !== B) clearInterval(wait); else if (B.state === 'play') { clearInterval(wait); go(); } }, 400);
+  },
   endBattle(r) {
-    r.out = Save.applyResult(r); UI.lastResult = r;
+    r.pvp = !!(this.battle && this.battle.pvp);
+    r.out = Save.applyResult(r); r.out.daily = Daily.apply(r); Save.persist(); UI.lastResult = r;
+    // 週間番付: 今週の累計撃破数(協力・対戦も含む)
+    if (Cloud.enabled() && Save.data.week && Save.data.week.ko > 0) { const W = Save.data.week; Cloud.score(weekKey(), { hero: r.heroId, ko: Math.min(W.ko, 30000), time: Math.min(36000, Math.max(20, W.time)), rank: '', score: W.ko }); }
     if (Cloud.enabled() && !r.coop && !(this.battle && this.battle.remotes && this.battle.remotes.length)) {
       if (r.endless) Cloud.score('endless', { hero: r.heroId, ko: r.ko, time: Math.round(r.time), rank: '第' + r.wave + '波', score: r.ko + r.wave * 100 });
       else if (r.win) Cloud.score(r.stage.id + '_' + r.diff.id, { hero: r.heroId, ko: r.ko, time: Math.round(r.time), rank: r.rank, score: Math.round(r.ko * 10 + r.maxCombo * 2 + Math.max(0, r.stage.par * 2 - r.time) * 5) });

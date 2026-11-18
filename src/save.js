@@ -1,6 +1,7 @@
 // セーブデータ: 端末内(localStorage)に常時保存し、設定すれば Googleスプレッドシートへ同期する
 import { HEROES, START_HEROES, starterWeapon, starterArmor, emptyArmor, ARMOR_SLOT_KEYS, ACHIEVEMENTS, expNeed, MAX_LV, UNLOCKS, FOE_UNLOCKS, HERO, heroMast, heroJob, calcStats, JOBS, JOB_MAX, MAST_MAX, mastLv, WEAPON_TYPE_NAMES, ARMOR_SETS } from './data.js';
-import { CLOUD_URL } from './config.js';
+import { CLOUD_URL, VERSION } from './config.js';
+const Input_dev = () => (matchMedia('(pointer: coarse)').matches ? 'touch' : 'pc') + ' ' + innerWidth + 'x' + innerHeight;
 
 const KEY = 'seiga_save_v1';
 const genKey = () => { const a = new Uint8Array(20); crypto.getRandomValues(a); return Array.from(a, (b) => 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'[b % 56]).join(''); };
@@ -165,6 +166,11 @@ export const Cloud = {
   // ランダム対戦の部屋探し(公開部屋の掲示板)
   async rooms(mode) { if (!this.enabled()) return []; try { const res = await this._get({ action: 'rooms', mode }); return res.ok ? res.rooms : []; } catch (e) { return []; } },
   async room(code, mode, n, close = false) { if (!this.enabled()) return; try { await this._post({ action: 'room', code, mode, n, close }); } catch (e) { /* 失敗しても続行 */ } },
+  // 感想・要望を送る(スプレッドシートの feedback シートに記録)
+  async feedback(text) {
+    if (!this.enabled()) return false;
+    try { const res = await this._post({ action: 'feedback', id: Save.data.id, name: Save.data.name, text: String(text).slice(0, 500), ver: VERSION, dev: Input_dev() }); return !!res.ok; } catch (e) { return false; }
+  },
   async ranking(board) {
     if (!this.enabled()) return null;
     try { const res = await this._get({ action: 'rank', board, n: 30 }); return res.ok ? res.rows : null; } catch (e) { return null; }

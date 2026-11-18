@@ -12,9 +12,10 @@ import { $, $$, el, fmtTime, clamp } from './util.js';
 import { Story, STORY } from './story.js';
 import { Voice } from './voice.js';
 import { Net, MAX_PLAYERS, MAX_PVP, sanitizeMember } from './net.js';
+import { Daily, weekKey, weekLeft } from './daily.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const SCREENS = ['title', 'home', 'stage', 'hero', 'armory', 'shop', 'ach', 'rank', 'settings', 'result', 'pause', 'load', 'story', 'coop'];
+const SCREENS = ['title', 'home', 'stage', 'hero', 'armory', 'shop', 'ach', 'rank', 'settings', 'result', 'pause', 'load', 'story', 'coop', 'daily'];
 const TIPS = ['通常攻撃の途中でチャージ攻撃を押すと、段数に応じた強力な技に派生します。', '敵将の武器が赤く光ったら強攻撃の合図。回避でかわそう。', '攻撃が当たる直前に回避すると「見切り」が発動し、奥義ゲージが大きく溜まります。',
   '敵拠点は兵を倒し続けると守備隊長が出現。守備隊長を倒せば制圧できます。', '拠点を制圧すると体力が回復し、味方の士気が上がります。', '覚醒中は攻撃力・攻撃速度が上がり、怯まなくなります。覚醒中の奥義は「真・奥義」に強化。',
   '武器には特性が付きます。強化で攻撃力を上げ、自分好みの一振りを探しましょう。', '高難易度ほど良い武器が手に入りやすくなります。', '攻撃ボタンは押しっぱなしでも連続攻撃できます。'];
@@ -38,7 +39,32 @@ export const UI = {
     Install.onChange(() => { if (this.cur === 'title' || this.cur === 'home') this.show(this.cur); });
     this.applyBtnLayout();
     const S = Save.data; this.sel = { ...S.last };
+    // 招待URL(?room=部屋番号)から来た人は、タイトルの後でその部屋へ直行する
+    try {
+      const q = new URLSearchParams(location.search), c = (q.get('room') || '').trim();
+      if (/^[A-Za-z0-9]{6}$/.test(c)) this.invite = c.toUpperCase();
+      if (q.has('room')) history.replaceState(null, '', location.pathname);
+    } catch (_) { /* noop */ }
   },
+  // タイトルから入った直後: ログインボーナス
+  enterGame() {
+    const L = Daily.login();
+    if (L) setTimeout(() => this.toast(`ログインボーナス ${L.streak}日目 +${L.gold.toLocaleString()}金`), 600);
+    this.app.cloudSync();
+  },
+  // 初めての人は、オープニングの後すぐ第一章(易しい)へ
+  quickStart() {
+    const S = Save.data;
+    this.sel = { hero: 'reiga', stage: 's1', diff: 0 }; S.last = { ...this.sel }; Save.persist(false);
+    this.act('sortie');
+  },
+  // 招待された部屋に入る
+  joinInvite() {
+    const c = this.invite; this.invite = null;
+    Audio.bgm('title'); this.show('coop'); this.coopInit(); Net.join(c); this.r_coop();
+  },
+  inviteUrl() { return location.origin + location.pathname + '?room=' + Net.code; },
+  inviteText() { return `『蒼星のセイガ』で一緒に${Net.mode === 'pvp' ? '対戦' : '戦'}おう! 部屋番号 ${Net.code}\n`; },
 
   // ================= 画面切替 =================
   show(name) {
@@ -58,9 +84,28 @@ export const UI = {
     Audio.resume();
     switch (a) {
       case 'start': Audio.sfx('ok');
-        // 初回はオープニングムービーから
-        if (!S.story.op) { this.show('scene'); Story.opening(() => { S.story.op = 1; Save.persist(false); Audio.bgm('title'); this.show('home'); this.app.cloudSync(); }); break; }
-        Audio.bgm('title'); this.show('home'); this.app.cloudSync(); break;
+        this.enterGame();
+        if (this.invite) { this.joinInvite(); break; }
+        // 初回はオープニングムービーから。まだ一度も戦っていなければ、そのまま第一章へ
+        if (!S.story.op) { this.show('scene'); Story.opening(() => { S.story.op = 1; Save.persist(false); Audio.bgm('title'); if (!S.stats.battles) this.quickStart(); else this.show('home'); }); break; }
+        Audio.bgm('title'); this.show('home'); break;
+      case 'daily': Audio.sfx('ui'); this.show('daily'); break;
+      case 'weekrank': Audio.sfx('ui'); this.rankBoard = weekKey(); this.show('rank'); break;
+      case 'ishare': {
+        Audio.sfx('ui');
+        const url = this.inviteUrl(), text = this.inviteText();
+        if (navigator.share) navigator.share({ title: '蒼星のセイガ', text, url }).catch(() => {});
+        else if (navigator.clipboard) navigator.clipboard.writeText(text + url).then(() => this.toast('招待URLをコピーしました'));
+        break;
+      }
+      case 'icopy': Audio.sfx('ui'); if (navigator.clipboard) navigator.clipboard.writeText(this.inviteUrl()).then(() => this.toast('招待URLをコピーしました')); break;
+      case 'fbsend': {
+        const box = $('#fb-text'), txt = box ? box.value.trim() : '';
+        if (txt.length < 2) { this.toast('感想を入力してください'); Audio.sfx('deny'); break; }
+        if (this._fbBusy) break; this._fbBusy = true; Audio.sfx('ok'); this.toast('送信中…');
+        Cloud.feedback(txt).then((ok) => { this._fbBusy = false; this.toast(ok ? 'ありがとうございます! 感想を送りました' : '送信できませんでした。時間をおいて試してください'); if (ok && box) box.value = ''; });
+        break;
+      }
       case 'go': Audio.sfx(v === 'home' || v === 'stage' ? 'back' : 'ui'); if (v === 'endless') { sel.stage = 'endless'; v = 'hero'; this.heroBack = null; } if (v === 'armory') { this.armHero = sel.hero; this.armSel = null; } this.show(v); break;
       case 'stage': Audio.sfx('ui'); sel.stage = v; this.r_stage(); break;
       case 'diff': Audio.sfx('ui'); sel.diff = +v; this.r_stage(); break;
@@ -272,7 +317,7 @@ export const UI = {
   },
   r_home() {
     const S = Save.data, map = this.app.fieldKind === 'map';
-    this.html('home', `<div class="field-hud"><div class="head"><div class="who">${esc(S.name)}</div><div class="sp"></div>${this.installBtn('inst-home')}<div class="goldv">${S.gold.toLocaleString()}</div></div>
+    this.html('home', `<div class="field-hud"><div class="head"><div class="who">${esc(S.name)}</div><button class="daily-btn" data-a="daily">今日の目標 <b>${Daily.done()}/3</b></button><div class="sp"></div>${this.installBtn('inst-home')}<div class="goldv">${S.gold.toLocaleString()}</div></div>
       <div class="field-hint">${map ? '戦場の旗へ歩いて出撃 ／ 赤い門で町へ戻る' : '建物に近づいて入る ／ 南の赤い門から世界地図へ'}　${Input.usedTouch ? '左でスティック・右で視点' : 'WASD で歩く・ドラッグで視点'}</div></div>`);
     this.app.lobbyHero(this.sel.hero);
   },
@@ -547,7 +592,7 @@ export const UI = {
         <input id="coop-code" type="text" autocapitalize="characters" autocomplete="off" maxlength="6" placeholder="部屋番号" style="width:8em;text-transform:uppercase;font-size:18px;text-align:center"><button class="sbtn" data-a="cjoin">部屋に入る</button></div>`;
     } else {
       const msg = this.coop && this.coop.public ? `ランダム対戦の相手を待っています(${Net.count || 1}/8人)… <b id=\"auto-t\">${this.coop.autoT}</b>秒後に出撃します(空きはCPU)`
-        : st === 'wait' ? `部屋番号 <b style="font-size:2em;letter-spacing:.2em;color:var(--gold)">${Net.code}</b><br>仲間にこの番号を伝えてください。参加を待っています…`
+        : st === 'wait' ? `部屋番号 <b style="font-size:2em;letter-spacing:.2em;color:var(--gold)">${Net.code}</b><br>仲間にこの番号か、下の招待URLを送ってください。参加を待っています…`
         : st === 'connecting' ? '部屋に接続しています…' : st === 'connected' ? (role === 'host' ? `部屋番号 <b style="color:var(--gold)">${Net.code}</b> ／ あと${Net.max - R.length}人参加できます` : '部屋に参加しました')
         : st === 'closed' ? '接続が切れました' : st === 'error' ? 'つながりませんでした。番号を確かめてもう一度お試しください' : '準備中…';
       const heroes = HEROES.filter((x) => S.unlockedHeroes.includes(x.id)).map((x) => `<button class="tab ${x.id === sel.hero ? 'on' : ''}" data-a="chero" data-v="${x.id}">${x.name}</button>`).join('');
@@ -555,10 +600,30 @@ export const UI = {
         <div class="tabs">${DIFFS.map((x, i) => `<button class="tab ${i === sel.diff ? 'on' : ''} ${this.diffOpen(i) ? '' : 'lock'}" ${this.diffOpen(i) ? `data-a="cdiff" data-v="${i}"` : ''} style="color:${x.col}">${x.n}</button>`).join('')}</div>` : '<p class="dim-t">章と難易度は部屋を作った人が決めます。</p>';
       const pvpRoom = (this.coop && this.coop.mode) === 'pvp' || (role === 'host' && Net.mode === 'pvp');
       const roster = R.length ? `<h3>${pvpRoom ? '対戦' : '協力'}の部屋(${R.length}/${pvpRoom ? MAX_PVP : MAX_PLAYERS})${pvpRoom ? ' ／ 本拠を落とすか、5分後の得点で勝敗' : ''}</h3><div class="tabs" style="flex-wrap:wrap">${R.map((m) => `<span class="tab on" ${pvpRoom ? `style="border-color:${m.team ? '#ff5a4a' : '#4aa8ff'}"` : ''}>${pvpRoom ? (role === 'host' ? `<button class="sbtn" style="padding:2px 8px;font-size:11px" data-a="cteam" data-v="${m.slot}">${m.team ? '紅軍' : '蒼軍'}</button> ` : (m.team ? '[紅軍] ' : '[蒼軍] ')) : ''}${m.slot === 0 ? '👑 ' : ''}${esc(m.name)}(${esc(HERO[m.hero] ? HERO[m.hero].name : '?')})${role === 'host' && m.slot ? ` <button class="sbtn" style="padding:2px 8px;font-size:11px" data-a="ckick" data-v="${m.slot}">退出させる</button>` : ''}</span>`).join('')}</div>` : '';
-      body = `<div class="panel scroll" style="flex:1"><p>${msg}</p>${roster}<h3>自分の星牙使い</h3><div class="tabs" style="flex-wrap:wrap">${heroes}</div>${stages}</div>
+      const share = role === 'host' && Net.code && !(this.coop && this.coop.public) && (st === 'wait' || st === 'connected') ? this.inviteBox() : '';
+      body = `<div class="panel scroll" style="flex:1"><p>${msg}</p>${share}${roster}<h3>自分の星牙使い</h3><div class="tabs" style="flex-wrap:wrap">${heroes}</div>${stages}</div>
         <div class="row"><button class="sbtn" data-a="cleave">部屋を出る</button><div style="flex:1"></div>${role === 'host' ? `<button class="pbtn" data-a="cstart" ${(Net.mode === 'pvp' && role === 'host') || (Net.connected && R.length > 1) ? '' : 'disabled'}>出 撃</button>` : '<span class="dim-t">部屋を作った人の出撃を待っています</span>'}</div>`;
     }
     this.html('coop', `${this.head('オンライン', 'home')}<div style="flex:1;display:flex;flex-direction:column;gap:10px;max-width:760px;width:100%;margin:0 auto;min-height:0">${body}</div>`, true);
+  },
+  inviteBox() {
+    const url = this.inviteUrl(), msg = encodeURIComponent(this.inviteText() + url);
+    return `<div class="invite"><div class="iurl">${esc(url)}</div><div class="row" style="gap:8px;flex-wrap:wrap">
+      <a class="sbtn line" href="https://line.me/R/share?text=${msg}" target="_blank" rel="noopener">LINEで送る</a>
+      <a class="sbtn" href="https://x.com/intent/post?text=${msg}" target="_blank" rel="noopener">Xで募集</a>
+      ${navigator.share ? '<button class="sbtn" data-a="ishare">ほかのアプリで送る</button>' : ''}<button class="sbtn" data-a="icopy">URLをコピー</button></div></div>`;
+  },
+  // 今日の目標・ログインボーナス・週間番付への入口
+  r_daily() {
+    const S = Save.data, L = S.login || { streak: 0 }, list = Daily.list(), W = S.week && S.week.k === weekKey() ? S.week : { ko: 0 };
+    const days = Daily.loginTable.map((g, i) => `<div class="lday ${i < L.streak ? 'got' : ''} ${i === L.streak - 1 ? 'now' : ''}"><span>${i + 1}日目</span><b>${g.toLocaleString()}</b></div>`).join('');
+    this.html('daily', `${this.head('今日の目標', 'home')}<div class="scroll" style="flex:1"><div style="max-width:720px;margin:0 auto;display:grid;gap:10px">
+      <div class="panel"><h3>今日の目標(毎日0時に入れ替わり)</h3>${list.map((m) => `<div class="card ach ${m.c ? 'done on' : ''}"><div class="mk">${m.c ? '✓' : ''}</div><div><div class="a">${m.t}</div><div class="b">${m.p.toLocaleString()} / ${m.n.toLocaleString()}</div></div><div class="g">+${m.g}金</div></div>`).join('')}
+        <p class="dim-t">3つすべて達成で、さらに +${Daily.allBonus}金</p></div>
+      <div class="panel"><h3>ログインボーナス(毎日1回・7日で1周)</h3><div class="ldays">${days}</div><p class="dim-t">連続で遊ぶほど増えます。1日空くと1日目に戻ります。</p></div>
+      <div class="panel"><h3>今週の撃破数ランキング</h3><p>今週の撃破数 <b style="color:var(--gold);font-size:1.3em">${W.ko.toLocaleString()}</b>人 ／ 集計終了まで${weekLeft()}(毎週月曜0時にリセット)</p>
+        <div class="row"><button class="pbtn" data-a="weekrank">今週の番付を見る</button><button class="sbtn" data-a="go" data-v="stage">出撃する</button></div></div>
+    </div></div>`, true);
   },
   r_story() {
     const S = Save.data, items = [['op', 'オープニング', '星牙と覇星帝の物語のはじまり', true]];
@@ -575,10 +640,10 @@ export const UI = {
       <div class="panel" style="margin-top:8px"><div class="rs"><span>累計撃破数</span><b>${S.stats.totalKO.toLocaleString()}</b><span>戦闘回数 / 勝利</span><b>${S.stats.battles} / ${S.stats.wins}</b><span>最多撃破(1回の戦い)</span><b>${S.stats.maxKO}</b><span>最大連撃</span><b>${S.stats.maxCombo}</b><span>撃破した敵将</span><b>${S.stats.officers}</b><span>見切り回数</span><b>${S.stats.perfect}</b><span>総プレイ時間</span><b>${fmtTime(S.stats.playTime)}</b></div></div></div></div>`, true);
   },
   r_rank() {
-    const S = Save.data; if (!this.rankBoard) this.rankBoard = 'endless';
-    const [sid, did] = this.rankBoard.split('_');
-    const boards = `<div class="tabs"><button class="tab ${sid === 'endless' ? 'on' : ''}" data-a="board" data-v="endless">星海の試練</button>${STAGES.map((s) => `<button class="tab ${s.id === sid ? 'on' : ''}" data-a="board" data-v="${s.id}_${did || 'normal'}">${s.no}</button>`).join('')}</div>
-      ${sid !== 'endless' ? `<div class="tabs">${DIFFS.map((d) => `<button class="tab ${d.id === did ? 'on' : ''}" data-a="board" data-v="${sid}_${d.id}" style="color:${d.col}">${d.n}</button>`).join('')}</div>` : ''}`;
+    const S = Save.data, wk = weekKey(); if (!this.rankBoard || (/^wk_/.test(this.rankBoard) && this.rankBoard !== wk)) this.rankBoard = wk;
+    const isWk = this.rankBoard === wk, [sid, did] = isWk ? ['week'] : this.rankBoard.split('_');
+    const boards = `<div class="tabs"><button class="tab ${isWk ? 'on' : ''}" data-a="board" data-v="${wk}">今週の撃破数</button><button class="tab ${sid === 'endless' ? 'on' : ''}" data-a="board" data-v="endless">星海の試練</button>${STAGES.map((s) => `<button class="tab ${s.id === sid ? 'on' : ''}" data-a="board" data-v="${s.id}_${did || 'normal'}">${s.no}</button>`).join('')}</div>
+      ${isWk ? `<p class="dim-t" style="margin:4px 0">今週(月曜0時〜)の合計撃破数で競います。集計終了まで${weekLeft()}。</p>` : ''}${sid !== 'endless' && !isWk ? `<div class="tabs">${DIFFS.map((d) => `<button class="tab ${d.id === did ? 'on' : ''}" data-a="board" data-v="${sid}_${d.id}" style="color:${d.col}">${d.n}</button>`).join('')}</div>` : ''}`;
     const body = Cloud.enabled() ? '<div id="rk-list" class="panel scroll" style="flex:1"><p>読み込み中…</p></div>'
       : '<div class="panel"><p>ランキングはスプレッドシート連携を設定すると利用できます。</p><p class="note">「設定」→「スプレッドシート連携」に Google Apps Script のURLを入力してください。手順は同梱の README.md にあります。</p></div>';
     this.html('rank', `${this.head('ランキング', 'home')}${boards}${body}`, true);
@@ -611,6 +676,9 @@ export const UI = {
       <label>引き継ぎコード</label><div class="row"><span class="code" style="word-break:break-all">${Cloud.code()}</span><button class="sbtn" data-a="copyid">コピー</button></div>
       ${on ? `<label>今すぐ</label><div class="row"><button class="sbtn" data-a="csave">クラウドへ保存</button></div>
       <label>データ復元</label><div class="row"><input type="text" id="restore-id" placeholder="引き継ぎコードを入力" style="flex:1;min-width:8em"><button class="sbtn" data-a="cload">読み込む</button></div>` : ''}
+      <h3 class="full" style="margin-top:8px">感想・要望を送る</h3>
+      <p class="full note">遊んだ感想、不具合、「ここを直してほしい」などを開発者に送れます(返信はできません)。個人情報は書かないでください。</p>
+      <div class="full" style="display:grid;gap:6px"><textarea id="fb-text" maxlength="500" rows="3" placeholder="例: ガンドウの大槌が気持ちいい! 対戦の人数がもっと集まってほしい"></textarea><div class="row" style="justify-content:flex-end"><button class="pbtn" data-a="fbsend">送信する</button></div></div>
       <h3 class="full" style="margin-top:8px">操作方法</h3>
       <div class="full keys"><b>タッチ</b><span>画面左をドラッグで移動 / 右のボタンで攻撃・回避 / 何もない所をドラッグで視点回転</span><b>キーボード</b><span>WASD 移動 / J 攻撃 / K チャージ / L・Space 回避 / I 奥義 / U 覚醒 / ←→ 視点 / P 一時停止</span><b>ゲームパッド</b><span>左スティック移動 / □攻撃 △チャージ ✕回避 ○奥義 R1覚醒</span></div>
       <div class="full row" style="justify-content:flex-end;margin-top:10px"><button class="sbtn" data-a="reset" style="border-color:#ff6a5a;color:#ffb0a0">セーブデータを初期化</button></div>
@@ -640,6 +708,7 @@ export const UI = {
         ${(o.mast || []).length ? `<p class="lvup">熟練度アップ: ${o.mast.join(' / ')}</p>` : ''}
         ${o.unlock ? `<p class="lvup">新たな星牙使い「${o.unlock.name}」が参戦!</p>` : ''}${o.unlockFoe ? `<p class="lvup">星の記憶「${o.unlockFoe.name}」の力が使えるようになった!</p>` : ''}
         ${r.relic ? '<p style="color:#ff5a7a;font-weight:700">✦ 神器を授かった! ✦</p>' : ''}
+        ${(o.daily || []).map((d) => `<p style="color:#9dff9d">今日の目標達成: ${d.t} (+${d.g}金)</p>`).join('')}
         ${o.ach.map((a) => `<p style="color:var(--gold)">称号獲得: ${a.n}${a.gold ? ' (+' + a.gold + '金)' : ''}</p>`).join('')}
         ${r.loot.length ? '<h3 style="margin-top:6px;font-size:14px">入手した武器</h3>' + r.loot.map((w) => `<div class="trait" style="border-color:${RARITY[w.rar].col}"><b style="color:${RARITY[w.rar].col}">${RARITY[w.rar].star}</b>${weaponName(w)} <span class="dim-t">攻+${w.atk}</span></div>`).join('') : ''}
         ${(r.armorLoot || []).length ? '<h3 style="margin-top:6px;font-size:14px">入手した防具</h3>' + r.armorLoot.map((a) => `<div class="trait" style="border-color:${RARITY[a.rar].col}"><b style="color:${RARITY[a.rar].col}">${RARITY[a.rar].star}</b>${armorName(a)} <span class="dim-t">防+${a.def}</span></div>`).join('') : ''}
