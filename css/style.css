@@ -397,3 +397,12 @@ body.field #touch .btn { display: none; }
 .field-hud { position: fixed; left: 0; right: 0; top: 0; z-index: 6; pointer-events: none; }
 .field-hud .head { pointer-events: auto; }
 .field-hint { position: fixed; left: 50%; top: 9vh; transform: translateX(-50%); width: max-content; max-width: 92vw; text-align: center; font-size: 12px; color: #e8dcc0; text-shadow: 0 1px 3px #000; pointer-events: none; }
+
+/* タイトルの文字はスマホでも改行しない: 画面の幅にも合わせて縮める */
+.logo, .op-logo { white-space: nowrap; }
+.logo { font-size: clamp(36px, min(17vmin, 15vw), 136px); }
+.logo-sub { white-space: nowrap; }
+@media (max-width: 520px) { .logo-sub { letter-spacing: .16em; font-size: clamp(9px, 2.9vw, 14px); } }
+.op-logo { font-size: clamp(34px, min(15vmin, 13vw), 130px); }
+.op-logo-s { white-space: nowrap; }
+@media (max-width: 520px) { .op-logo-s { letter-spacing: .14em; font-size: clamp(11px, 3.4vw, 16px); } }

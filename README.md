@@ -158,6 +158,7 @@ tools/                開発用サーバーなど
 ## クレジット
 
 - 音楽: 魔王魂(https://maou.audio/) — CC BY 4.0
+  - タイトル曲: 魔王魂「ネオロック82 君が見ていた世界の果て」(https://maou.audio/bgm_neorock82/)
 - オンライン協力プレイ: PeerJS(MIT License)— 端末どうしをWebRTCで直接接続(無料の公開シグナリングサーバーを使用)
 - 武器の3Dモデル(大太刀・長槍・双剣・大槌・大戦斧・大鎌・双扇): Blender のスクリプト(tools/blender/weapons.py, weapons2.py)で自作
 - 着せ替え鎧(紅蓮・黒鉄・蒼天・黄金 × 頭・胴・腕・足・盾): Blender のスクリプト(tools/blender/vroid_armor.py)で各キャラの体に合わせて自作
