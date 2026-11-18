@@ -427,3 +427,7 @@ body.field #touch .btn { display: none; }
 #s-home .head, #s-home button, #s-home a { pointer-events: auto; }
 /* 英語表示: 所持金の印を G に */
 html[lang="en"] .goldv::before { content: 'G '; }
+/* 言語の切り替え(タイトル左上・町の上部) */
+.lang-btn { padding: 6px 12px; font-size: clamp(12px, 3.2vmin, 15px); color: #fff; background: rgba(9, 13, 30, .78); border: 1px solid var(--line); border-radius: 3px; pointer-events: auto; }
+.lang-title { position: absolute; left: calc(var(--sl) + 12px); top: calc(var(--st) + 12px); z-index: 2; }
+.lang-home { margin-left: 8px; padding: 4px 10px; font-size: clamp(11px, 3vmin, 13px); }

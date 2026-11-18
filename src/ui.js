@@ -93,6 +93,7 @@ export const UI = {
         if (!S.story.op) { this.show('scene'); Story.opening(() => { S.story.op = 1; Save.persist(false); Audio.bgm('title'); if (!S.stats.battles) this.quickStart(); else this.show('home'); }); break; }
         Audio.bgm('title'); this.show('home'); break;
       case 'daily': Audio.sfx('ui'); this.show('daily'); break;
+      case 'lang': Audio.sfx('ok'); setLang(LANG === 'en' ? 'ja' : 'en'); break;
       case 'weekrank': Audio.sfx('ui'); this.rankBoard = weekKey(); this.show('rank'); break;
       case 'ishare': {
         Audio.sfx('ui');
@@ -315,13 +316,15 @@ export const UI = {
   },
 
   // ================= 各画面 =================
+  // 言語の切り替えボタン(いまが日本語なら English、英語なら 日本語 と出す)
+  langBtn(cls) { return `<button class="lang-btn ${cls}" data-a="lang">🌐 ${LANG === 'en' ? '日本語' : 'English'}</button>`; },
   r_title() {
-    this.html('title', `<div class="logo">${GAME_TITLE}</div><div class="logo-sub">${GAME_SUB}</div><div class="tap">画面をタップして開始</div><div class="ver">音楽:魔王魂(CC BY 4.0)「ネオロック82」ほか ／ ver ${VERSION}</div>${this.installBtn('inst-title')}`);
+    this.html('title', `<div class="logo">${GAME_TITLE}</div><div class="logo-sub">${GAME_SUB}</div><div class="tap">画面をタップして開始</div><div class="ver">音楽:魔王魂(CC BY 4.0)「ネオロック82」ほか ／ ver ${VERSION}</div>${this.installBtn('inst-title')}${this.langBtn('lang-title')}`);
     $('#s-title').dataset.a = 'start';
   },
   r_home() {
     const S = Save.data, map = this.app.fieldKind === 'map';
-    this.html('home', `<div class="field-hud"><div class="head"><div class="who">${esc(S.name)}</div><button class="daily-btn" data-a="daily">今日の目標 <b>${Daily.done()}/3</b></button><div class="sp"></div>${this.installBtn('inst-home')}<div class="goldv">${S.gold.toLocaleString()}</div></div>
+    this.html('home', `<div class="field-hud"><div class="head"><div class="who">${esc(S.name)}</div>${this.langBtn('lang-home')}<button class="daily-btn" data-a="daily">今日の目標 <b>${Daily.done()}/3</b></button><div class="sp"></div>${this.installBtn('inst-home')}<div class="goldv">${S.gold.toLocaleString()}</div></div>
       <div class="field-hint">${map ? '戦場の旗へ歩いて出撃 ／ 赤い門で町へ戻る' : '建物に近づいて入る ／ 南の赤い門から世界地図へ'}　${Input.usedTouch ? '左でスティック・右で視点' : 'WASD で歩く・ドラッグで視点'}</div></div>`);
     this.app.lobbyHero(this.sel.hero);
   },
