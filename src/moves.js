@@ -434,9 +434,7 @@ MS.p_zahar = { spName: '砂塵千刃',
 MS.p_volg = { spName: '氷狼牙陣',
   n: [B3.n0, B3.n1, B3.n2, iceThrust(3, 26), MS.setsuna.n[4], MS.setsuna.n[5]],
   c: [pl(B3.dash), seq(iceThrust(5, 50, { rec: 0.05 }), iceThrust(5, 50, { wind: 0.1, rec: 0.05 }), iceThrust(9, 120, { wind: 0.1, rec: 0.3, hit: { dmg: 1.0 } })), MS.setsuna.c[2], pl(B3.heavy), pl(B3.spikes), MS.setsuna.c[5]], sp: MS.setsuna.sp };
-MS.p_ignas = { spName: '獄炎噴火',
-  n: [B4.n0, B4.n1, pl(B4.n2), MS.gandou.n[3], MS.gandou.n[4], MS.gandou.n[5]],
-  c: [MS.gandou.c[0], MS.gandou.c[1], pl(B4.erupt), pl(B4.heavy), MS.gandou.c[4], pl(B4.nova)], sp: MS.gandou.sp };
+// MS.p_ignas は弓・杖の部品の後ろで定義(杖の技を使うため)
 MS.p_zenova = { spName: '覇星墜天',
   n: [B5.n0, B5.n1, B5.n2, B5.n3, MS.yomi.n[4], MS.yomi.n[5]],
   c: [pl(B5.warp), MS.yomi.c[1], pl(B5.orbs), MS.yomi.c[3], pl(B5.reap), MS.yomi.c[5]], sp: MS.yomi.sp };
@@ -531,6 +529,26 @@ MS.off_staff = {
   },
   plans: [{ seq: ['n0'], min: 4, max: 13, w: 5 }, { seq: ['n1'], min: 4, max: 11, w: 3 }, { seq: ['heavy'], min: 5, max: 12, w: 2 }, { seq: ['back'], max: 3.8, w: 6 }],
 };
+
+// イグナス(敵): 杖の炎の魔導士。離れて火球、寄られたら杖で払うか飛び退く。溜めて隕石・噴火
+MS.boss_staff = {
+  m: {
+    n0: cast({ wind: 0.4, rec: 0.35, extra: [orb(0.46, 0, { dmg: 1.2 })] }),
+    n1: cast({ wind: 0.45, rec: 0.4, extra: fanOf(3, 30, (y) => orb(0.52, y, { dmg: 1.0 })) }),
+    n2: slash({ from: [-100, 30], to: [70, -20], wind: 0.22, rec: 0.3, r: 3.0, ang: 90, dmg: 1.2, kb: 7, sfx: 'swing' }),
+    back: X(shoot({ wind: 0.25, y0: 0.6, y1: 0.4, mv: -9, rec: 0.35 }), { ghost: true }),
+    meteor: X(cast({ wind: 0.9, elv: 60, rec: 0.5, extra: [{ ...DEF_HIT, t: 1.25, shape: 'circle', fwd: 7, r: 4.6, dmg: 2.8, kb: 10, lift: 8, el: 1, fx: ['quake', 'nova', 'pillar'], shake: 0.8, stop: 0.08 }] }), { tele: 1, armor: true }),
+    erupt: MS.boss_hammer.m.erupt,
+    nova: MS.boss_hammer.m.nova,
+    burst: burst(),
+  },
+  plans: [{ seq: ['n0'], min: 4, max: 14, w: 4 }, { seq: ['n1'], min: 4, max: 12, w: 3 }, { seq: ['n2'], max: 3.2, w: 3 }, { seq: ['back'], max: 3.4, w: 3 },
+    { seq: ['meteor'], min: 5, max: 14, w: 3 }, { seq: ['erupt'], min: 3, max: 18, w: 3 }, { seq: ['nova'], max: 8, w: 2, p2: true }],
+};
+
+MS.p_ignas = { spName: '獄炎噴火',
+  n: [MS.p_staff.n[0], MS.p_staff.n[1], MS.p_staff.n[2], MS.p_staff.n[3], MS.p_staff.n[5], pl(MS.boss_staff.m.meteor)],
+  c: [MS.p_staff.c[1], pl(B4.erupt), MS.p_staff.c[2], MS.p_staff.c[3], MS.p_staff.c[4], pl(B4.nova)], sp: MS.p_staff.sp };
 
 // ---- 足さばき: 指定のない技に、一撃ごとに踏み出す足(step)を交互に割り振る ----
 function footwork(ms) {

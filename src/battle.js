@@ -639,7 +639,7 @@ export class Battle {
         const g = this.stage.nodes[1 + (k % 4)], a = rnd(6.283), d = rnd(0, 7);
         this.horde.spawn(1, rnd() < 0.35 ? 1 : 0, g.x + Math.sin(a) * d, g.z + Math.cos(a) * d, { ...this.solStats(1), squad: this.player, ox: Math.sin(a) * 3, oz: Math.cos(a) * 3, aggro: 300 });
       }
-      if (w % 5 === 0) { const b = pick([['boss1', 'boss_axe', 'axe'], ['boss2', 'boss_twin', 'twin'], ['boss3', 'boss_spear', 'spear'], ['boss4', 'boss_hammer', 'hammer'], ['boss5', 'boss_final', 'scythe']]);
+      if (w % 5 === 0) { const b = pick([['boss1', 'boss_axe', 'axe'], ['boss2', 'boss_twin', 'twin'], ['boss3', 'boss_spear', 'spear'], ['boss4', 'boss_staff', 'staff'], ['boss5', 'boss_final', 'scythe']]);
         this._enemyOfficer({ n: 1 + ((w / 5) | 0) % 4, boss: true, look: b[0], ms: b[1], wtype: b[2], hp: 2.2, title: '猛将', squad: 6 }, pick(OFFICER_NAMES)); Audio.sfx('warn'); this.ui.say('斥候', '強敵が現れました!'); }
       else if (w % 2 === 0) this._spawnOfficer({ n: 1 + (w % 4), ms: pick(['off_sword', 'off_spear', 'off_axe']), order: 'hunt', squad: 5 }, 1);
       this.ui.banner(`第${w}波`, w % 5 === 0 ? '強敵襲来' : '', w % 5 === 0 ? 'bad' : 'gold'); Audio.sfx('drum');

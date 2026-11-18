@@ -45,6 +45,14 @@ PRESETS = {
         parts=(0.82, 0.84, 0.9), parts_flat=True, hairtint=(0.7, 0.72, 0.78), paint=(0.15, 0.35, 0.95), fur=(0.34, 0.31, 0.29),
         outfit=dict(hakama=(0.04, 0.05, 0.09), sleeve=(0.05, 0.06, 0.1), hem=0.07, sode=0.03),
     ),
+    # イグナス: 炎の魔導士。炎のように逆立つ赤橙の髪、額の二本角、頬の火の粉の紋様、こけた頬
+    'ignas': dict(
+        fat=[(J('UpperChest'), 0.015, None, (-0.2, 1.0)), (J('Neck'), 0.01, None, (-0.3, 0.7))],
+        skin=(0.92, 0.78, 0.7), shade=(0.66, 0.46, 0.42), scowl=(1.0, 0.55), jowl=-0.06, eyes=0.58, legs=1.05,
+        brows=dict(th=0.008), hair='flame', flame=(1.0, 0.36, 0.06), parts=(0.25, 0.05, 0.03), parts_flat=True,
+        hairtint=(0.35, 0.06, 0.03), paint=(1.0, 0.45, 0.08), horns=(0.88, 0.82, 0.7),
+        outfit=dict(hakama=(0.03, 0.02, 0.02), sleeve=(0.16, 0.03, 0.02), hem=0.08, sode=0.035),
+    ),
 }
 P = PRESETS[PRESET]
 rng = random.Random(11)
@@ -546,6 +554,57 @@ if P.get('fur'):
             for _ in range(len(b2.verts) - k0): W.append([(bone, 1.0)])
     bmesh.ops.recalc_face_normals(b2, faces=b2.faces[:])
     attach(b2, color_mat('fur', P['fur']), W)
+
+# 炎の髪: 頭頂から上へ、うねりながら逆立つ毛束(先ほど細く高い)
+if P.get('hair') == 'flame':
+    b2, uv2 = new_bm(); n_f = 0
+    for el in range(10, 90, 6):
+        ring = max(1, int(round(360 * math.cos(math.radians(el)) / 11)))
+        for k in range(ring):
+            az = 360 * (k + rng.random() * 0.6) / ring - 180
+            fr = math.cos(math.radians(az))
+            if el < (35 if fr > 0.5 else 12): continue
+            p, n = scalp(dir_of(az, el))
+            if p is None: continue
+            h = (el - 10) / 80
+            L = R * (0.45 + 0.75 * h + 0.2 * rng.random())
+            out = (n * 0.35 + UP * 1.0 + Vector((0, 0.25, 0)) + Vector((rng.uniform(-0.25, 0.25), rng.uniform(-0.2, 0.2), 0))).normalized()
+            wd = R * 0.16; side = out.cross(Vector((1, 0, 0)) if abs(out.x) < 0.9 else Vector((0, 1, 0))).normalized(); u2 = out.cross(side).normalized()
+            ringv = [b2.verts.new(p - n * 0.004 + (side * math.cos(t) + u2 * math.sin(t) * 0.6) * wd) for t in (0, math.pi / 2, math.pi, 3 * math.pi / 2)]
+            sway = side * (wd * 0.9 * (1 if k % 2 else -1))
+            mid = [b2.verts.new(p + out * L * 0.5 + sway + (side * math.cos(t) + u2 * math.sin(t) * 0.6) * wd * 0.55) for t in (0, math.pi / 2, math.pi, 3 * math.pi / 2)]
+            tip = b2.verts.new(p + out * L - sway * 0.5)
+            for q in range(4):
+                for fv in ([ringv[q], ringv[(q + 1) % 4], mid[(q + 1) % 4], mid[q]], [mid[q], mid[(q + 1) % 4], tip]):
+                    fc = b2.faces.new(fv); fc.smooth = True
+                    for l in fc.loops: l[uv2].uv = (0.5, 0.5)
+            n_f += 1
+    bmesh.ops.recalc_face_normals(b2, faces=b2.faces[:])
+    attach(b2, color_mat('flame', P['flame']), J('Head'))
+    print('FLAME', n_f)
+
+# 角: 額の上の左右から、後ろ上へ反る二本
+if P.get('horns') and eyes:
+    b2, uv2 = new_bm()
+    for sx in (-1, 1):
+        p, n = scalp(dir_of(sx * 28, 42))
+        if p is None: continue
+        d = (n * 0.5 + UP * 0.9 + Vector((0, 0.45, 0))).normalized(); c = p.copy(); rows = []
+        for i in range(8):
+            r = R * 0.15 * (1 - i / 8) + 0.0008
+            side = d.cross(Vector((0, 1, 0)) if abs(d.y) < 0.9 else Vector((1, 0, 0))).normalized(); u2 = d.cross(side).normalized()
+            rows.append([b2.verts.new(c + (side * math.cos(t) + u2 * math.sin(t)) * r) for t in [math.tau * j / 8 for j in range(8)]])
+            c = c + d * R * 0.13; d = (d + Vector((sx * 0.08, 0.14, -0.03))).normalized()
+        tp = b2.verts.new(c)
+        for i in range(len(rows) - 1):
+            for j in range(8):
+                fc = b2.faces.new([rows[i][j], rows[i][(j + 1) % 8], rows[i + 1][(j + 1) % 8], rows[i + 1][j]]); fc.smooth = True
+                for l in fc.loops: l[uv2].uv = (0.5, 0.5)
+        for j in range(8):
+            fc = b2.faces.new([rows[-1][j], rows[-1][(j + 1) % 8], tp])
+            for l in fc.loops: l[uv2].uv = (0.5, 0.5)
+    bmesh.ops.recalc_face_normals(b2, faces=b2.faces[:])
+    attach(b2, color_mat('horn', P['horns']), J('Head'))
 
 if wr_bm is not None:
     bmesh.ops.recalc_face_normals(wr_bm, faces=wr_bm.faces[:]); attach(wr_bm, color_mat('wrinkle', P.get('wrinkle', (0.2, 0.12, 0.1))), J('Head'))

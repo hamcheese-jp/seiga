@@ -78,7 +78,7 @@ HEROES.push(
   { id: 'volg', name: 'ヴォルグ', title: '氷狼将', wtype: 'spear', wname: '氷狼槍', elem: 'ice', foe: true, vrm: 'boss3', ms: 'p_volg',
     desc: '北の雪原を狩り場とした将。地を走る氷の牙で、獲物を逃さない。',
     base: { hp: 1100, atk: 36, def: 28, spd: 7.8, aspd: 1.0 }, stars: [4, 5, 3, 3], look: foeLook('boss3', [0.5, 2.1, 4.4], 'light') },
-  { id: 'ignas', name: 'イグナス', title: '炎獄将', wtype: 'hammer', wname: '獄炎槌', elem: 'fire', foe: true, vrm: 'boss4', ms: 'p_ignas',
+  { id: 'ignas', name: 'イグナス', title: '炎獄将', wtype: 'staff', wname: '獄炎杖', elem: 'fire', foe: true, vrm: 'boss4', ms: 'p_ignas',
     desc: '焔獄火山の主。大地を割って溶岩を噴き上げる、破壊の化身。',
     base: { hp: 1450, atk: 46, def: 36, spd: 6.5, aspd: 0.9 }, stars: [5, 5, 1, 4], heavy: true, look: foeLook('boss4', [4.6, 1.3, 0.25]) },
   { id: 'zenova', name: 'ゼノヴァ', title: '覇星帝', wtype: 'scythe', wname: '覇星鎌', elem: 'dark', foe: true, vrm: 'boss5', ms: 'p_zenova',
@@ -218,7 +218,7 @@ export const STAGES = [
       { t: 1, n: 4, ms: 'off_axe', wtype: 'axe', order: 'hold' }, { t: 1, n: 5, ms: 'off_sword', order: 'hold', hp: 1.3 }, { t: 1, n: 6, ms: 'off_spear', order: 'hold' },
       { t: 1, n: 7, ms: 'off_spear', order: 'hold' }, { t: 1, n: 8, ms: 'off_axe', wtype: 'axe', order: 'hold' },
       { t: 1, n: 9, ms: 'off_sword', order: 'attack', squad: 12 }, { t: 1, n: 9, ms: 'off_spear', order: 'attack', squad: 12 },
-      { t: 1, n: 10, boss: true, name: 'イグナス', title: '炎獄将', look: 'boss4', ms: 'boss_hammer', wtype: 'hammer', hp: 3.8 },
+      { t: 1, n: 10, boss: true, name: 'イグナス', title: '炎獄将', look: 'boss4', ms: 'boss_staff', wtype: 'staff', hp: 3.8 },
       { t: 0, n: 1, ally: 0, order: 'attack' }, { t: 0, n: 3, ally: 1, order: 'attack' },
     ],
     events: [
