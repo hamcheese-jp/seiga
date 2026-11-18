@@ -10,6 +10,7 @@ import { setArmor } from './armor.js';
 import { Rig } from './rig.js';
 import { FX } from './fx.js';
 import { Input } from './input.js';
+import { T } from './i18n.js';
 import { Save } from './save.js';
 import { box, cyl, cone, at, merge } from './geo.js';
 import { clamp, damp } from './util.js';
@@ -23,7 +24,7 @@ function labelTex(lines, w = 512, h = 160, bg = 'rgba(20,14,10,0.82)', fg = '#ff
   c.fillStyle = bg; c.beginPath(); c.roundRect(4, 4, w - 8, h - 8, 18); c.fill();
   c.strokeStyle = 'rgba(255,210,120,0.8)'; c.lineWidth = 5; c.stroke();
   c.textAlign = 'center'; c.textBaseline = 'middle';
-  const [a, b] = Array.isArray(lines) ? lines : [lines];
+  const [a, b] = (Array.isArray(lines) ? lines : [lines]).map((x) => T(x));
   c.fillStyle = fg; let fs = b ? 62 : 74; c.font = `bold ${fs}px serif`; while (c.measureText(a).width > w - 40 && fs > 24) { fs -= 2; c.font = `bold ${fs}px serif`; }   // 長い名前は幅に合わせて縮める
   c.fillText(a, w / 2, b ? h * 0.38 : h / 2);
   if (b) { c.fillStyle = '#d8c8a8'; c.font = '36px sans-serif'; c.fillText(b, w / 2, h * 0.76); }

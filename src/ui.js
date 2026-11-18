@@ -13,6 +13,7 @@ import { Story, STORY } from './story.js';
 import { Voice } from './voice.js';
 import { Net, MAX_PLAYERS, MAX_PVP, sanitizeMember } from './net.js';
 import { Daily, weekKey, weekLeft } from './daily.js';
+import { LANG, setLang } from './i18n.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const SCREENS = ['title', 'home', 'stage', 'hero', 'armory', 'shop', 'ach', 'rank', 'settings', 'result', 'pause', 'load', 'story', 'coop', 'daily'];
@@ -223,6 +224,7 @@ export const UI = {
   closeModal() { const m = $('#modal'); if (m) m.remove(); this._mok = null; },
   setting(k, t, done) {
     const set = Save.data.settings;
+    if (k === 'lang') { if (done && t.value !== LANG) setLang(t.value); return; }
     if (k === 'name') { Save.data.name = t.value.slice(0, 12) || '名もなき星牙使い'; if (done) Save.persist(); return; }
     if (k === 'cloudUrl') { set.cloudUrl = t.value.trim(); if (done) { Save.persist(false); this.r_settings(); if (Cloud.enabled()) this.toast('スプレッドシート連携を有効にしました'); } return; }
     if (t.type === 'checkbox') set[k] = t.checked; else if (t.type === 'range') set[k] = +t.value; else set[k] = t.value;
@@ -662,6 +664,7 @@ export const UI = {
     const S = Save.data, s = S.settings, on = Cloud.enabled();
     this.html('settings', `${this.head('設定', 'home')}<div class="scroll" style="flex:1"><div class="panel set" style="max-width:720px;margin:0 auto">
       <label>プレイヤー名(ランキング用)</label><input type="text" maxlength="12" value="${esc(S.name)}" data-s="name">
+      <label>言語 / Language</label><select data-s="lang"><option value="ja" ${LANG === 'ja' ? 'selected' : ''}>日本語</option><option value="en" ${LANG === 'en' ? 'selected' : ''}>English</option></select>
       <label>画質</label><select data-s="quality">${[['auto', '自動'], ['low', '低(軽量)'], ['mid', '中'], ['high', '高'], ['ultra', '最高']].map(([v, n]) => `<option value="${v}" ${s.quality === v ? 'selected' : ''}>${n}</option>`).join('')}</select>
       <label>BGM音量</label><input type="range" min="0" max="1" step="0.05" value="${s.bgm}" data-s="bgm">
       <label>効果音音量</label><input type="range" min="0" max="1" step="0.05" value="${s.sfx}" data-s="sfx">

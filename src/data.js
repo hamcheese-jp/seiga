@@ -1,8 +1,9 @@
 // ゲームデータ: 属性 / 武将 / 難易度 / ステージ / 武器 / 称号
 import { clamp, lerp } from './util.js';
+import { EN } from './i18n.js';
 
-export const GAME_TITLE = '蒼星<small>の</small>セイガ';
-export const GAME_SUB = 'SEIGA — Fangs of the Azure Star';
+export const GAME_TITLE = EN ? 'SEIGA' : '蒼星<small>の</small>セイガ';
+export const GAME_SUB = EN ? 'Fangs of the Azure Star' : 'SEIGA — Fangs of the Azure Star';
 
 export const ELEMENTS = {
   fire:    { n: '炎', css: '#ff6a2a', glow: [4.6, 1.3, 0.25], sfx: 'fire',    d: '炎上: 継続ダメージ' },
@@ -509,7 +510,7 @@ export const ARMOR_SETS = {
   ougon: { n: '黄金', k: 1.28, min: 4, d: '金と黒の最重装。角の額当てと五枚重ねの大肩当て。' },
 };
 const ARMOR_SLOT_DEF = { head: 0.6, body: 1.6, arms: 0.8, legs: 1.0, shield: 1.3 }, ARMOR_RAR = [0, 1, 1.25, 1.55, 1.9, 2.4, 3];
-export const armorName = (a) => `${ARMOR_SETS[a.set].n}の${ARMOR_SLOT_NAMES[a.slot]}`;
+export const armorName = (a) => (EN ? `${ARMOR_SETS[a.set].n} ${ARMOR_SLOT_NAMES[a.slot]}` : `${ARMOR_SETS[a.set].n}の${ARMOR_SLOT_NAMES[a.slot]}`);
 export const armorSell = (a) => Math.round(30 * a.rar * a.rar + a.def * 2);
 export const emptyArmor = () => ({ head: null, body: null, arms: null, legs: null, shield: null });
 export function rollArmor(power, luck = 0, minRar = 1, set = null, slot = null) {

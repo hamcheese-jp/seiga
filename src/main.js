@@ -1,4 +1,6 @@
 // 起動とメインループ・画面遷移
+import './i18n_en.js';   // 英語モードならデータを英語に差し替える(最初に読む)
+import { startDomTranslate } from './i18n.js';
 import { GFX } from './gfx.js';
 import { Input } from './input.js';
 import { Audio } from './audio.js';
@@ -27,6 +29,7 @@ const App = {
     Audio.vol.bgm = s.bgm; Audio.vol.sfx = s.sfx; Audio.vol.voice = s.voice;
     Input.init();
     UI.init(this);
+    startDomTranslate();
     probeVrm(); Voice.init();
     // メニューの代わりに拠点の町を歩く(世界地図へも出られる)
     this.field = new Town(UI); this.field.setHero(UI.sel.hero);

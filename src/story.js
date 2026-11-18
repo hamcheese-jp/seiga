@@ -4,6 +4,7 @@
 import { Audio } from './audio.js';
 import { HERO } from './data.js';
 import { VERSION } from './config.js';
+import { T } from './i18n.js';
 
 const IMG = (id, v = '') => `assets/portraits/${id}${v}.webp?v=${VERSION}`;   // 版ごとに読み直す(古い画像が残らないように)
 
@@ -291,7 +292,7 @@ export const Story = {
 
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     let skip = false;
-    const say = (html, cls = '') => { sub.className = 'op-sub ' + cls; sub.innerHTML = html; void sub.offsetWidth; sub.classList.add('in'); };
+    const say = (html, cls = '') => { sub.className = 'op-sub ' + cls; sub.innerHTML = T(html); void sub.offsetWidth; sub.classList.add('in'); };
     const clear = () => { sub.classList.remove('in'); stage.innerHTML = ''; };
     const put = (html) => { stage.innerHTML = html; return stage.firstElementChild; };
     const end = () => {

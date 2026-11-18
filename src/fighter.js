@@ -13,6 +13,7 @@ import { Voice } from './voice.js';
 import { RemoteInput } from './net.js';
 import { Input } from './input.js';
 import { clamp, rnd, angTo, angDamp, damp, D2R } from './util.js';
+import { T } from './i18n.js';
 
 export const AWAKE_DUR = 18;
 const TEAM_GLOW = [[0.5, 1.4, 3.6], [3.6, 0.7, 0.4]];
@@ -68,8 +69,8 @@ export class Fighter {
     const c = this.tagCv.getContext('2d'), f = clamp(this.hp / this.maxHp, 0, 1); this.tagHp = f;
     c.clearRect(0, 0, 256, 64);
     c.font = '900 26px "Hiragino Sans","Yu Gothic","Noto Sans JP",sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.lineWidth = 6; c.strokeStyle = 'rgba(0,0,0,0.85)'; c.strokeText(this.name, 128, 22);
-    c.fillStyle = this.boss ? '#ffd76a' : this.team === 0 ? '#bfe0ff' : '#ffc9c0'; c.fillText(this.name, 128, 22);
+    c.lineWidth = 6; c.strokeStyle = 'rgba(0,0,0,0.85)'; c.strokeText(T(this.name), 128, 22);
+    c.fillStyle = this.boss ? '#ffd76a' : this.team === 0 ? '#bfe0ff' : '#ffc9c0'; c.fillText(T(this.name), 128, 22);
     c.fillStyle = 'rgba(0,0,0,0.75)'; c.fillRect(38, 44, 180, 12);
     c.fillStyle = this.team === 0 ? '#4aa8ff' : this.boss ? '#ff4a6a' : '#ff6a3a'; c.fillRect(40, 46, 176 * f, 8);
     this.tagTex.needsUpdate = true;
