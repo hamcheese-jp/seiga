@@ -32,6 +32,15 @@ const App = {
     this.field = new Town(UI); this.field.setHero(UI.sel.hero);
     preloadWeapons().then(() => { if (this.field) this.field.setHero(UI.sel.hero, true); });
     UI.show('title');
+    // タイトル曲: 自動再生が許されていればすぐ鳴らす。だめなら最初のタップで鳴らし、
+    // そのタップではタイトルに留まる(曲を聴いてから、もう一度タップで開始)
+    Audio.init(); Audio.bgm('title');
+    const unlock = () => {
+      const was = Audio.ctx && Audio.ctx.state === 'running';
+      Audio.resume(); if (!was && UI.cur === 'title') this.holdTitle = true;
+      removeEventListener('pointerdown', unlock, true); removeEventListener('keydown', unlock, true);
+    };
+    addEventListener('pointerdown', unlock, true); addEventListener('keydown', unlock, true);
     const boot = document.getElementById('boot');
     boot.classList.add('out'); setTimeout(() => boot.remove(), 700);
     requestAnimationFrame((t) => this.loop(t));

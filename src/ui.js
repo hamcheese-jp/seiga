@@ -83,7 +83,9 @@ export const UI = {
     const S = Save.data, sel = this.sel;
     Audio.resume();
     switch (a) {
-      case 'start': Audio.sfx('ok');
+      case 'start':
+        if (this.app.holdTitle) { this.app.holdTitle = false; Audio.bgm('title'); break; }
+        Audio.sfx('ok');
         this.enterGame();
         if (this.invite) { this.joinInvite(); break; }
         // 初回はオープニングムービーから。まだ一度も戦っていなければ、そのまま第一章へ

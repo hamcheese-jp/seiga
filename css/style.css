@@ -422,3 +422,6 @@ body.field #touch .btn { display: none; }
 .invite a.sbtn.line { background: #06c755; border-color: #06c755; color: #fff; }
 /* 感想入力 */
 .set textarea { width: 100%; background: rgba(0, 0, 0, .55); border: 1px solid var(--line); color: #fff; padding: 6px 8px; border-radius: 3px; font: inherit; font-size: 13px; resize: vertical; user-select: text; -webkit-user-select: text; }
+/* 町・地図の画面は透明な層が全面を覆うので、タッチは下の操作レイヤー(#touch)へ通す */
+#s-home { pointer-events: none; }
+#s-home .head, #s-home button, #s-home a { pointer-events: auto; }
