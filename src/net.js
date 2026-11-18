@@ -166,7 +166,7 @@ export class NetHost {
       const s = H.list[i], o = i * 8;
       S[o] = Math.round(s.x * 50); S[o + 1] = Math.round(s.z * 50); S[o + 2] = Math.round((s.y + s.yo) * 100);
       S[o + 3] = Math.round(((s.yaw % 6.2832) + 6.2832) % 6.2832 * 1000); S[o + 4] = Math.round(s.pitch * 1000);
-      S[o + 5] = s.st | (s.team << 3) | (s.type << 4) | (s.cap ? 32 : 0) | (s.landed ? 64 : 0) | (s.slow > 0 ? 128 : 0) | (s.burn > 0 ? 256 : 0) | (s.stun > 0 ? 512 : 0) | (s.flash > 0.3 ? 1024 : 0);
+      S[o + 5] = s.st | (s.team << 3) | ((s.type & 7) << 4) | (s.cap ? 128 : 0) | (s.landed ? 256 : 0) | (s.slow > 0 ? 512 : 0) | (s.burn > 0 ? 1024 : 0) | (s.stun > 0 ? 2048 : 0) | (s.flash > 0.3 ? 4096 : 0);   // type は職業(3ビット)
       S[o + 6] = Math.round(clamp(s.t, -1, 30) * 1000); S[o + 7] = Math.round(s.mv * 100) | (Math.round((s.ph % 6.2832) * 4) << 11);
     }
     const G = { time: B.time, state: B.state, ko: B.ko, combo: B.combo, morale: B.morale, sealed: B.sealed,
@@ -226,9 +226,9 @@ export class NetGuest {
         if (s.__g !== 1 || Math.abs(nx - s.x) > 4 || Math.abs(nz - s.z) > 4) { s.x = nx; s.z = nz; }
         s.tx = nx; s.tz = nz; s.__g = 1;
         s.y = Math.max(0, S[o + 2] / 100); s.yo = Math.min(0, S[o + 2] / 100); s.yaw = S[o + 3] / 1000; s.pitch = S[o + 4] / 1000;
-        s.st = fl & 7; s.team = (fl >> 3) & 1; s.type = (fl >> 4) & 1; s.cap = !!(fl & 32); s.landed = !!(fl & 64); s.slow = fl & 128 ? 1 : 0; s.burn = fl & 256 ? 1 : 0; s.stun = fl & 512 ? 1 : 0;
-        if (fl & 1024) s.flash = 1;
-        s.t = S[o + 6] / 1000; s.mv = (S[o + 7] & 2047) / 100; s.ph = (S[o + 7] >> 11) / 4; s.scale = s.cap ? 1.34 : 1.0; s.alive = s.st !== ST.DEAD;
+        s.st = fl & 7; s.team = (fl >> 3) & 1; s.type = (fl >> 4) & 7; s.cap = !!(fl & 128); s.landed = !!(fl & 256); s.slow = fl & 512 ? 1 : 0; s.burn = fl & 1024 ? 1 : 0; s.stun = fl & 2048 ? 1 : 0;
+        if (fl & 4096) s.flash = 1;
+        s.t = S[o + 6] / 1000; s.mv = (S[o + 7] & 2047) / 100; s.ph = (S[o + 7] >> 11) / 4; s.scale = s.cap ? 1.34 : s.type === 4 ? 1.14 : 1.0; s.alive = s.st !== ST.DEAD;
       }
       // 合戦全体
       const G = d.G;

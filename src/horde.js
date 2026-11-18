@@ -7,6 +7,15 @@ import { FX } from './fx.js';
 import { makeSoldierMesh, setAnim } from './vat.js';
 
 export const ST = { FREE: 0, ATK: 1, HIT: 2, AIR: 3, DOWN: 4, GETUP: 5, DEAD: 6 };
+// 雑兵の職業: 0刀兵 1槍兵 2弓兵 3術兵 4重装兵(大槌)。w=持つ武器(soldier*.bin の武器番号)、shot=飛び道具
+export const SJOB = [
+  { n: '刀兵', w: 1, reach: 1.6 },
+  { n: '槍兵', w: 2, reach: 2.3 },
+  { n: '弓兵', w: 3, reach: 11, shot: 'arrow', hp: 0.8, dmg: 0.9 },
+  { n: '術兵', w: 4, reach: 9.5, shot: 'fire', hp: 0.7, dmg: 1.3 },
+  { n: '重装兵', w: 5, reach: 1.9, hp: 2.2, dmg: 1.6, spd: 0.72, scale: 1.14 },
+];
+const pickJob = () => { const r = Math.random(); return r < 0.4 ? 0 : r < 0.64 ? 1 : r < 0.8 ? 2 : r < 0.9 ? 4 : 3; };
 const lin = (h) => { const c = new THREE.Color(h); return [c.r, c.g, c.b]; };
 const TINT = [lin('#2b5fd9'), lin('#c8261f')], CAPT = [[0.5, 1.0, 2.6], [2.6, 0.9, 0.25]];
 const HALF_PI = Math.PI / 2;
@@ -49,9 +58,11 @@ export class Horde {
     if (this.n >= this.cap) return null;
     let s = this.list[this.n]; if (!s) { s = {}; this.list[this.n] = s; }
     this.n++;
+    if (!o.captain) type = o.job ?? pickJob();
+    const J = SJOB[type] || SJOB[0];
     s.gen = this.gen++; s.team = team; s.type = type; s.x = x; s.z = z; s.y = 0; s.yo = 0; s.vx = s.vz = s.vy = 0; s.yaw = o.yaw ?? rnd(6.28);
-    s.cap = !!o.captain; s.scale = s.cap ? 1.34 : 0.93 + rnd(0.15);
-    s.maxHp = s.hp = o.hp || 40; s.dmg = o.dmg || 10; s.spd = (s.cap ? 3.5 : 3.8) + rnd(0.9); s.reach = (type === 1 ? 2.3 : 1.6) * (s.cap ? 1.2 : 1);
+    s.cap = !!o.captain; s.scale = s.cap ? 1.34 : (0.93 + rnd(0.15)) * (J.scale || 1);
+    s.maxHp = s.hp = (o.hp || 40) * (s.cap ? 1 : J.hp || 1); s.dmg = (o.dmg || 10) * (s.cap ? 1 : J.dmg || 1); s.spd = ((s.cap ? 3.5 : 3.8) + rnd(0.9)) * (J.spd || 1); s.reach = J.reach * (s.cap ? 1.2 : 1); s.shot = s.cap ? null : J.shot || null;
     s.st = ST.FREE; s.t = 0; s.ph = rnd(6.28); s.cd = 0.4 + rnd(2.2); s.think = rnd(0.5); s.tgt = null; s.tgen = 0;
     s.sq = o.squad || null; s.ox = o.ox ?? 0; s.oz = o.oz ?? 0; s.base = o.base || null;
     s.flash = 0; s.pitch = 0; s.spin = 0; s.stun = 0; s.slow = 0; s.burn = 0; s.burnT = 0; s.burnDmg = 0; s.burnSrc = null;
@@ -163,6 +174,7 @@ export class Horde {
           if (s.t < wind) s.arm = -2.7 * Math.min(1, s.t / (wind * 0.7));
           else if (s.t < wind + 0.14) {
             s.arm = -2.7 + 2.5 * ((s.t - wind) / 0.14);
+            if (!s.hitDone && s.shot) { s.hitDone = true; this._shoot(s); }
             if (!s.hitDone) {
               s.hitDone = true;
               const t = s.tgt;
@@ -238,9 +250,41 @@ export class Horde {
         if (stage.constrain(s, 0.4) && s.st === ST.AIR) { s.vx *= -0.3; s.vz *= -0.3; }
       } else if (moved) stage.constrain(s, 0.4);
     }
+    this._shots(dt);
     // 除去(末尾と入れ替え)
     for (let i = this.n - 1; i >= 0; i--) if (L[i].rm) { const last = L[this.n - 1]; L[this.n - 1] = L[i]; L[i] = last; this.n--; }
     this._write();
+  }
+
+  // 雑兵の飛び道具: 狙った相手の方へ真っすぐ飛び、最初に当たった敵(武将・雑兵)で止まる
+  _shoot(s) {
+    const B = this.B, t = s.tgt; if (!t || !t.alive) return;
+    const yaw = Math.atan2(t.x - s.x, t.z - s.z) + rnd(-0.06, 0.06), sp = s.shot === 'arrow' ? 26 : 16;
+    const o = { s, team: s.team, x: s.x + Math.sin(yaw) * 0.6, z: s.z + Math.cos(yaw) * 0.6, vx: Math.sin(yaw) * sp, vz: Math.cos(yaw) * sp, life: s.reach / sp + 0.25, kind: s.shot, fxi: null, dmg: s.dmg * B.soldierMul(s.team) * (s.shot === 'fire' ? 1.2 : 1) };
+    if (B.nearCam(o.x, o.z, 45)) {
+      if (o.kind === 'arrow') o.fxi = FX.arrow(o.x, 1.3, o.z, yaw, 0.85, 99);
+      else { const c = s.team === 1 ? [3.2, 1.0, 0.3] : [0.6, 1.4, 3.2]; o.fxi = FX.shell(o.x, 1.2, o.z, c, 0.35, 0.35, 99, 1.6); }
+    }
+    (this.shots || (this.shots = [])).push(o);
+  }
+  _shots(dt) {
+    const S = this.shots; if (!S || !S.length) return;
+    const B = this.B;
+    for (let i = S.length - 1; i >= 0; i--) {
+      const o = S[i]; o.life -= dt; o.x += o.vx * dt; o.z += o.vz * dt;
+      if (o.fxi && !o.fxi.dead) { o.fxi.mesh.position.x = o.x; o.fxi.mesh.position.z = o.z; }
+      let hit = null;
+      for (const f of B.fighters) { if (f.team === o.team || !f.alive || f.ghost) continue; const dx = f.x - o.x, dz = f.z - o.z, r = f.rad + 0.35; if (dx * dx + dz * dz < r * r) { hit = f; break; } }
+      if (!hit) this.forEachIn(o.x, o.z, 1, (t) => { if (!hit && t.team !== o.team && t.st !== ST.DEAD) { const dx = t.x - o.x, dz = t.z - o.z, r = t.rad + 0.3; if (dx * dx + dz * dz < r * r) hit = t; } });
+      if (hit) {
+        const l = Math.hypot(o.vx, o.vz) || 1, kx = o.vx / l, kz = o.vz / l;
+        if (hit.isFighter) hit.takeHit(o.dmg, kx * 2, kz * 2, 0, o.s, 0);
+        else this.damage(hit, o.dmg * 0.8, kx * 2, kz * 2, 0, o.s);
+        if (B.nearCam(o.x, o.z, 35)) FX.spark(o.x, 1.1, o.z, 2.5, 2.0, 1.4, 4, 3);
+        o.life = 0;
+      }
+      if (o.life <= 0 || B.stage.sdf(o.x, o.z) > 0.8) { FX.kill(o.fxi); S[i] = S[S.length - 1]; S.pop(); }
+    }
   }
 
   _write() {
@@ -309,7 +353,7 @@ export class Horde {
       const mi = s.team === 1 && this.vat2 ? 1 : 0, m = meshes[mi], j = cnt[mi]++;
       const M = m.instanceMatrix.array, C = m.instanceColor.array, A = m.userData.anim.array, clips = m.userData.clips;
       let clip = 'idle', u = time * 0.24 + i * 0.37, pitch = 0, yo = 0, tumble = false;
-      const wpn = s.type === 1 ? 2 : 1;
+      const wpn = (SJOB[s.type] || SJOB[0]).w;
       if (st === ST.FREE) {
         if (s.stun > 0) { clip = 'hit'; u = 0.45; }
         else if (s.mv > 0.1) { clip = 'walk'; u = s.ph / 6.2832; }
