@@ -1,6 +1,6 @@
 // 画面UI: 合戦HUD・演出テロップ・各メニュー画面(DOM)
 import { Save, Cloud } from './save.js';
-import { weaponFit, JOBS, APT, heroJob, weaponApt, armorApt, WEAPON_WT, WEAPON_TYPE_NAMES, ARMOR_SLOT_KEYS, ARMOR_SLOT_TAB, ARMOR_SLOT_NAMES, ARMOR_SETS, armorName, armorSell, heroArmor,
+import { weaponFit, JOBS, APT, heroJob, weaponApt, armorApt, jobLv, wpnLv, armLv, jobOpen, aptUp, JOB_COST, JOB_MAX, MAST_MAX, armorDefOf, armorForgeCost, WEAPON_WT, WEAPON_TYPE_NAMES, ARMOR_SLOT_KEYS, ARMOR_SLOT_TAB, ARMOR_SLOT_NAMES, ARMOR_SETS, armorName, armorSell, heroArmor,
   HEROES, HERO, ELEMENTS, STAGES, ENDLESS, STAGE, DIFFS, RARITY, RAR_MAXLV, traitText, weaponName, weaponAtk, synthInfo, doSynth, SYN_MAX, starterWeapon, forgeCost, sellPrice, GACHA_COST, rollWeapon, calcStats, expNeed,
   ACHIEVEMENTS, STAR_LABELS, UNLOCKS, FOE_UNLOCKS, GAME_TITLE, GAME_SUB, MAX_LV, maxNormals, maxCharges } from './data.js';
 import { VERSION } from './config.js';
@@ -107,7 +107,8 @@ export const UI = {
       case 'ahero': Audio.sfx('ui'); this.armHero = v; this.armSel = null; this.synBase = null; this.armType = null; this.app.lobbyHero(v); this.r_armory(); break;
       case 'atype': Audio.sfx('ui'); this.armType = v; this.armSel = null; this.r_armory(); break;
       case 'jsel': Audio.sfx('ui'); this.jobSel = v; this.r_armory(); break;
-      case 'ajob': { const hs2 = S.heroes[this.armHero]; if (!JOBS[v] || heroJob(S, this.armHero) === v) { Audio.sfx('deny'); break; } hs2.job = v; Audio.sfx('levelup'); Save.persist(); this.app.lobbyHero(this.armHero, true); this.toast(`${HERO[this.armHero].name}は「${JOBS[v].n}」に転職しました`); this.r_armory(); break; }
+      case 'ajob': { const hs2 = S.heroes[this.armHero], cost = JOBS[v] ? JOB_COST[JOBS[v].tier] : 0; if (!JOBS[v] || heroJob(S, this.armHero) === v || !jobOpen(S, this.armHero, v) || S.gold < cost) { Audio.sfx('deny'); break; } S.gold -= cost; hs2.job = v; Audio.sfx('levelup'); Save.persist(); this.app.lobbyHero(this.armHero, true); this.toast(`${HERO[this.armHero].name}は「${JOBS[v].n}」に転職しました`); this.r_armory(); break; }
+      case 'aforge': { const a = S.armors.find((x) => x.uid === this.armASel); if (!a) break; const c = armorForgeCost(a); if ((a.lv || 1) >= RAR_MAXLV[a.rar] || S.gold < c) { Audio.sfx('deny'); break; } S.gold -= c; a.lv = (a.lv || 1) + 1; Audio.sfx('levelup'); Save.persist(); this.r_armory(); break; }
       case 'amode': Audio.sfx('ui'); this.armMode = v; this.armASel = null; this.synBase = null; this.r_armory(); break;
       case 'asel': Audio.sfx('ui'); this.armASel = v; this.r_armory(); break;
       case 'aequip': { const a = S.armors.find((x) => x.uid === this.armASel); if (!a) { Audio.sfx('deny'); break; }
@@ -303,7 +304,7 @@ export const UI = {
       <div class="r"><div class="panel scroll" style="flex:1">
         <div class="htitle">${h.title}</div><div class="hname">${h.name}<span class="elem" style="background:${E.css}">${E.n}</span></div>
         <p>${h.desc}</p>
-        <div class="stars">${STAR_LABELS.map((l, i) => `<span>${l}</span><span>${'★'.repeat(h.stars[i])}${'☆'.repeat(5 - h.stars[i])}</span>`).join('')}</div>
+        <div class="stat" style="flex-wrap:wrap"><span>基本能力</span><span>体力<b>${h.base.hp}</b></span><span>攻撃<b>${h.base.atk}</b></span><span>防御<b>${h.base.def}</b></span><span>速さ<b>${h.base.spd.toFixed(1)}</b></span><span>攻撃速度<b>${h.base.aspd.toFixed(2)}</b></span><span>職業<b>${JOBS[heroJob(S, h.id)].n}</b></span></div>
         ${open ? `<div class="stat"><span>Lv<b>${hs.lv}</b></span><span>体力<b>${st.hp}</b></span><span>攻撃<b>${st.atk}</b></span><span>防御<b>${st.def}</b></span></div>
         <div class="expbar"><i style="width:${hs.lv >= MAX_LV ? 100 : hs.exp / expNeed(hs.lv) * 100}%"></i></div>
         <p>${h.wname}: <b style="color:${RARITY[w.rar].col}">${weaponName(w)}</b>(攻撃+${weaponAtk(w)})</p>
@@ -316,11 +317,11 @@ export const UI = {
     const h = HERO[this.armHero], hs = S.heroes[h.id];
     if (this.armMode === 'job') return this.r_jobView(h, hs);
     if (this.armMode && this.armMode !== 'weapon') return this.r_armorView(h, hs);
-    const job = heroJob(S, h.id), mark = (t) => APT[weaponApt(job, t)].m;
+    const job = heroJob(S, h.id), wapt = (t) => aptUp(weaponApt(job, t), wpnLv(S, h.id, t).lv), mark = (t) => APT[wapt(t)].m;
     // どの武器でも装備できる。本来の武器種(適性)を先頭に並べる
     // 種類で絞り込む(最初は装備中の武器の種類)。一覧が長くなってキャラが隠れないように
     const eqW = S.weapons.find((w) => w.uid === hs.weapon);
-    const types = Object.keys(WEAPON_TYPE_NAMES).filter((t) => S.weapons.some((w) => w.type === t)).sort((a, b) => weaponApt(job, b) - weaponApt(job, a));
+    const types = Object.keys(WEAPON_TYPE_NAMES).filter((t) => S.weapons.some((w) => w.type === t)).sort((a, b) => wapt(b) - wapt(a));
     if (!this.armType || !types.includes(this.armType)) this.armType = (eqW && eqW.type) || h.wtype;
     if (!types.includes(this.armType)) this.armType = types[0];
     const list = S.weapons.filter((w) => w.type === this.armType).sort((a, b) => b.rar - a.rar || weaponAtk(b) - weaponAtk(a));
@@ -333,12 +334,12 @@ export const UI = {
       <div class="tabs">${HEROES.filter((x) => S.unlockedHeroes.includes(x.id)).map((x) => `<button class="tab ${x.id === h.id ? 'on' : ''}" data-a="ahero" data-v="${x.id}">${x.name}</button>`).join('')}</div>
       ${this.armTabs()}
       ${typeTabs}
-      <div class="cols"><div class="l scroll">${list.map((w) => `<div class="card wcard ${w.uid === cur.uid ? 'on' : ''}" style="border-left-color:${RARITY[w.rar].col}" data-a="wsel" data-v="${w.uid}"><div class="n"><div class="a" style="color:${RARITY[w.rar].col}">${weaponName(w)}${w.uid === hs.weapon ? '<span class="eq">装備中</span>' : ''}${w.isNew ? '<span class="new">NEW</span>' : ''}${w.lock ? ' 🔒' : ''}</div><div class="b">${RARITY[w.rar].star}　${WEAPON_TYPE_NAMES[w.type] || w.type}<span style="color:${weaponApt(job, w.type) > 0 ? 'var(--gold)' : '#ff8a6a'}">${mark(w.type)}</span>　特性${w.traits.length}</div></div><div class="atk">攻+${weaponAtk(w)}</div></div>`).join('')}
+      <div class="cols"><div class="l scroll">${list.map((w) => `<div class="card wcard ${w.uid === cur.uid ? 'on' : ''}" style="border-left-color:${RARITY[w.rar].col}" data-a="wsel" data-v="${w.uid}"><div class="n"><div class="a" style="color:${RARITY[w.rar].col}">${weaponName(w)}${w.uid === hs.weapon ? '<span class="eq">装備中</span>' : ''}${w.isNew ? '<span class="new">NEW</span>' : ''}${w.lock ? ' 🔒' : ''}</div><div class="b">${RARITY[w.rar].star}　${WEAPON_TYPE_NAMES[w.type] || w.type}<span style="color:${wapt(w.type) > 0 ? 'var(--gold)' : '#ff8a6a'}">${mark(w.type)}</span>　特性${w.traits.length}</div></div><div class="atk">攻+${weaponAtk(w)}</div></div>`).join('')}
         <p class="note">◎得意 ○扱える △不慣れ ×苦手(職業「${JOBS[job].n}」) ●=装備中の種類(${WEAPON_TYPE_NAMES[this.armType]} ${list.length}本 / 全武器 ${S.weapons.length}/150)</p></div>
       <div class="r"><div class="panel scroll" style="flex:1">
         <div class="dim-t" style="color:${R.col}">${R.star}　${R.n}</div><h3 style="color:${R.col}">${weaponName(cur)}</h3>
         <div class="stat"><span>攻撃<b>+${weaponAtk(cur)}</b></span><span>強化<b>${cur.lv}/${mx}</b></span></div>
-        ${(() => { const f = weaponFit(h.id, cur.type, job), A = APT[f.apt]; return `<div class="stat"><span>種類<b>${WEAPON_TYPE_NAMES[cur.type] || cur.type}</b></span><span>重さ<b>${WEAPON_WT[cur.type] ?? 1}</b></span></div><div class="stat"><span>${h.name}が持つと</span><span>移動<b>${pc(f.spd)}</b></span><span>攻撃速度<b>${pc(f.aspd)}</b></span><span style="color:${f.apt > 0 ? 'var(--gold)' : '#ff8a6a'}">適性${A.m}${A.n}${f.atk < 1 ? ' 攻撃' + pc(f.atk) : ''}</span></div>`; })()}
+        ${(() => { const f = weaponFit(h.id, cur.type, job, wpnLv(S, h.id, cur.type).lv), A = APT[f.apt]; return `<div class="stat"><span>種類<b>${WEAPON_TYPE_NAMES[cur.type] || cur.type}</b></span><span>重さ<b>${WEAPON_WT[cur.type] ?? 1}</b></span><span>熟練<b>Lv${wpnLv(S, h.id, cur.type).lv}</b></span></div><div class="stat"><span>${h.name}が持つと</span><span>移動<b>${pc(f.spd)}</b></span><span>攻撃速度<b>${pc(f.aspd)}</b></span><span style="color:${f.apt > 0 ? 'var(--gold)' : '#ff8a6a'}">適性${A.m}${A.n}${f.atk < 1 ? ' 攻撃' + pc(f.atk) : ''}</span></div>`; })()}
         ${cur.syn ? `<div class="stat"><span>合成<b style="color:${cur.syn > 0 ? 'var(--gold)' : '#ff6a6a'}">${cur.syn > 0 ? '+' : ''}${cur.syn}</b></span><span class="dim-t">攻撃${cur.syn > 0 ? '+' : ''}${cur.syn * 6}% 特性${cur.syn > 0 ? '+' : ''}${cur.syn * 4}%</span></div>` : ''}
         ${cur.traits.length ? cur.traits.map((t) => `<div class="trait"><b>${traitName(t.k)}</b>${traitText(t, cur)}</div>`).join('') : '<p class="dim-t">特性なし</p>'}
         <p class="note">敵将を倒すと武器を落とします。難易度が高いほど良質に。<br>どの武器も装備できます。適性(◎○△×)は職業で決まり、不得手な武器ほど攻撃と攻撃速度が下がります。重い武器ほど動きが遅くなります。技は武器の種類で決まります。</p></div>
@@ -360,19 +361,30 @@ export const UI = {
     const S = Save.data, job = heroJob(S, h.id), sel = JOBS[this.jobSel] ? this.jobSel : job, J = JOBS[sel], st = calcStats(S, h.id);
     const MODN = { atk: '攻撃', hp: '体力', def: '防御', spd: '移動', aspd: '攻撃速度', range: '間合い', crit: '会心', steal: '吸収', elem: '属性', charge: '溜め' };
     const cell = (a) => `<b style="color:${a > 0 ? 'var(--gold)' : a < 0 ? '#ff6a6a' : '#ccc'}">${APT[a].m}</b>`;
+    const lvTxt = (L) => (L.max ? 'Lv' + L.lv + '(最大)' : 'Lv' + L.lv);
+    const card = ([k, j]) => { const L = jobLv(S, h.id, k), open = jobOpen(S, h.id, k);
+      return `<div class="card wcard ${k === sel ? 'on' : ''}" data-a="jsel" data-v="${k}" style="${open ? '' : 'opacity:.55'}"><div class="n"><div class="a">${j.n}${k === job ? '<span class="eq">いまの職業</span>' : ''}${open ? '' : ' 🔒'}</div><div class="b">${open ? lvTxt(L) + '　得意: ' + Object.keys(j.w).filter((t) => j.w[t] === 2).map((t) => WEAPON_TYPE_NAMES[t]).join('・') : '条件: ' + j.req.map((r) => JOBS[r].n + ' Lv' + JOB_MAX[JOBS[r].tier]).join(' + ')}</div></div></div>`; };
+    const tiers = [1, 2, 3].map((t) => `<p class="dim-t" style="margin:6px 0 2px">${t}次職</p>` + Object.entries(JOBS).filter(([, j]) => j.tier === t).map(card).join('')).join('');
+    const L = jobLv(S, h.id, sel), open = jobOpen(S, h.id, sel), cost = JOB_COST[J.tier];
+    const wm = Object.keys(WEAPON_TYPE_NAMES).map((t) => `<span>${WEAPON_TYPE_NAMES[t]}<b>${wpnLv(S, h.id, t).lv}</b></span>`).join('');
+    const am = Object.keys(ARMOR_SETS).map((k) => `<span>${ARMOR_SETS[k].n}<b>${armLv(S, h.id, k).lv}</b></span>`).join('');
     this.html('armory', `${this.head('装備', 'home')}
       <div class="tabs">${HEROES.filter((x) => S.unlockedHeroes.includes(x.id)).map((x) => `<button class="tab ${x.id === h.id ? 'on' : ''}" data-a="ahero" data-v="${x.id}">${x.name}</button>`).join('')}</div>
       ${this.armTabs()}
-      <div class="cols"><div class="l scroll">${Object.entries(JOBS).map(([k, j]) => `<div class="card wcard ${k === sel ? 'on' : ''}" data-a="jsel" data-v="${k}"><div class="n"><div class="a">${j.n}${k === job ? '<span class="eq">いまの職業</span>' : ''}</div><div class="b">得意: ${Object.keys(j.w).filter((t) => j.w[t] === 2).map((t) => WEAPON_TYPE_NAMES[t]).join('・')}</div></div></div>`).join('')}
-        <p class="note">${h.name}のいまの職業: ${JOBS[job].n}</p></div>
+      <div class="cols"><div class="l scroll">${tiers}<p class="note">${h.name}のいまの職業: ${JOBS[job].n} ${lvTxt(jobLv(S, h.id, job))}</p></div>
       <div class="r"><div class="panel scroll" style="flex:1">
-        <h3>${J.n}</h3><p class="dim-t">${J.d}</p>
+        <div class="dim-t">${J.tier}次職　${open ? lvTxt(L) + (L.max ? '' : `(次まで ${L.need - L.cur})`) : '未解放'}</div><h3>${J.n}</h3><p class="dim-t">${J.d}</p>
+        ${J.req ? `<div class="stat"><span>解放の条件</span>${J.req.map((r) => { const R = jobLv(S, h.id, r); return `<span>${JOBS[r].n}<b style="color:${R.max ? 'var(--gold)' : '#ff8a6a'}">Lv${R.lv}/${JOB_MAX[JOBS[r].tier]}</b></span>`; }).join('')}</div>` : ''}
         <div class="stat"><span>能力の傾向</span>${Object.entries(J.mod).map(([k, v]) => `<span>${MODN[k] || k}<b style="color:${v > 0 ? 'var(--gold)' : '#ff8a6a'}">${v > 0 ? '+' : ''}${v}%</b></span>`).join('')}</div>
         <div class="stat" style="flex-wrap:wrap"><span>武器</span>${Object.keys(WEAPON_TYPE_NAMES).map((t) => `<span>${WEAPON_TYPE_NAMES[t]}${cell(J.w[t] ?? 0)}</span>`).join('')}</div>
         <div class="stat"><span>鎧</span>${Object.keys(ARMOR_SETS).map((k) => `<span>${ARMOR_SETS[k].n}${cell(J.a[k] ?? 1)}</span>`).join('')}</div>
+        <div class="stat" style="flex-wrap:wrap"><span>武器の熟練</span>${wm}</div>
+        <div class="stat"><span>鎧の熟練</span>${am}</div>
         <div class="stat"><span>いまの${h.name}</span><span>攻撃<b>${st.atk}</b></span><span>防御<b>${st.def}</b></span><span>体力<b>${st.hp}</b></span></div>
-        <p class="note">◎得意 ○扱える △不慣れ ×苦手。不得手な武器ほど攻撃と攻撃速度が下がり、不得手な鎧ほど防御が下がります。<br>転職はいつでも無料です。技は武器の種類で決まり、職業では変わりません。</p></div>
-        <div class="row"><button class="pbtn" style="font-size:15px;padding:8px 18px" data-a="ajob" data-v="${sel}" ${sel === job ? 'disabled' : ''}>${sel === job ? 'いまの職業' : '「' + J.n + '」に転職する'}</button></div></div></div>`);
+        <p class="note">◎得意 ○扱える △不慣れ ×苦手。不得手な武器ほど攻撃と攻撃速度が下がり、不得手な鎧ほど防御が下がります。<br>
+          合戦で、いまの職業・持っている武器・着ている鎧の熟練が上がります。職業のレベルで能力が伸び、武器・鎧の熟練はLv10・20で適性が1段ずつ良くなります。<br>
+          1次職2つを最大にすると2次職、2次職2つを最大にすると3次職に転職できます。技は武器の種類で決まります。</p></div>
+        <div class="row"><button class="pbtn" style="font-size:15px;padding:8px 18px" data-a="ajob" data-v="${sel}" ${sel === job || !open || S.gold < cost ? 'disabled' : ''}>${sel === job ? 'いまの職業' : !open ? '条件を満たしていません' : '「' + J.n + '」に転職する ' + cost + '金'}</button></div></div></div>`);
   },
   // 防具の画面: 選んだ部位の手持ちを並べ、着ける・外す・売る
   r_armorView(h, hs) {
@@ -389,12 +401,13 @@ export const UI = {
         <p class="note">${ARMOR_SLOT_NAMES[slot]} ${list.length}個(全防具 ${S.armors.length}/120)</p></div>
       <div class="r"><div class="panel scroll" style="flex:1">
         ${cur ? `<div class="dim-t" style="color:${R.col}">${R.star}　${R.n}</div><h3 style="color:${R.col}">${armorName(cur)}</h3>
-        <div class="stat"><span>防御<b>+${cur.def}</b></span><span>部位<b>${ARMOR_SLOT_TAB[slot]}</b></span>${(() => { const A = APT[armorApt(heroJob(S, h.id), cur.set)]; return `<span style="color:${A.def >= 1 ? 'var(--gold)' : '#ff8a6a'}">適性${A.m}${A.n} 防御${A.def >= 1 ? '+' : ''}${Math.round((A.def - 1) * 100)}%</span>`; })()}</div>
+        <div class="stat"><span>防御<b>+${armorDefOf(cur)}</b></span><span>強化<b>${cur.lv || 1}/${RAR_MAXLV[cur.rar]}</b></span><span>熟練<b>Lv${armLv(S, h.id, cur.set).lv}</b></span><span>部位<b>${ARMOR_SLOT_TAB[slot]}</b></span>${(() => { const A = APT[aptUp(armorApt(heroJob(S, h.id), cur.set), armLv(S, h.id, cur.set).lv)]; return `<span style="color:${A.def >= 1 ? 'var(--gold)' : '#ff8a6a'}">適性${A.m}${A.n} 防御${A.def >= 1 ? '+' : ''}${Math.round((A.def - 1) * 100)}%</span>`; })()}</div>
         <p class="dim-t">${ARMOR_SETS[cur.set].d}</p>` : '<p class="dim-t">防具なし</p>'}
         <div class="stat"><span>${h.name}の防御<b>${st.def}</b></span><span>うち防具<b>+${st.armDef}</b></span></div>
         <div class="stat">${ARMOR_SLOT_KEYS.map((k) => `<span>${ARMOR_SLOT_TAB[k]}<b>${worn[k] ? ARMOR_SETS[worn[k].set].n : '—'}</b></span>`).join('')}</div>
         <p class="note">防具は合戦に勝つと手に入ります。部位ごとに違う鎧を組み合わせられ、着けた鎧は姿にも表れます。<br>鎧のセットごとの適性(◎○△×)は職業で決まり、防御が増減します。</p></div>
         <div class="row"><button class="sbtn" data-a="aequip" ${!cur || eq ? 'disabled' : ''}>${eq ? '装備中' : '装備'}</button>
+          <button class="sbtn" data-a="aforge" ${!cur || (cur.lv || 1) >= RAR_MAXLV[cur.rar] || S.gold < armorForgeCost(cur) ? 'disabled' : ''}>強化 ${!cur ? '' : (cur.lv || 1) >= RAR_MAXLV[cur.rar] ? '(最大)' : armorForgeCost(cur) + '金'}</button>
           <button class="sbtn" data-a="aunequip" ${hs.armor[slot] ? '' : 'disabled'}>外す</button>
           <button class="sbtn" data-a="asell" ${!cur || eq || cur.lock || wearer[cur.uid] ? 'disabled' : ''}>売却${cur ? ' +' + armorSell(cur) : ''}</button>
           <button class="sbtn" data-a="alock" ${cur ? '' : 'disabled'}>${cur && cur.lock ? '保護解除' : '保護'}</button></div></div></div>`);
@@ -602,6 +615,7 @@ export const UI = {
           <span>${h.name}</span><b>Lv${o.lv.from}${o.lv.to > o.lv.from ? ` → <span class="lvup">Lv${o.lv.to}!</span>` : ''}</b></div>
         <div class="expbar"><i style="width:${hs.lv >= MAX_LV ? 100 : hs.exp / expNeed(hs.lv) * 100}%"></i></div>
         ${maxNormals(o.lv.to) > maxNormals(o.lv.from) || maxCharges(o.lv.to) > maxCharges(o.lv.from) ? '<p class="lvup">新たな技を習得した!</p>' : ''}
+        ${(o.mast || []).length ? `<p class="lvup">熟練度アップ: ${o.mast.join(' / ')}</p>` : ''}
         ${o.unlock ? `<p class="lvup">新たな星牙使い「${o.unlock.name}」が参戦!</p>` : ''}${o.unlockFoe ? `<p class="lvup">星の記憶「${o.unlockFoe.name}」の力が使えるようになった!</p>` : ''}
         ${r.relic ? '<p style="color:#ff5a7a;font-weight:700">✦ 神器を授かった! ✦</p>' : ''}
         ${o.ach.map((a) => `<p style="color:var(--gold)">称号獲得: ${a.n}${a.gold ? ' (+' + a.gold + '金)' : ''}</p>`).join('')}

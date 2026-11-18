@@ -262,8 +262,9 @@ export const STAGE = Object.fromEntries([...STAGES, ENDLESS].map((s) => [s.id, s
 
 // ---- 武器 ----
 export const RARITY = [null,
-  { n: '並', col: '#b8bcc4', star: '★' }, { n: '良', col: '#7ee08a', star: '★★' }, { n: '逸品', col: '#6ab8ff', star: '★★★' },
-  { n: '秘宝', col: '#c98bff', star: '★★★★' }, { n: '至宝', col: '#ffc24a', star: '★★★★★' }, { n: '神器', col: '#ff5a7a', star: '✦神器✦' }];
+  // star: 画面に出すレア度の表示(星ではなく数字のランク)
+  { n: '並', col: '#b8bcc4', star: 'ランク1' }, { n: '良', col: '#7ee08a', star: 'ランク2' }, { n: '逸品', col: '#6ab8ff', star: 'ランク3' },
+  { n: '秘宝', col: '#c98bff', star: 'ランク4' }, { n: '至宝', col: '#ffc24a', star: 'ランク5' }, { n: '神器', col: '#ff5a7a', star: 'ランク6' }];
 const RAR_ATK = [0, 0.8, 1.0, 1.25, 1.55, 1.9, 2.5];
 export const RAR_MAXLV = [0, 5, 8, 10, 12, 15, 20];
 export const WEAPON_NAMES = {
@@ -389,28 +390,61 @@ export const JOB_OF = { reiga: 'kenshi', setsuna: 'souhei', raika: 'shinobi', ga
 export const heroJob = (save, id) => { const j = save && save.heroes && save.heroes[id] && save.heroes[id].job; return JOBS[j] ? j : (JOB_OF[id] || 'kenshi'); };
 export const weaponApt = (job, type) => (JOBS[job] ? JOBS[job].w[type] ?? 0 : 0);
 export const armorApt = (job, set) => (JOBS[job] ? JOBS[job].a[set] ?? 1 : 1);
+// 上位職: 2次職は1次職2つ、3次職は2次職2つをレベル最大にすると転職できる(req)
+Object.assign(JOBS, {
+  samurai: { tier: 2, req: ['kenshi', 'shinobi'], n: '侍', d: '剣と忍びの技を併せ持つ。二刀も弓もこなす。', w: { sword: 2, twin: 2, bow: 1, spear: 1, fan: 1, scythe: 0, staff: 0, axe: 0, hammer: -1 }, a: { guren: 2, souten: 2, kurogane: 1, ougon: 0 }, mod: { atk: 8, crit: 6, spd: 6 } },
+  musha: { tier: 2, req: ['kenshi', 'goushi'], n: '武者', d: '重い鎧に身を固め、大太刀も大槌も振るう。', w: { sword: 2, hammer: 2, axe: 2, spear: 1, scythe: 1, twin: 0, bow: 0, fan: -1, staff: -1 }, a: { kurogane: 2, ougon: 2, guren: 2, souten: 1 }, mod: { atk: 8, hp: 10, def: 6 } },
+  ryukishi: { tier: 2, req: ['souhei', 'goushi'], n: '竜騎士', d: '長柄と重鎧で戦場を突き崩す。', w: { spear: 2, axe: 2, hammer: 1, scythe: 1, sword: 1, staff: 0, bow: 0, twin: -1, fan: -1 }, a: { kurogane: 2, ougon: 2, souten: 1, guren: 1 }, mod: { def: 10, range: 8, hp: 8 } },
+  kariudo: { tier: 2, req: ['kyuhei', 'shinobi'], n: '狩人', d: '遠近どちらも鋭い。弓と二刀を使い分ける。', w: { bow: 2, twin: 2, spear: 1, fan: 1, sword: 1, staff: 0, scythe: 0, hammer: -1, axe: -1 }, a: { guren: 2, souten: 2, kurogane: 0, ougon: -1 }, mod: { range: 12, spd: 10, crit: 5 } },
+  miko: { tier: 2, req: ['maihime', 'madou'], n: '巫女', d: '舞と祈りで星の力を引き出す。', w: { fan: 2, staff: 2, bow: 1, twin: 1, spear: 0, sword: 0, scythe: 0, hammer: -1, axe: -1 }, a: { souten: 2, guren: 2, kurogane: 0, ougon: -1 }, mod: { elem: 30, aspd: 6, charge: 8 } },
+  jujutsu: { tier: 2, req: ['shinigami', 'madou'], n: '呪術師', d: '鎌と杖で呪いを振りまく。', w: { staff: 2, scythe: 2, fan: 1, spear: 1, bow: 0, sword: 0, twin: 0, hammer: -1, axe: -1 }, a: { souten: 2, kurogane: 1, guren: 1, ougon: 0 }, mod: { elem: 25, steal: 4, charge: 12 } },
+  naginata: { tier: 2, req: ['souhei', 'maihime'], n: '薙刀師', d: '長柄を舞うように振るう。', w: { spear: 2, fan: 2, scythe: 1, twin: 1, staff: 1, sword: 0, bow: 0, hammer: -1, axe: 0 }, a: { souten: 2, guren: 2, kurogane: 1, ougon: 0 }, mod: { range: 8, aspd: 6, spd: 5 } },
+  shokei: { tier: 2, req: ['shinigami', 'goushi'], n: '処刑人', d: '大鎌・大斧で一刀のもとに断つ。', w: { scythe: 2, axe: 2, hammer: 2, sword: 1, spear: 1, twin: 0, staff: 0, bow: -1, fan: -1 }, a: { kurogane: 2, ougon: 2, guren: 1, souten: 0 }, mod: { atk: 10, steal: 4, hp: 6 } },
+  kensei: { tier: 3, req: ['samurai', 'musha'], n: '剣聖', d: '剣の道を極めた者。あらゆる武具を使いこなす。', w: { sword: 2, twin: 2, spear: 2, axe: 1, hammer: 1, bow: 1, scythe: 1, fan: 1, staff: 0 }, a: { guren: 2, kurogane: 2, souten: 2, ougon: 1 }, mod: { atk: 15, crit: 10, spd: 6 } },
+  haou: { tier: 3, req: ['musha', 'shokei'], n: '覇王', d: '重き武と鎧で天下を制する。', w: { hammer: 2, axe: 2, scythe: 2, sword: 2, spear: 1, twin: 0, staff: 0, bow: 0, fan: -1 }, a: { kurogane: 2, ougon: 2, guren: 2, souten: 1 }, mod: { atk: 14, hp: 15, def: 10 } },
+  tenryu: { tier: 3, req: ['ryukishi', 'naginata'], n: '天竜将', d: '長柄で天を突く竜の将。', w: { spear: 2, fan: 2, axe: 2, scythe: 1, hammer: 1, staff: 1, sword: 1, twin: 0, bow: 0 }, a: { kurogane: 2, souten: 2, ougon: 2, guren: 1 }, mod: { def: 12, range: 15, spd: 6 } },
+  tenkyu: { tier: 3, req: ['kariudo', 'samurai'], n: '天弓', d: '天をも穿つ弓の達人。', w: { bow: 2, twin: 2, sword: 2, spear: 1, fan: 1, staff: 1, scythe: 0, hammer: -1, axe: 0 }, a: { guren: 2, souten: 2, kurogane: 1, ougon: 0 }, mod: { range: 18, crit: 12, spd: 10 } },
+  daikenja: { tier: 3, req: ['miko', 'jujutsu'], n: '大賢者', d: '星の理を知り尽くした魔導の頂。', w: { staff: 2, fan: 2, scythe: 2, bow: 1, spear: 1, twin: 0, sword: 0, hammer: -1, axe: -1 }, a: { souten: 2, guren: 2, kurogane: 1, ougon: 0 }, mod: { elem: 45, charge: 20, aspd: 6 } },
+  meiou: { tier: 3, req: ['jujutsu', 'shokei'], n: '冥王', d: '冥府の鎌と呪いを統べる。', w: { scythe: 2, staff: 2, axe: 2, hammer: 1, spear: 1, sword: 1, twin: 0, fan: 0, bow: -1 }, a: { kurogane: 2, ougon: 2, souten: 1, guren: 1 }, mod: { atk: 12, elem: 25, steal: 6 } },
+});
+for (const j of Object.values(JOBS)) j.tier = j.tier || 1;
+// 熟練度: 職業・武器の種類・鎧のセットごと(武将ごと)。合戦で得た経験の一部が、いまの職業・持っている武器・着ている鎧に入る
+export const JOB_MAX = { 1: 20, 2: 25, 3: 30 }, MAST_MAX = 20;
+export const JOB_COST = { 1: 500, 2: 3000, 3: 10000 };   // 転職にかかるお金(転職先の段階で決まる)
+export const mastNeed = (lv) => 100 + 60 * lv;
+export function mastLv(exp, max) { let lv = 1, e = exp || 0; while (lv < max && e >= mastNeed(lv)) { e -= mastNeed(lv); lv++; } return { lv, cur: lv >= max ? 0 : e, need: lv >= max ? 0 : mastNeed(lv), max: lv >= max }; }
+export const heroMast = (save, id) => { const hs = save.heroes[id] || {}; return hs.mast || (hs.mast = { job: {}, wpn: {}, arm: {} }); };
+export const jobLv = (save, id, job) => mastLv(heroMast(save, id).job[job], JOB_MAX[JOBS[job].tier]);
+export const wpnLv = (save, id, t) => mastLv(heroMast(save, id).wpn[t], MAST_MAX);
+export const armLv = (save, id, set) => mastLv(heroMast(save, id).arm[set], MAST_MAX);
+// 転職できるか: 1次職はいつでも。上位職は条件の2職がレベル最大
+export const jobOpen = (save, id, job) => { const J = JOBS[job]; return !J.req || J.req.every((r) => jobLv(save, id, r).max); };
+// 熟練度で適性が上がる: レベル10・20で1段ずつ(最大◎)
+export const aptUp = (apt, lv) => Math.min(2, apt + (lv >= 20 ? 2 : lv >= 10 ? 1 : 0));
+
 // 武器を持った時の補正: { native 本来の武器か(技はその武将のもの), apt 職業での適性, spd 移動倍率, aspd 攻撃速度倍率, atk 攻撃倍率 }
 //   適性は職業で決まる。重さは武将の本来の武器との差で、重いほど遅くなる
-export function weaponFit(heroId, type, job = JOB_OF[heroId]) {
+export function weaponFit(heroId, type, job = JOB_OF[heroId], mlv = 1) {
   const h = HERO[heroId], native = !type || type === h.wtype, d = (WEAPON_WT[type] ?? 1) - (WEAPON_WT[h.wtype] ?? 1);
-  const apt = weaponApt(job, type || h.wtype), A = APT[apt];
+  const apt = aptUp(weaponApt(job, type || h.wtype), mlv), A = APT[apt];
   return { native, apt, d, spd: clamp(1 - 0.12 * d, 0.72, 1.1), aspd: clamp(1 - 0.1 * d, 0.75, 1.08) * A.aspd, atk: A.atk };
 }
 export function calcStats(save, heroId) {
   const h = HERO[heroId], hs = save.heroes[heroId] || { lv: 1 }, lv = hs.lv;
   const w = save.weapons.find((x) => x.uid === hs.weapon) || null;
-  const job = heroJob(save, heroId), wtype = (w && w.type) || h.wtype, fit = weaponFit(heroId, wtype, job);
+  const job = heroJob(save, heroId), wtype = (w && w.type) || h.wtype, wl = wpnLv(save, heroId, wtype).lv, fit = weaponFit(heroId, wtype, job, wl);
+  const jl = jobLv(save, heroId, job).lv, jk = 1 + 0.006 * (jl - 1);   // 職業レベルで少しずつ強くなる
   const tr = {}; for (const k of TRAIT_KEYS) tr[k] = 0;
   if (w) for (const t of w.traits) tr[t.k] += t.v * synTr(w);
   const jm = JOBS[job].mod; for (const k in jm) if (k in tr) tr[k] += jm[k];   // 職業の能力の傾向
   const b = h.base;
   const worn = heroArmor(save, heroId), look = {}; let armDef = 0;
-  for (const s of ARMOR_SLOT_KEYS) { look[s] = worn[s] ? worn[s].set : null; armDef += worn[s] ? Math.round(worn[s].def * APT[armorApt(job, worn[s].set)].def) : 0; }   // 鎧の適性で防御が増減
+  for (const s of ARMOR_SLOT_KEYS) { look[s] = worn[s] ? worn[s].set : null; armDef += worn[s] ? Math.round(armorDefOf(worn[s]) * APT[aptUp(armorApt(job, worn[s].set), armLv(save, heroId, worn[s].set).lv)].def * (1 + 0.005 * (armLv(save, heroId, worn[s].set).lv - 1))) : 0; }   // 鎧の適性で防御が増減
   return {
     lv, job, weapon: w, tier: weaponTier(w), wtype, ms: fit.native ? (h.ms || h.id) : TYPE_MS[wtype], fit,
-    hp: Math.round(b.hp * (1 + 0.045 * (lv - 1)) * (1 + tr.hp / 100)),
-    atk: Math.round((b.atk + 2.4 * (lv - 1) * (b.atk / 34) + (w ? weaponAtk(w) : 0)) * (1 + tr.atk / 100) * fit.atk),
-    def: Math.round((b.def + 1.0 * (lv - 1) + armDef) * (1 + tr.def / 100)), armor: look, armDef,
+    hp: Math.round(b.hp * (1 + 0.045 * (lv - 1)) * (1 + tr.hp / 100) * jk), jobLv: jl, wpnLv: wl,
+    atk: Math.round((b.atk + 2.4 * (lv - 1) * (b.atk / 34) + (w ? weaponAtk(w) : 0)) * (1 + tr.atk / 100) * fit.atk * jk * (1 + 0.005 * (wl - 1))),
+    def: Math.round((b.def + 1.0 * (lv - 1) + armDef) * (1 + tr.def / 100) * jk), armor: look, armDef,
     spd: b.spd * (1 + tr.spd / 100) * fit.spd, aspd: b.aspd * (1 + tr.aspd / 100) * fit.aspd, range: 1 + tr.range / 100,
     spGain: 1 + tr.sp / 100, rageGain: 1 + tr.rage / 100, crit: 5 + tr.crit, steal: (h.steal || 0) + tr.steal,
     elem: 1 + tr.elem / 100, charge: 1 + tr.charge / 100, musou: 1 + tr.musou / 100,
@@ -486,6 +520,9 @@ export function rollArmor(power, luck = 0, minRar = 1, set = null, slot = null) 
 // 最初に配る紅蓮一式
 export const starterArmor = (slot) => ({ uid: 'a0_' + slot, set: 'guren', slot, rar: 1, def: Math.max(1, Math.round(4 * ARMOR_SLOT_DEF[slot])) });
 // 武将が着けている防具(部位 → 防具 or null)
+// 防具の強化: レベル1つにつき防御 +8%(最大はレア度で決まる。武器と同じ RAR_MAXLV)
+export const armorDefOf = (a) => Math.round(a.def * (1 + 0.08 * ((a.lv || 1) - 1)));
+export const armorForgeCost = (a) => Math.round(80 * a.rar * (a.lv || 1) * (1 + a.rar * 0.3));
 export function heroArmor(save, heroId) {
   const eq = (save.heroes[heroId] || {}).armor || {}, out = {};
   for (const s of ARMOR_SLOT_KEYS) out[s] = (eq[s] && (save.armors || []).find((a) => a.uid === eq[s])) || null;

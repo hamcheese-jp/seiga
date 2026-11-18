@@ -1,5 +1,5 @@
 // セーブデータ: 端末内(localStorage)に常時保存し、設定すれば Googleスプレッドシートへ同期する
-import { HEROES, START_HEROES, starterWeapon, starterArmor, emptyArmor, ARMOR_SLOT_KEYS, ACHIEVEMENTS, expNeed, MAX_LV, UNLOCKS, FOE_UNLOCKS, HERO } from './data.js';
+import { HEROES, START_HEROES, starterWeapon, starterArmor, emptyArmor, ARMOR_SLOT_KEYS, ACHIEVEMENTS, expNeed, MAX_LV, UNLOCKS, FOE_UNLOCKS, HERO, heroMast, heroJob, calcStats, JOBS, JOB_MAX, MAST_MAX, mastLv, WEAPON_TYPE_NAMES, ARMOR_SETS } from './data.js';
 import { CLOUD_URL } from './config.js';
 
 const KEY = 'seiga_save_v1';
@@ -66,6 +66,17 @@ export const Save = {
     if (h.lv >= MAX_LV) h.exp = 0;
     return { from, to: h.lv };
   },
+  // 熟練度: 合戦の経験の一部を、いまの職業・持っている武器の種類・着ている鎧のセットへ。上がったものの一覧を返す
+  addMastery(heroId, exp) {
+    const S = this.data, M = heroMast(S, heroId), st = calcStats(S, heroId), job = heroJob(S, heroId), ups = [];
+    const give = (tab, key, n, max, name) => { const a = mastLv(tab[key], max).lv; tab[key] = (tab[key] || 0) + n; const b = mastLv(tab[key], max).lv; if (b > a) ups.push(name + ' Lv' + b + (b >= max ? '(最大)' : '')); };
+    const e = Math.round(exp * 0.8);
+    give(M.job, job, e, JOB_MAX[JOBS[job].tier], '職業「' + JOBS[job].n + '」');
+    give(M.wpn, st.wtype, e, MAST_MAX, WEAPON_TYPE_NAMES[st.wtype] + 'の熟練');
+    const sets = [...new Set(Object.values(st.armor).filter(Boolean))];
+    for (const k of sets) give(M.arm, k, Math.round(e / sets.length), MAST_MAX, ARMOR_SETS[k].n + 'の鎧の熟練');
+    return ups;
+  },
   // 称号チェック。新規達成の一覧を返す
   checkAch() {
     const S = this.data, got = [];
@@ -77,7 +88,7 @@ export const Save = {
     const S = this.data, out = { lv: null, unlock: null, ach: [], best: false };
     S.stats.battles++; S.stats.totalKO += r.ko; S.stats.maxKO = Math.max(S.stats.maxKO, r.ko); S.stats.maxCombo = Math.max(S.stats.maxCombo, r.maxCombo);
     S.stats.officers += r.offKO; S.stats.perfect += r.perfect; S.stats.playTime += Math.round(r.time);
-    S.gold += r.gold; out.lv = this.addExp(r.heroId, r.exp);
+    S.gold += r.gold; out.mast = this.addMastery(r.heroId, r.exp); out.lv = this.addExp(r.heroId, r.exp);
     for (const w of r.loot) S.weapons.push(w);
     for (const a of r.armorLoot || []) S.armors.push(a);
     if (S.armors.length > 120) {   // 上限超過分は価値の低い物から自動売却
