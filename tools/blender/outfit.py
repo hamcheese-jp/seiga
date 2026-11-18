@@ -75,7 +75,7 @@ def add_outfit(arm, body, hakama=(0.18, 0.16, 0.2), sleeve=(0.75, 0.72, 0.68), h
     def ray_r(bvh, c, d, fallback):
         h = bvh.ray_cast(c + d * 0.4, -d, 0.6)
         if h[0] is None: return fallback
-        return max(0.01, (h[0] - c).dot(d))
+        return max(0.01, min((h[0] - c).dot(d), fallback * 1.5))   # 装具などで極端に太くならないよう上限を付ける
     for kind, color, on in (('hakama', hakama, legs), ('sleeve', sleeve, arms)):
         if not on: continue
         mat, uvc = _cloth_mat(body, kind, color)
@@ -122,7 +122,7 @@ def add_outfit(arm, body, hakama=(0.18, 0.16, 0.2), sleeve=(0.75, 0.72, 0.68), h
                     elif t < 0.6: w = (t - 0.4) / 0.2; bw = [(J('UpperArm', s), 1 - w), (J('LowerArm', s), w)]
                     else: bw = [(J('LowerArm', s), 1.0)]
                     down = Vector((0, 0, -1))
-                    rf = (lambda c, off: (lambda a, d: ray_r(bvh, c, d, 0.04) + off * (1.0 + 0.6 * max(0.0, d.dot(down)))))(c.copy(), off)
+                    rf = (lambda c, off: (lambda a, d: ray_r(bvh, c, d, 0.055) + off * (1.0 + 0.6 * max(0.0, d.dot(down)))))(c.copy(), off)
                     pts.append((c.copy(), ax, Vector((0, -1, 0)), rf, bw))
                 _tube(bm, uvl, uvc, pts, 16, wts, None)
         bm.normal_update()

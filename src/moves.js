@@ -355,6 +355,10 @@ MS.boss_axe = {
   },
   plans: [{ seq: ['n0', 'n1', 'n2'], max: 4, w: 5 }, { seq: ['heavy'], max: 5.5, w: 2 }, { seq: ['rush'], min: 4, max: 12, w: 3 }, { seq: ['nova'], max: 7, w: 2, p2: true }],
 };
+// 投げナイフ(ザハル): 腕を振って扇状に放つ毒の刃
+const knife = (t, yaw = 0, o = {}) => P(t, { kind: 'knife', speed: 40, life: 0.6, r: 0.6, yaw, stop: true }, { dmg: 0.7, kb: 2, el: 1, ...o });
+const throwK = (n, spread, o = {}) => slash({ from: [-70, 40], to: [40, -5], L: { from: [70, 40], to: [-40, -5] }, wind: o.wind ?? 0.12, hit: 0.06, rec: o.rec ?? 0.2, noHit: true, sfx: 'swing',
+  extra: rep(n, (i) => knife(0.15, n === 1 ? 0 : -spread / 2 + spread * i / (n - 1), o.hit || {})) });
 MS.boss_twin = {
   m: {
     n0: slash({ from: [-110, 10], to: [90, -10], L: lIdle, wind: 0.2, hit: 0.07, rec: 0.14, r: 2.6, ang: 80, dmg: 0.8, kb: 1.5, mv: 5 }),
@@ -364,9 +368,10 @@ MS.boss_twin = {
     dash: X(seq(dash({ dual: true, dist: 9, wind: 0.42, hit: 0.14, rec: 0.12, dmg: 1.5, kb: 4 }), turnAt(dash({ dual: true, dist: 9, wind: 0.16, hit: 0.14, rec: 0.4, dmg: 1.5, kb: 8, lift: 4 }), 172)), { tele: 1 }),
     storm: X(seq(hold(0.6, { az: -90, el: 20, azL: 90, elL: 20 }, { sfx: 'tele' }), spin({ turns: 3, wind: 0.06, hit: 0.7, rec: 0.5, n: 7, r: 3.6, dmg: 0.6, kb: 2, mv: 6,
       extra: rep(6, (i) => P(0.15 + i * 0.1, { kind: 'tornado', speed: 9, life: 1.6, r: 1.8, tick: 0.35, yaw: i * 60 }, { dmg: 0.7, kb: 2, lift: 4 })) })), { tele: 2, armor: true, steer: 2 }),
+    knives: throwK(5, 40, { wind: 0.42, rec: 0.35 }),
     burst: burst(),
   },
-  plans: [{ seq: ['n0', 'n1', 'n2', 'n3'], max: 3.4, w: 5 }, { seq: ['n0', 'n1'], max: 3.4, w: 2 }, { seq: ['dash'], min: 4, max: 13, w: 4 }, { seq: ['storm'], max: 9, w: 2, p2: true }],
+  plans: [{ seq: ['n0', 'n1', 'n2', 'n3'], max: 3.4, w: 5 }, { seq: ['n0', 'n1'], max: 3.4, w: 2 }, { seq: ['dash'], min: 4, max: 13, w: 4 }, { seq: ['knives'], min: 4, max: 12, w: 4 }, { seq: ['storm'], max: 9, w: 2, p2: true }],
 };
 MS.boss_spear = {
   m: {
@@ -419,8 +424,8 @@ MS.p_barga = { spName: '鉄壁轟断',
   n: [B1.n0, B1.n1, MS.gandou.n[2], MS.gandou.n[3], MS.gandou.n[4], pl(B1.n2)],
   c: [pl(B1.rush), MS.gandou.c[1], MS.gandou.c[2], MS.gandou.c[3], pl(B1.nova), MS.gandou.c[5]], sp: MS.gandou.sp };
 MS.p_zahar = { spName: '砂塵千刃',
-  n: [B2.n0, B2.n1, B2.n2, B2.n3, MS.raika.n[4], MS.raika.n[5]],
-  c: [pl(B2.dash), MS.raika.c[1], MS.raika.c[2], MS.raika.c[3], MS.raika.c[4], pl(B2.storm)], sp: MS.raika.sp };
+  n: [B2.n0, B2.n1, B2.n2, B2.n3, throwK(3, 24), MS.raika.n[5]],
+  c: [pl(B2.dash), seq(throwK(5, 40, { rec: 0.05 }), throwK(5, 40, { wind: 0.08, rec: 0.05 }), throwK(7, 70, { wind: 0.08, rec: 0.3, hit: { dmg: 0.9 } })), MS.raika.c[2], MS.raika.c[3], MS.raika.c[4], pl(B2.storm)], sp: MS.raika.sp };
 MS.p_volg = { spName: '氷狼牙陣',
   n: [B3.n0, B3.n1, B3.n2, MS.setsuna.n[3], MS.setsuna.n[4], MS.setsuna.n[5]],
   c: [pl(B3.dash), MS.setsuna.c[1], MS.setsuna.c[2], pl(B3.heavy), pl(B3.spikes), MS.setsuna.c[5]], sp: MS.setsuna.sp };

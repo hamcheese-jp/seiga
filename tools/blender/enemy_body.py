@@ -26,6 +26,13 @@ PRESETS = {
         beard=dict(len=1.0, top=0.02, burn=0.03), legs=0.72, jowl=0.22, eyes=0.6, wrinkles=True,
         outfit=dict(hakama=(0.03, 0.022, 0.02), sleeve=(0.07, 0.015, 0.012), hem=0.075, sode=0.035), brows=dict(th=0.011), hair='topknot',
     ),
+    # ザハル: 細身の暗殺者。頬のこけた鋭い顔、左目の古傷、口元を覆う布、剃った頭から垂れる蠍の尾の三つ編み
+    'zahar': dict(
+        fat=[], skin=(0.84, 0.66, 0.52), shade=(0.62, 0.44, 0.36), scowl=(1.0, 0.5), legs=1.06, jowl=-0.08, eyes=0.6,
+        brows=dict(th=0.007), hair='shaved', hairtint=(0.18, 0.15, 0.14), parts=(0.1, 0.08, 0.07),
+        mask=(0.3, 0.06, 0.05), scar=True, braid=dict(n=11, seg=0.05),
+        outfit=dict(hakama=(0.09, 0.06, 0.035), sleeve=(0.05, 0.04, 0.032), hem=0.06, sode=0.025),
+    ),
 }
 P = PRESETS[PRESET]
 rng = random.Random(11)
@@ -313,6 +320,129 @@ sp.parent = arm; md = sp.modifiers.new('Armature', 'ARMATURE'); md.object = arm
 body = next(o for o in meshes if o.name == 'Body')
 with bpy.context.temp_override(object=body, active_object=body, selected_objects=[body, sp], selected_editable_objects=[body, sp]):
     bpy.ops.object.join()
+
+# ── 色付きの付け足し(覆面・傷・三つ編み): 部品ごとに材質と骨の重みを持たせて体へまとめる
+def color_mat(name, color):
+    m = hmat.copy(); m.name = hmat.name.replace('HAIR', 'HAIR_' + name)
+    try:
+        e = mtoon(m); e.pbr_metallic_roughness.base_color_factor = (*color, 1.0)
+        mt = e.extensions.vrmc_materials_mtoon; mt.shade_color_factor = tuple(c * 0.6 for c in color)
+        mt.parametric_rim_color_factor = (0.0, 0.0, 0.0); mt.matcap_factor = (0.0, 0.0, 0.0); mt.rim_lighting_mix_factor = 0.0
+        for tex in (e.pbr_metallic_roughness.base_color_texture, mt.shade_multiply_texture):
+            try: tex.index.source = None
+            except Exception: pass
+    except Exception as ex: print('COLORMAT', ex)
+    return m
+def attach(bm2, mat, weights):
+    """weights: 頂点ごとの [(骨, 重み)] の並び、または骨の名前ひとつ(全部その骨)"""
+    bm2.normal_update(); me2 = bpy.data.meshes.new(mat.name); bm2.to_mesh(me2); bm2.free()
+    ob2 = bpy.data.objects.new(mat.name, me2); bpy.context.scene.collection.objects.link(ob2); me2.materials.append(mat)
+    if isinstance(weights, str): ob2.vertex_groups.new(name=weights).add(list(range(len(me2.vertices))), 1.0, 'REPLACE')
+    else:
+        for i, bw in enumerate(weights):
+            for bn, w in bw: (ob2.vertex_groups.get(bn) or ob2.vertex_groups.new(name=bn)).add([i], w, 'REPLACE')
+    ob2.parent = arm; md2 = ob2.modifiers.new('Armature', 'ARMATURE'); md2.object = arm
+    with bpy.context.temp_override(object=body, active_object=body, selected_objects=[body, ob2], selected_editable_objects=[body, ob2]):
+        bpy.ops.object.join()
+def new_bm():
+    b = bmesh.new(); return b, b.loops.layers.uv.new('UVMap')
+
+# 覆面: 鼻から下・あご・頬を布で覆う(目は出す)。下の端は首へ垂らす
+if P.get('mask') and eyes:
+    b2, uv2 = new_bm(); eye_bot = min(p.z for p in eyes) - 0.006; grid = {}
+    NA, NE = 40, 30
+    for i in range(NA + 1):
+        az = -108 + 216 * i / NA
+        for j in range(NE + 1):
+            el = -88 + 80 * j / NE
+            p, n = scalp(dir_of(az, el))
+            if p is None: continue
+            top = eye_bot - (0.0 if abs(az) < 60 else 0.012)
+            if p.z > top: continue
+            grid[(i, j)] = (b2.verts.new(p + n * 0.006), p, n)
+    for i in range(NA):
+        for j in range(NE):
+            q = [grid.get(k) for k in ((i, j), (i + 1, j), (i + 1, j + 1), (i, j + 1))]
+            if all(q):
+                f = b2.faces.new([x[0] for x in q[::-1]]); f.smooth = True
+                for l in f.loops: l[uv2].uv = (0.5, 0.5)
+    # 下の端を首へ垂らす(各列の一番下の点から下へ)
+    for i in range(NA + 1):
+        js = [j for j in range(NE + 1) if (i, j) in grid]
+        if not js: continue
+        v, p, n = grid[(i, min(js))]; grid[(i, 'hang')] = b2.verts.new(p + n * 0.012 + Vector((0, 0, -0.05)))
+    for i in range(NA):
+        a, b = grid.get((i, 'hang')), grid.get((i + 1, 'hang'))
+        ja = [j for j in range(NE + 1) if (i, j) in grid]; jb = [j for j in range(NE + 1) if (i + 1, j) in grid]
+        if a and b and ja and jb:
+            try:
+                f = b2.faces.new([grid[(i, min(ja))][0], a, b, grid[(i + 1, min(jb))][0]]); f.smooth = True
+                for l in f.loops: l[uv2].uv = (0.5, 0.5)
+            except ValueError: pass
+    bmesh.ops.recalc_face_normals(b2, faces=b2.faces[:])
+    attach(b2, color_mat('mask', P['mask']), J('Head'))
+
+# 傷: 左目を縦に裂く古傷
+if P.get('scar') and eyes:
+    b2, uv2 = new_bm(); pts = []
+    for t in [i / 8 for i in range(9)]:
+        x = eye_x * 0.55 + 0.01 * t; z = eye_top + 0.03 - 0.075 * t
+        p, n = hit_from(Vector((x, C.y - R * 3, z)), FWD * -1)
+        if p is not None: pts.append((p, n))
+    rows = []
+    for i, (p, n) in enumerate(pts):
+        w = 0.0032 * math.sin(math.pi * (i + 0.5) / len(pts)) + 0.0008
+        rows.append([b2.verts.new(p + n * 0.0016 + Vector((w, 0, 0))), b2.verts.new(p + n * 0.0016 - Vector((w, 0, 0)))])
+    for i in range(len(rows) - 1):
+        f = b2.faces.new([rows[i][0], rows[i][1], rows[i + 1][1], rows[i + 1][0]])
+        for l in f.loops: l[uv2].uv = (0.5, 0.5)
+    bmesh.ops.recalc_face_normals(b2, faces=b2.faces[:])
+    attach(b2, color_mat('scar', (0.45, 0.12, 0.1)), J('Head'))
+
+# 三つ編み: 後頭部から背中へ垂れる(蠍の尾)。根元は頭、下ほど胸の骨に付けて背中に沿わせる
+if P.get('braid'):
+    b2, uv2 = new_bm(); W = []
+    p0, n0 = scalp(dir_of(180, 5))
+    if p0 is not None:
+        pos = p0 + n0 * 0.012; d = Vector((0, 0.55, -0.83)).normalized(); n = P['braid'].get('n', 10); seg = P['braid'].get('seg', 0.05)
+        for i in range(n):
+            r = R * (0.15 - 0.07 * i / n); c = pos + d * seg * 0.5
+            w = min(1.0, max(0.0, (i - 1) / 4))
+            k0 = len(b2.verts)
+            # 編み目: 少しずつねじった楕円の玉
+            rows = []
+            for jj in range(1, 6):
+                e = math.pi * jj / 6 - math.pi / 2
+                ring = []
+                for kk in range(8):
+                    a = math.tau * kk / 8 + i * 0.5
+                    side = d.cross(Vector((1, 0, 0))).normalized(); up2 = d.cross(side).normalized()
+                    ring.append(b2.verts.new(c + d * (seg * 0.62 * math.sin(e)) + (side * math.cos(a) + up2 * math.sin(a) * 0.8) * r * math.cos(e)))
+                rows.append(ring)
+            for jj in range(len(rows) - 1):
+                for kk in range(8):
+                    f = b2.faces.new([rows[jj][kk], rows[jj][(kk + 1) % 8], rows[jj + 1][(kk + 1) % 8], rows[jj + 1][kk]]); f.smooth = True
+                    for l in f.loops: l[uv2].uv = dark_uv
+            for _ in range(len(b2.verts) - k0): W.append([(J('Head'), 1 - w), (J('UpperChest'), w)] if w > 0 else [(J('Head'), 1.0)])
+            pos = pos + d * seg; d = (d + Vector((0, -0.08, -0.12))).normalized()
+        # 先の毒針(金)
+        k0 = len(b2.verts); bm_save = bm
+        tipv = [b2.verts.new(pos + Vector((math.cos(a) * 0.012, math.sin(a) * 0.012, 0))) for a in (0, math.tau / 3, 2 * math.tau / 3)]
+        tp = b2.verts.new(pos + Vector((0, 0.05, 0.07)))
+        for q in range(3):
+            f = b2.faces.new([tipv[q], tipv[(q + 1) % 3], tp])
+            for l in f.loops: l[uv2].uv = dark_uv
+        for _ in range(len(b2.verts) - k0): W.append([(J('UpperChest'), 1.0)])
+        bmesh.ops.recalc_face_normals(b2, faces=b2.faces[:])
+        attach(b2, color_mat('braid', P.get('parts', (0.1, 0.08, 0.07))), W)
+
+# 頭皮の地毛の色(剃った頭の青み・濃い色)
+if P.get('hairtint'):
+    # 体の中の頭皮(地毛)の材質を、無地の濃い色に差し替える
+    stub = color_mat('stubble', P['hairtint'])
+    for i, m in enumerate(body.data.materials):
+        if m and 'HAIR' in m.name and not any(k in m.name for k in ('spike', 'mask', 'scar', 'braid', 'stubble', 'CLOTH')):
+            body.data.materials[i] = stub; print('HAIRTINT', m.name)
 
 # 脚と腕のタイツ模様を隠す: 袴と広袖(設定の outfit)
 if P.get('outfit'):
