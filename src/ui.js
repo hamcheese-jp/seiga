@@ -1,6 +1,6 @@
 // 画面UI: 合戦HUD・演出テロップ・各メニュー画面(DOM)
 import { Save, Cloud } from './save.js';
-import { weaponFit, JOBS, APT, heroJob, weaponApt, armorApt, jobLv, wpnLv, armLv, jobOpen, aptUp, JOB_COST, JOB_MAX, MAST_MAX, armorDefOf, armorForgeCost, WEAPON_WT, WEAPON_TYPE_NAMES, ARMOR_SLOT_KEYS, ARMOR_SLOT_TAB, ARMOR_SLOT_NAMES, ARMOR_SETS, armorName, armorSell, heroArmor,
+import { rollShop, shopDay, weaponFit, JOBS, APT, heroJob, weaponApt, armorApt, jobLv, wpnLv, armLv, jobOpen, aptUp, JOB_COST, JOB_MAX, MAST_MAX, armorDefOf, armorForgeCost, WEAPON_WT, WEAPON_TYPE_NAMES, ARMOR_SLOT_KEYS, ARMOR_SLOT_TAB, ARMOR_SLOT_NAMES, ARMOR_SETS, armorName, armorSell, heroArmor,
   HEROES, HERO, ELEMENTS, STAGES, ENDLESS, STAGE, DIFFS, RARITY, RAR_MAXLV, traitText, weaponName, weaponAtk, synthInfo, doSynth, SYN_MAX, starterWeapon, forgeCost, sellPrice, GACHA_COST, rollWeapon, calcStats, expNeed,
   ACHIEVEMENTS, STAR_LABELS, UNLOCKS, FOE_UNLOCKS, GAME_TITLE, GAME_SUB, MAX_LV, maxNormals, maxCharges } from './data.js';
 import { VERSION } from './config.js';
@@ -13,7 +13,7 @@ import { Voice } from './voice.js';
 import { Net, MAX_PLAYERS, MAX_PVP, sanitizeMember } from './net.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const SCREENS = ['title', 'home', 'stage', 'hero', 'armory', 'ach', 'rank', 'settings', 'result', 'pause', 'load', 'story', 'coop'];
+const SCREENS = ['title', 'home', 'stage', 'hero', 'armory', 'shop', 'ach', 'rank', 'settings', 'result', 'pause', 'load', 'story', 'coop'];
 const TIPS = ['通常攻撃の途中でチャージ攻撃を押すと、段数に応じた強力な技に派生します。', '敵将の武器が赤く光ったら強攻撃の合図。回避でかわそう。', '攻撃が当たる直前に回避すると「見切り」が発動し、奥義ゲージが大きく溜まります。',
   '敵拠点は兵を倒し続けると守備隊長が出現。守備隊長を倒せば制圧できます。', '拠点を制圧すると体力が回復し、味方の士気が上がります。', '覚醒中は攻撃力・攻撃速度が上がり、怯まなくなります。覚醒中の奥義は「真・奥義」に強化。',
   '武器には特性が付きます。強化で攻撃力を上げ、自分好みの一振りを探しましょう。', '高難易度ほど良い武器が手に入りやすくなります。', '攻撃ボタンは押しっぱなしでも連続攻撃できます。'];
@@ -109,6 +109,15 @@ export const UI = {
       case 'jsel': Audio.sfx('ui'); this.jobSel = v; this.r_armory(); break;
       case 'ajob': { const hs2 = S.heroes[this.armHero], cost = JOBS[v] ? JOB_COST[JOBS[v].tier] : 0; if (!JOBS[v] || heroJob(S, this.armHero) === v || !jobOpen(S, this.armHero, v) || S.gold < cost) { Audio.sfx('deny'); break; } S.gold -= cost; hs2.job = v; Audio.sfx('levelup'); Save.persist(); this.app.lobbyHero(this.armHero, true); this.toast(`${HERO[this.armHero].name}は「${JOBS[v].n}」に転職しました`); this.r_armory(); break; }
       case 'aforge': { const a = S.armors.find((x) => x.uid === this.armASel); if (!a) break; const c = armorForgeCost(a); if ((a.lv || 1) >= RAR_MAXLV[a.rar] || S.gold < c) { Audio.sfx('deny'); break; } S.gold -= c; a.lv = (a.lv || 1) + 1; Audio.sfx('levelup'); Save.persist(); this.r_armory(); break; }
+      case 'ssel': Audio.sfx('ui'); this.shopSel = +v; this.r_shop(); break;
+      case 'buy': {
+        const it = (S.shop && S.shop.items || [])[this.shopSel];
+        if (!it || it.sold || S.gold < it.price) { Audio.sfx('deny'); break; }
+        if (it.kind === 'w' ? S.weapons.length >= 150 : S.armors.length >= 120) { this.toast('持ち物がいっぱいです。売却してから買ってください'); Audio.sfx('deny'); break; }
+        S.gold -= it.price; it.sold = true; const x = { ...it.item, isNew: true };
+        if (it.kind === 'w') S.weapons.push(x); else S.armors.push(x);
+        Audio.sfx('treasure'); this.toast((it.kind === 'w' ? weaponName(x) : armorName(x)) + ' を買った!'); Save.persist(); this.r_shop(); break;
+      }
       case 'amode': Audio.sfx('ui'); this.armMode = v; this.armASel = null; this.synBase = null; this.r_armory(); break;
       case 'asel': Audio.sfx('ui'); this.armASel = v; this.r_armory(); break;
       case 'aequip': { const a = S.armors.find((x) => x.uid === this.armASel); if (!a) { Audio.sfx('deny'); break; }
@@ -266,7 +275,8 @@ export const UI = {
       <div class="home-menu">
         <button class="mbtn main" data-a="go" data-v="stage">出撃<small>章を選んで戦いへ</small></button>
         <button class="mbtn" ${Save.stageCleared('s1') ? 'data-a="go" data-v="endless"' : 'style="opacity:.45"'}>星海の試練<small>${Save.stageCleared('s1') ? `最高 ${S.endless.ko}人撃破 / 第${S.endless.wave}波` : '第一章クリアで解放'}</small></button>
-        <button class="mbtn" data-a="go" data-v="armory">装備<small>武器と防具の装備・強化・錬成</small></button>
+        <button class="mbtn" data-a="go" data-v="armory">装備<small>職業・武器・防具の装備・強化・転職</small></button>
+        <button class="mbtn" data-a="go" data-v="shop">店<small>武器と防具を買う(毎日入れ替わり)</small></button>
         <button class="mbtn" data-a="go" data-v="coop">オンライン<small>最大4人で協力 ／ 4対4で対戦</small></button>
         <button class="mbtn" data-a="go" data-v="story">物語<small>オープニング・各章の物語</small></button>
         <button class="mbtn" data-a="go" data-v="ach">称号<small>${Object.keys(S.ach).length} / ${ACHIEVEMENTS.length} 達成</small></button>
@@ -355,6 +365,26 @@ export const UI = {
   armTabs() {
     const m = this.armMode || 'weapon';
     return `<div class="tabs"><button class="tab ${m === 'job' ? 'on' : ''}" data-a="amode" data-v="job">職業</button><button class="tab ${m === 'weapon' ? 'on' : ''}" data-a="amode" data-v="weapon">武器</button>${ARMOR_SLOT_KEYS.map((k) => `<button class="tab ${m === k ? 'on' : ''}" data-a="amode" data-v="${k}">${ARMOR_SLOT_TAB[k]}</button>`).join('')}</div>`;
+  },
+  // 店: 毎日入れ替わる品ぞろえ(武器6・防具6)。進み具合(クリアした章・武将のレベル)で良い品が出やすくなる
+  r_shop() {
+    const S = Save.data, day = shopDay();
+    if (!S.shop || S.shop.day !== day) {
+      const cleared = STAGES.filter((x) => Save.stageCleared(x.id)).length, maxLv = Math.max(...Object.values(S.heroes).map((x) => x.lv || 1));
+      S.shop = { day, items: rollShop(Math.min(100, cleared * 12 + maxLv)) }; this.shopSel = 0; Save.persist(false);
+    }
+    const items = S.shop.items, sel = Math.min(this.shopSel || 0, items.length - 1), it = items[sel], x = it.item, R = RARITY[x.rar];
+    const nm = (q) => (q.kind === 'w' ? weaponName(q.item) : armorName(q.item));
+    const sub = (q) => (q.kind === 'w' ? `${WEAPON_TYPE_NAMES[q.item.type]}　攻撃+${weaponAtk(q.item)}` : `${ARMOR_SLOT_TAB[q.item.slot]}　防御+${q.item.def}`);
+    this.html('shop', `${this.head('店', 'home')}
+      <div class="cols"><div class="l scroll">${items.map((q, i) => `<div class="card wcard ${i === sel ? 'on' : ''}" style="border-left-color:${RARITY[q.item.rar].col};${q.sold ? 'opacity:.4' : ''}" data-a="ssel" data-v="${i}"><div class="n"><div class="a" style="color:${RARITY[q.item.rar].col}">${nm(q)}${q.sold ? '<span class="eq">売り切れ</span>' : ''}</div><div class="b">${RARITY[q.item.rar].star}　${sub(q)}</div></div><div class="atk">${q.price.toLocaleString()}金</div></div>`).join('')}
+        <p class="note">品ぞろえは毎日入れ替わります(ランク4まで。ランク5・6は合戦で敵将が落とします)。</p></div>
+      <div class="r"><div class="panel scroll" style="flex:1">
+        <div class="dim-t" style="color:${R.col}">${R.star}　${R.n}</div><h3 style="color:${R.col}">${nm(it)}</h3>
+        <div class="stat"><span>${sub(it)}</span></div>
+        ${it.kind === 'w' ? (x.traits.length ? x.traits.map((t) => `<div class="trait"><b>${traitName(t.k)}</b>${traitText(t, x)}</div>`).join('') : '<p class="dim-t">特性なし</p>') : `<p class="dim-t">${ARMOR_SETS[x.set].d}</p>`}
+        <p class="note">買った品は「装備」画面で装備できます。武器・鎧の適性は職業で決まります。</p></div>
+        <div class="row"><button class="pbtn" style="font-size:15px;padding:8px 18px" data-a="buy" ${it.sold || S.gold < it.price ? 'disabled' : ''}>${it.sold ? '売り切れ' : '買う ' + it.price.toLocaleString() + '金'}</button></div></div></div>`);
   },
   // 職業の画面: 職業ごとの適性を見比べ、転職する(いつでも無料で変えられる)
   r_jobView(h, hs) {

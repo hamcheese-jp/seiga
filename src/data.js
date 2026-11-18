@@ -523,6 +523,15 @@ export const starterArmor = (slot) => ({ uid: 'a0_' + slot, set: 'guren', slot, 
 // 防具の強化: レベル1つにつき防御 +8%(最大はレア度で決まる。武器と同じ RAR_MAXLV)
 export const armorDefOf = (a) => Math.round(a.def * (1 + 0.08 * ((a.lv || 1) - 1)));
 export const armorForgeCost = (a) => Math.round(80 * a.rar * (a.lv || 1) * (1 + a.rar * 0.3));
+// 店: 毎日入れ替わる品ぞろえ(武器6・防具6)。ランク4まで(ランク5・6はドロップ限定)。値段は売値の4倍
+export const shopDay = () => { const t = new Date(); return t.getFullYear() + '-' + (t.getMonth() + 1) + '-' + t.getDate(); };
+export function rollShop(power) {
+  const pickRar = () => { const p = clamp(power / 100, 0, 1), w = [50 - 35 * p, 32, 12 + 20 * p, 4 + 12 * p]; let r = Math.random() * w.reduce((a, b) => a + b, 0); for (let i = 0; i < 4; i++) { r -= w[i]; if (r <= 0) return i + 1; } return 1; };
+  const types = Object.keys(WEAPON_TYPE_NAMES), items = [];
+  for (let i = 0; i < 6; i++) { const w = rollWeapon(types[Math.floor(Math.random() * types.length)], power, 0, 1, pickRar()); items.push({ kind: 'w', item: w, price: sellPrice(w) * 4, sold: false }); }
+  for (let i = 0; i < 6; i++) { let a = null; for (let k = 0; k < 30 && (!a || a.rar > 4); k++) a = rollArmor(power, 0, 1); if (a.rar > 4) a.rar = 4; items.push({ kind: 'a', item: a, price: armorSell(a) * 4, sold: false }); }
+  return items;
+}
 export function heroArmor(save, heroId) {
   const eq = (save.heroes[heroId] || {}).armor || {}, out = {};
   for (const s of ARMOR_SLOT_KEYS) out[s] = (eq[s] && (save.armors || []).find((a) => a.uid === eq[s])) || null;
