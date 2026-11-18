@@ -53,6 +53,13 @@ PRESETS = {
         hairtint=(0.35, 0.06, 0.03), paint=(1.0, 0.45, 0.08), horns=(0.88, 0.82, 0.7),
         outfit=dict(hakama=(0.03, 0.02, 0.02), sleeve=(0.16, 0.03, 0.02), hem=0.08, sode=0.035),
     ),
+    # ゼノヴァ: 長身の覇王。元の白い長髪と外套は生かし、青白い肌・鋭い目・こけた頬・紫の隈取り・金の棘の黒鉄の冠
+    'zenova': dict(
+        fat=[(J('UpperChest'), 0.012, None, (-0.2, 1.0))],
+        skin=(0.86, 0.86, 0.92), shade=(0.6, 0.58, 0.72), scowl=(1.0, 0.85), jowl=-0.07, eyes=0.52, legs=1.1,
+        brows=dict(th=0.006), parts=(0.85, 0.85, 0.92), parts_flat=True,
+        undereye=(0.42, 0.12, 0.6), crown=dict(band=(0.08, 0.07, 0.1), spike=(0.95, 0.72, 0.25), gem=(0.75, 0.1, 1.0)),
+    ),
 }
 P = PRESETS[PRESET]
 rng = random.Random(11)
@@ -605,6 +612,59 @@ if P.get('horns') and eyes:
             for l in fc.loops: l[uv2].uv = (0.5, 0.5)
     bmesh.ops.recalc_face_normals(b2, faces=b2.faces[:])
     attach(b2, color_mat('horn', P['horns']), J('Head'))
+
+# 隈取り: 目の下から頬へ流れる紫の影(上下二本)
+if P.get('undereye') and eyes:
+    b2, uv2 = new_bm()
+    for sx in (-1, 1):
+        for k in range(2):
+            pts = []
+            for t in [i / 6 for i in range(7)]:
+                x = sx * (0.022 + (eye_x - 0.012) * t + 0.01 * t * t); z = eye_top - 0.03 - 0.006 * k - 0.028 * t * t
+                p, n = hit_from(Vector((x, C.y - R * 3, z)), FWD * -1)
+                if p is not None: pts.append((p, n))
+            rows = []
+            for i, (p, n) in enumerate(pts):
+                w = (0.0026 - 0.0008 * k) * (1 - 0.7 * i / max(1, len(pts) - 1))
+                rows.append([b2.verts.new(p + n * 0.0015 + UP * w), b2.verts.new(p + n * 0.0015 - UP * w)])
+            for i in range(len(rows) - 1):
+                fc = b2.faces.new([rows[i][0], rows[i][1], rows[i + 1][1], rows[i + 1][0]])
+                for l in fc.loops: l[uv2].uv = (0.5, 0.5)
+    bmesh.ops.recalc_face_normals(b2, faces=b2.faces[:])
+    attach(b2, color_mat('undereye', P['undereye']), J('Head'))
+
+# 冠: 髪の上に載る黒鉄の輪と、金の棘・額の紫の宝石
+if P.get('crown'):
+    CR = P['crown']; band, uvb = new_bm(); spk, uvs = new_bm(); gem, uvg = new_bm(); N = 28
+    ring_lo, ring_hi = [], []
+    # 位置は目から決める(髪が別の部品だと頭の大きさを見誤るため): 額の上、髪の外側を一周
+    ey = sum(p.y for p in eyes) / len(eyes); cc = Vector((0, ey + CR.get('back', 0.07), eye_top + CR.get('up', 0.075))); rx, ry = CR.get('rx', 0.118), CR.get('ry', 0.13)
+    for i in range(N):
+        az = 360 * i / N - 180; a = math.radians(az)
+        n = Vector((math.sin(a), -math.cos(a), 0)); q = cc + Vector((math.sin(a) * rx, -math.cos(a) * ry, 0.012 * math.cos(a)))
+        ring_lo.append(band.verts.new(q - UP * 0.012)); ring_hi.append(band.verts.new(q + UP * 0.016))
+        if i % 2 == 0:   # 棘: 正面ほど高い
+            fr = math.cos(math.radians(az)); hgt = R * (0.35 + 0.35 * max(0, fr)); out = (UP * 1.0 + n * 0.25).normalized()
+            sd = out.cross(n).normalized() if out.cross(n).length > 1e-4 else Vector((1, 0, 0)); u2 = sd.cross(out).normalized(); wd = R * 0.06
+            rv = [spk.verts.new(q + UP * 0.012 + (sd * math.cos(t) + u2 * math.sin(t) * 0.4) * wd) for t in (0, math.pi / 2, math.pi, 3 * math.pi / 2)]
+            tp = spk.verts.new(q + UP * 0.012 + out * hgt)
+            for k in range(4):
+                fc = spk.faces.new([rv[k], rv[(k + 1) % 4], tp]); fc.smooth = True
+                for l in fc.loops: l[uvs].uv = (0.5, 0.5)
+        if az == 0 or (i == N // 2):   # 額の宝石
+            g0 = q + n * 0.012 + UP * 0.004
+            gv = [gem.verts.new(g0 + Vector((math.cos(t) * 0.012, 0, math.sin(t) * 0.016))) for t in [math.tau * j / 6 for j in range(6)]]
+            gt = gem.verts.new(g0 + n * 0.01)
+            for k in range(6):
+                fc = gem.faces.new([gv[k], gv[(k + 1) % 6], gt])
+                for l in fc.loops: l[uvg].uv = (0.5, 0.5)
+    for i in range(N):
+        j = (i + 1) % N
+        fc = band.faces.new([ring_lo[i], ring_lo[j], ring_hi[j], ring_hi[i]]); fc.smooth = True
+        for l in fc.loops: l[uvb].uv = (0.5, 0.5)
+    for b2, key in ((band, 'band'), (spk, 'spike'), (gem, 'gem')):
+        bmesh.ops.recalc_face_normals(b2, faces=b2.faces[:])
+        attach(b2, color_mat('crown_' + key, CR[key]), J('Head'))
 
 if wr_bm is not None:
     bmesh.ops.recalc_face_normals(wr_bm, faces=wr_bm.faces[:]); attach(wr_bm, color_mat('wrinkle', P.get('wrinkle', (0.2, 0.12, 0.1))), J('Head'))

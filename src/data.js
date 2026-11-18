@@ -61,7 +61,7 @@ export const LOOKS = {
     pal: { skin: '#d8c4b8', hair: '#c8d4e2', c1: '#3a5a86', c2: '#1a2434', c3: '#cfe2f6', metal: '#7a8ea8', gold: '#dbe8f6', glow: [0.6, 2.3, 4.6], eye: '#0c2a4a', cape: '#e8eef6' } },
   boss4: { scale: 1.35, bulk: 1.5, sw: 0.32, headScale: 1.0, hair: 'bald', gear: 'kabuto horn hornbig', cape: 'long', pauldron: 2, tasset: 'plate', tails: 0,
     pal: { skin: '#8a5a48', hair: '#140c0a', c1: '#2a1410', c2: '#120c0a', c3: '#ff6a1e', metal: '#40302a', gold: '#ff7a2a', glow: [5.0, 1.4, 0.2], eye: '#ff4a10', cape: '#3a0e08' } },
-  boss5: { scale: 1.28, bulk: 1.2, sw: 0.285, headScale: 1.05, hair: 'long', gear: 'crown demon', cape: 'long', pauldron: 2, tasset: 'plate', tails: 3,
+  boss5: { scale: 1.42, bulk: 1.2, sw: 0.285, headScale: 1.05, hair: 'long', gear: 'crown demon', cape: 'long', pauldron: 2, tasset: 'plate', tails: 3,
     pal: { skin: '#d8ccd8', hair: '#e8e2f6', c1: '#1a1230', c2: '#0c0a16', c3: '#d8b24a', metal: '#3c3866', gold: '#f2ce5a', glow: [4.6, 0.6, 2.6], eye: '#e01a5a', cape: '#2a0f3c' } },
 };
 // ---- 帝国の将: 章をクリアすると「星の記憶」として使えるようになる(見た目は vrm/boss*.vrm) ----

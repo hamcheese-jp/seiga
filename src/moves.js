@@ -435,9 +435,14 @@ MS.p_volg = { spName: '氷狼牙陣',
   n: [B3.n0, B3.n1, B3.n2, iceThrust(3, 26), MS.setsuna.n[4], MS.setsuna.n[5]],
   c: [pl(B3.dash), seq(iceThrust(5, 50, { rec: 0.05 }), iceThrust(5, 50, { wind: 0.1, rec: 0.05 }), iceThrust(9, 120, { wind: 0.1, rec: 0.3, hit: { dmg: 1.0 } })), MS.setsuna.c[2], pl(B3.heavy), pl(B3.spikes), MS.setsuna.c[5]], sp: MS.setsuna.sp };
 // MS.p_ignas は弓・杖の部品の後ろで定義(杖の技を使うため)
+// 闇の刃(ゼノヴァ): 大鎌を振り抜くと、闇の結晶の刃が扇状に飛ぶ
+const darkFan = (n, spread, o = {}) => slash({ from: [-120, 30], to: [90, -10], wind: o.wind ?? 0.18, hit: 0.1, rec: o.rec ?? 0.26, r: 3.0, ang: 90, dmg: 0.9, kb: 4, sfx: 'dark',
+  extra: rep(n, (i) => P(0.2, { kind: 'dark', speed: 32, life: 0.7, r: 0.9, yaw: n === 1 ? 0 : -spread / 2 + spread * i / (n - 1), stop: true }, { dmg: 1.0, kb: 4, el: 1, ...(o.hit || {}) })) });
+MS.boss_final.m.shards = darkFan(7, 80, { wind: 0.5, rec: 0.4 });
+MS.boss_final.plans.push({ seq: ['shards'], min: 4, max: 13, w: 4 });
 MS.p_zenova = { spName: '覇星墜天',
-  n: [B5.n0, B5.n1, B5.n2, B5.n3, MS.yomi.n[4], MS.yomi.n[5]],
-  c: [pl(B5.warp), MS.yomi.c[1], pl(B5.orbs), MS.yomi.c[3], pl(B5.reap), MS.yomi.c[5]], sp: MS.yomi.sp };
+  n: [B5.n0, B5.n1, B5.n2, B5.n3, darkFan(5, 50), MS.yomi.n[5]],
+  c: [pl(B5.warp), seq(darkFan(5, 50, { rec: 0.05 }), darkFan(9, 140, { wind: 0.1, rec: 0.3, hit: { dmg: 1.2 } })), pl(B5.orbs), MS.yomi.c[3], pl(B5.reap), MS.yomi.c[5]], sp: MS.yomi.sp };
 
 // ================= 弓・杖(全員が装備できる。適性外は能力が下がる) =================
 // 射る: 左腕で弓を前へ押し出し、右手で弦を顔の横まで引き絞って放つ。y0/y1 で跳びながら射る
