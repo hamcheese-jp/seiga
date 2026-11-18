@@ -335,7 +335,7 @@ export function doSynth(base, mat) {
 export const weaponTier = (w) => (!w ? 0 : w.rar >= 5 ? 2 : w.rar >= 3 ? 1 : 0);
 export const forgeCost = (w) => 80 * (w.lv + 1) * w.rar * w.rar;
 export const sellPrice = (w) => Math.round(40 * w.rar * w.rar * (1 + w.lv * 0.5) + w.atk);
-export const GACHA_COST = 1500;
+export const GACHA_COST = 4000;   // 武器錬成(ランク2以上が出る)。店のランク2(3,000金)より少し高く
 
 let _uid = 0;
 export function rollWeapon(type, power, luck = 0, minRar = 1, fixedRar = 0) {
@@ -416,7 +416,8 @@ Object.assign(JOBS, {
 for (const j of Object.values(JOBS)) j.tier = j.tier || 1;
 // 熟練度: 職業・武器の種類・鎧のセットごと(武将ごと)。合戦で得た経験の一部が、いまの職業・持っている武器・着ている鎧に入る
 export const JOB_MAX = { 1: 20, 2: 25, 3: 30 }, MAST_MAX = 20;
-export const JOB_COST = { 1: 500, 2: 3000, 3: 10000 };   // 転職にかかるお金(転職先の段階で決まる)
+// 転職にかかるお金(転職先の段階で決まる)。合戦1回の稼ぎ(普通で3,000〜4,000金)を目安に: 1次=約1回分、2次=約8回分、3次=約35回分
+export const JOB_COST = { 1: 3000, 2: 25000, 3: 120000 };
 export const mastNeed = (lv) => 100 + 60 * lv;
 export function mastLv(exp, max) { let lv = 1, e = exp || 0; while (lv < max && e >= mastNeed(lv)) { e -= mastNeed(lv); lv++; } return { lv, cur: lv >= max ? 0 : e, need: lv >= max ? 0 : mastNeed(lv), max: lv >= max }; }
 export const heroMast = (save, id) => { const hs = save.heroes[id] || {}; return hs.mast || (hs.mast = { job: {}, wpn: {}, arm: {} }); };
@@ -528,14 +529,17 @@ export const starterArmor = (slot) => ({ uid: 'a0_' + slot, set: 'guren', slot, 
 // 武将が着けている防具(部位 → 防具 or null)
 // 防具の強化: レベル1つにつき防御 +8%(最大はレア度で決まる。武器と同じ RAR_MAXLV)
 export const armorDefOf = (a) => Math.round(a.def * (1 + 0.08 * ((a.lv || 1) - 1)));
-export const armorForgeCost = (a) => Math.round(80 * a.rar * (a.lv || 1) * (1 + a.rar * 0.3));
+export const armorForgeCost = (a) => Math.round(64 * ((a.lv || 1) + 1) * a.rar * a.rar);   // 武器の強化(forgeCost)の8割
 // 店: 毎日入れ替わる品ぞろえ(武器6・防具6)。ランク4まで(ランク5・6はドロップ限定)。値段は売値の4倍
+// 店の値段: ランクで決まる基本の値段(合戦の稼ぎが目安。ランク4は約5回分)に、特性の数で上乗せ。防具は武器の8割
+const SHOP_BASE = [0, 1200, 3000, 8000, 20000, 50000];
+export const shopPrice = (it, kind) => Math.round(SHOP_BASE[it.rar] * (kind === 'a' ? 0.8 : 1) * (1 + 0.12 * ((it.traits || []).length)) / 10) * 10;
 export const shopDay = () => { const t = new Date(); return t.getFullYear() + '-' + (t.getMonth() + 1) + '-' + t.getDate(); };
 export function rollShop(power) {
   const pickRar = () => { const p = clamp(power / 100, 0, 1), w = [50 - 35 * p, 32, 12 + 20 * p, 4 + 12 * p]; let r = Math.random() * w.reduce((a, b) => a + b, 0); for (let i = 0; i < 4; i++) { r -= w[i]; if (r <= 0) return i + 1; } return 1; };
   const types = Object.keys(WEAPON_TYPE_NAMES), items = [];
-  for (let i = 0; i < 6; i++) { const w = rollWeapon(types[Math.floor(Math.random() * types.length)], power, 0, 1, pickRar()); items.push({ kind: 'w', item: w, price: sellPrice(w) * 4, sold: false }); }
-  for (let i = 0; i < 6; i++) { let a = null; for (let k = 0; k < 30 && (!a || a.rar > 4); k++) a = rollArmor(power, 0, 1); if (a.rar > 4) a.rar = 4; items.push({ kind: 'a', item: a, price: armorSell(a) * 4, sold: false }); }
+  for (let i = 0; i < 6; i++) { const w = rollWeapon(types[Math.floor(Math.random() * types.length)], power, 0, 1, pickRar()); items.push({ kind: 'w', item: w, price: shopPrice(w, 'w'), sold: false }); }
+  for (let i = 0; i < 6; i++) { let a = null; for (let k = 0; k < 30 && (!a || a.rar > 4); k++) a = rollArmor(power, 0, 1); if (a.rar > 4) a.rar = 4; items.push({ kind: 'a', item: a, price: shopPrice(a, 'a'), sold: false }); }
   return items;
 }
 export function heroArmor(save, heroId) {

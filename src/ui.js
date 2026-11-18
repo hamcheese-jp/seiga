@@ -1,6 +1,6 @@
 // 画面UI: 合戦HUD・演出テロップ・各メニュー画面(DOM)
 import { Save, Cloud } from './save.js';
-import { rollShop, shopDay, weaponFit, JOBS, APT, heroJob, weaponApt, armorApt, jobLv, wpnLv, armLv, jobOpen, aptUp, JOB_COST, JOB_MAX, MAST_MAX, armorDefOf, armorForgeCost, WEAPON_WT, WEAPON_TYPE_NAMES, ARMOR_SLOT_KEYS, ARMOR_SLOT_TAB, ARMOR_SLOT_NAMES, ARMOR_SETS, armorName, armorSell, heroArmor,
+import { rollShop, shopDay, shopPrice, weaponFit, JOBS, APT, heroJob, weaponApt, armorApt, jobLv, wpnLv, armLv, jobOpen, aptUp, JOB_COST, JOB_MAX, MAST_MAX, armorDefOf, armorForgeCost, WEAPON_WT, WEAPON_TYPE_NAMES, ARMOR_SLOT_KEYS, ARMOR_SLOT_TAB, ARMOR_SLOT_NAMES, ARMOR_SETS, armorName, armorSell, heroArmor,
   HEROES, HERO, ELEMENTS, STAGES, ENDLESS, STAGE, DIFFS, RARITY, RAR_MAXLV, traitText, weaponName, weaponAtk, synthInfo, doSynth, SYN_MAX, starterWeapon, forgeCost, sellPrice, GACHA_COST, rollWeapon, calcStats, expNeed,
   ACHIEVEMENTS, STAR_LABELS, UNLOCKS, FOE_UNLOCKS, GAME_TITLE, GAME_SUB, MAX_LV, maxNormals, maxCharges } from './data.js';
 import { VERSION } from './config.js';
@@ -364,6 +364,7 @@ export const UI = {
       const cleared = STAGES.filter((x) => Save.stageCleared(x.id)).length, maxLv = Math.max(...Object.values(S.heroes).map((x) => x.lv || 1));
       S.shop = { day, items: rollShop(Math.min(100, cleared * 12 + maxLv)) }; this.shopSel = 0; Save.persist(false);
     }
+    for (const q of S.shop.items) if (!q.sold) q.price = shopPrice(q.item, q.kind);   // 値段の決まりが変わっても今の品に当てる
     const items = S.shop.items, sel = Math.min(this.shopSel || 0, items.length - 1), it = items[sel], x = it.item, R = RARITY[x.rar];
     const nm = (q) => (q.kind === 'w' ? weaponName(q.item) : armorName(q.item));
     const sub = (q) => (q.kind === 'w' ? `${WEAPON_TYPE_NAMES[q.item.type]}　攻撃+${weaponAtk(q.item)}` : `${ARMOR_SLOT_TAB[q.item.slot]}　防御+${q.item.def}`);

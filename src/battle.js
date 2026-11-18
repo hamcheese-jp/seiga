@@ -673,7 +673,8 @@ export class Battle {
     }
     const lvk = 1 + this.lv * 0.3;
     const exp = Math.round((this.exp * (win || this.endless ? 1 : 0.6) + (win ? 320 * lvk : 0)) * S.exp * rew);
-    const gold = Math.round((this.gold + this.ko * 0.6 + (win ? 260 * (1 + this.lv * 0.15) : 0)) * S.gold * rew);
+    // 後半の章ほど稼げる: 章の推奨レベルで全体に倍率(第一章 1.04倍 … 終章 2.2倍)
+    const gold = Math.round((this.gold + this.ko * 0.6 + (win ? 260 * (1 + this.lv * 0.15) : 0)) * (1 + this.lv * 0.04) * S.gold * rew);
     const loot = this.loot.slice();
     if (win) loot.push(this._lootWeapon(rank === 'S' ? 3 : rank === 'A' ? 2 : 1));
     if (this.endless) for (let i = 0; i < Math.floor(this.wave / 5); i++) loot.push(this._lootWeapon(2));
