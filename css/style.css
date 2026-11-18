@@ -435,3 +435,13 @@ html[lang="en"] .goldv::before { content: 'G '; }
 #field-loading { position: fixed; left: 50%; bottom: 22%; transform: translateX(-50%); padding: 8px 18px; background: rgba(9, 13, 30, .82); border: 1px solid var(--line); border-radius: 4px; color: #fff3cf; font-size: 14px; z-index: 7; opacity: 0; pointer-events: none; transition: opacity .3s; }
 #field-loading.on { opacity: 1; }
 .town-count { margin-left: 8px; font-size: clamp(11px, 3vmin, 13px); color: #bfe0ff; text-shadow: 0 1px 2px #000; }
+/* アクション(エモート): 画面の左の「💬」と一覧。町・世界地図・合戦で使える */
+#emote-fab { position: fixed; left: calc(var(--sl) + 10px); top: 36%; z-index: 12; width: 46px; height: 46px; border-radius: 50%; font-size: 22px; background: rgba(9, 13, 30, .72); border: 1px solid var(--line); color: #fff; display: none; touch-action: manipulation; }
+#emote-fab.on { display: block; }
+#emote-pad { position: fixed; left: calc(var(--sl) + 64px); top: calc(36% - 40px); z-index: 12; display: none; grid-template-columns: repeat(5, 64px); gap: 6px; padding: 8px; background: rgba(9, 13, 30, .86); border: 1px solid var(--line); border-radius: 6px; touch-action: manipulation; }
+#emote-pad.on { display: grid; }
+#emote-pad button { position: relative; display: grid; gap: 2px; justify-items: center; padding: 6px 2px; background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .15); border-radius: 4px; color: #fff; }
+#emote-pad b { font-size: 24px; line-height: 1; }
+#emote-pad span { font-size: 10px; white-space: nowrap; }
+#emote-pad i { position: absolute; right: 3px; top: 1px; font-size: 9px; opacity: .5; font-style: normal; }
+body.touch #emote-pad i { display: none; }

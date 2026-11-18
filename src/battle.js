@@ -11,6 +11,7 @@ import { HERO, HEROES, ELEMENTS, LOOKS, OFFICER_NAMES, DIFFS, THEMES, calcStats,
 import { MS } from './moves.js';
 import { Voice } from './voice.js';
 import { Net, NetHost, NetGuest, spawnInfo, sanitizeMember } from './net.js';
+import { EMOTE, emojiSprite, freeEmoji } from './emotes.js';
 import { clamp, rnd, pick, damp, angWrap, lerp, D2R, ease } from './util.js';
 
 const PI = Math.PI;
@@ -692,7 +693,25 @@ export class Battle {
   }
 
   // ---------- メインループ ----------
+  // アクション: 武将の頭の上に吹き出し。send = 自分が押した時(オンラインなら仲間へ)
+  emote(f, k, send) {
+    const E = EMOTE[k]; if (!f || !E) return;
+    this.emos = this.emos || [];
+    const old = this.emos.findIndex((x) => x.f === f); if (old >= 0) { freeEmoji(this.emos[old].s); this.emos.splice(old, 1); }
+    const s = emojiSprite(E.e); GFX.scene.add(s); this.emos.push({ f, s, t: 2.6 });
+    if (send && this.net) Net.send(this.guest ? { t: 'emo', k } : { t: 'emo', k, id: f.netId });
+  }
+  _emoUpdate(dt) {
+    if (!this.emos) return;
+    for (let i = this.emos.length - 1; i >= 0; i--) {
+      const e = this.emos[i]; e.t -= dt;
+      if (e.t <= 0 || !e.f.model) { freeEmoji(e.s); this.emos.splice(i, 1); continue; }
+      const r = e.f.model.root; e.s.position.set(r.position.x, r.position.y + 2.6 * (e.f.look && e.f.look.scale || 1) + 0.6, r.position.z);
+      e.s.material.opacity = Math.min(1, e.t * 3);
+    }
+  }
   update(dtR) {
+    this._emoUpdate(dtR);
     if (this.guest) return this._guestUpdate(dtR);
     this.rt += dtR; this.stateT += dtR;
     let ts = 1;
@@ -866,6 +885,7 @@ export class Battle {
 
   dispose() {
     Audio.ambience(false);
+    for (const e of this.emos || []) freeEmoji(e.s); this.emos = [];
     if (this.net) this.net.dispose();
     for (const f of this.fighters) f.dispose();
     this.horde.dispose(); this.stage.dispose(); FX.clear();

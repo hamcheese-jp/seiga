@@ -138,6 +138,7 @@ export class NetHost {
     for (const n of ['banner', 'say', 'cutin', 'koBanner', 'pop', 'objective', 'mission', 'stageCard']) this._wrap(B.ui, n, 'ui');
     Net.on('in', (d, slot) => { const p = this.B.remoteOf(slot); if (p && p.inp) p.inp.apply(d); });
     Net.on('leave', (d, slot) => this.B.onMemberLeave(slot));
+    Net.on('emo', (d, slot) => { const p = this.B.remoteOf(slot), now = performance.now(); if (!p || typeof d.k !== 'string' || now - (p._emoT || 0) < 700) return; p._emoT = now; this.B.emote(p, d.k, false); Net.send({ t: 'emo', k: d.k, id: p.netId }); });
     // 読み込みが遅れて出現の知らせを取りこぼした参加者へ、もう一度送る
     Net.on('need', (d) => { if (!Array.isArray(d.ids)) return; for (const id of d.ids.slice(0, 60)) { const f = this.B.fighters.find((x) => x.netId === id); if (f) this.ev.unshift(['spawn', f.netId, f.netSpawn]); } });
   }
@@ -147,7 +148,7 @@ export class NetHost {
     const w = function (...a) { if (self.ev.length < 90) self.ev.push([kind, name, map ? map(a) : a.map((x) => (x && typeof x === 'object' && !Array.isArray(x) ? (x.id ? x.id : null) : x))]); return orig.apply(this, a); };
     w.__net = true; obj[name] = w; this.rec.push([obj, name, orig]);
   }
-  dispose() { for (const [o, n, f] of this.rec) o[n] = f; this.rec = []; Net.handlers.in = null; Net.handlers.leave = null; Net.handlers.need = null; }
+  dispose() { for (const [o, n, f] of this.rec) o[n] = f; this.rec = []; Net.handlers.in = null; Net.handlers.leave = null; Net.handlers.need = null; Net.handlers.emo = null; }
   event(...e) { this.ev.push(e); }
   tick(dt) {
     const B = this.B;
@@ -186,8 +187,9 @@ export class NetGuest {
     this.evq = [];
     Net.on('snap', (d) => { if (d.ev && d.ev.length) this.evq.push(...d.ev); if (this.evq.length > 600) this.evq.splice(0, this.evq.length - 600); this.snap = d; this.fresh = true; });
     Net.on('end', (d) => { this.endData = d; });
+    Net.on('emo', (d) => { const f = this.map.get(d.id); if (f && f !== this.B.player && typeof d.k === 'string') this.B.emote(f, d.k, false); });
   }
-  dispose() { Net.handlers.snap = null; Net.handlers.end = null; Input.press = this._origPress; }
+  dispose() { Net.handlers.snap = null; Net.handlers.end = null; Net.handlers.emo = null; Input.press = this._origPress; }
   // 自分の操作をホストへ
   sendInput(dt) {
     this.inT -= dt; if (this.inT > 0 && !this.pend) return;

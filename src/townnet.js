@@ -3,6 +3,7 @@
 //   世話役が抜けたら、残った人が入り直して新しい世話役が決まる。1部屋12人まで、満員なら次の部屋へ。
 import { Net } from './net.js';
 import { HERO } from './data.js';
+import { EMOTE } from './emotes.js';
 
 const PREFIX = 'seiga-town-v1-', ROOMS = 6, CAP = 12, RATE = 0.25, INFO_RATE = 2, STALE = 6;
 const ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun.cloudflare.com:3478' }] };
@@ -63,6 +64,7 @@ export const TownNet = {
   // 世話役 ← 参加者
   _fromGuest(d, id) {
     if (!d || typeof d !== 'object') return;
+    if (d.t === 'e') { const o = this.others.get(id); if (!o || !EMOTE[d.k] || this.now - (o.eAt || -9) < 0.8) return; o.e = d.k; o.eAt = this.now; o.eN = (o.eN || 0) + 1; for (const [cid, c] of this.conns) if (cid !== id) try { c.send({ t: 'e', id, k: d.k }); } catch (_) { /* noop */ } return; }
     const o = this.others.get(id) || { n: '', h: 'reiga', x: 0, z: 0, r: 0, m: 0 };
     if (d.t === 'info') { o.n = cleanName(d.n); o.h = HERO[d.h] ? d.h : 'reiga'; }
     else if (d.t === 's' && Array.isArray(d.s)) { o.x = num(d.s[0], 200); o.z = num(d.s[1], 200); o.r = num(d.s[2], 10); o.m = num(d.s[3], 20); }
@@ -74,6 +76,7 @@ export const TownNet = {
     if (!d || typeof d !== 'object') return;
     if (d.t === 'full') { this._join(n + 1); return; }
     const me = this.peer && this.peer.id;
+    if (d.t === 'e') { const o = this.others.get(d.id); if (o && EMOTE[d.k] && d.id !== me) { o.e = d.k; o.eN = (o.eN || 0) + 1; } return; }
     if (d.t === 'all' && Array.isArray(d.l)) {
       for (const e of d.l.slice(0, CAP)) {
         if (!Array.isArray(e) || e[0] === me || typeof e[0] !== 'string') continue;
@@ -88,6 +91,12 @@ export const TownNet = {
         o.n = cleanName(e[1]); o.h = HERO[e[2]] ? e[2] : 'reiga'; this.others.set(e[0], o);
       }
     }
+  },
+  // 自分のアクションを町の人へ
+  emote(k) {
+    if (!this.on || !this.peer || !EMOTE[k]) return;
+    if (this.host) { const id = this.peer.id; for (const c of this.conns.values()) try { c.send({ t: 'e', id, k }); } catch (_) { /* noop */ } }
+    else if (this.hostConn) try { this.hostConn.send({ t: 'e', k }); } catch (_) { /* noop */ }
   },
   _sendInfo() { const m = this.getMe && this.getMe(); if (m && this.hostConn) try { this.hostConn.send({ t: 'info', n: cleanName(m.n), h: m.h }); } catch (_) { /* noop */ } },
   // 毎フレーム: 一定間隔で位置を送る・配る。古い人を消す

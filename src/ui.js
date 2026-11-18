@@ -14,6 +14,8 @@ import { Voice } from './voice.js';
 import { Net, MAX_PLAYERS, MAX_PVP, sanitizeMember } from './net.js';
 import { Daily, weekKey, weekLeft } from './daily.js';
 import { LANG, setLang } from './i18n.js';
+import { EMOTES } from './emotes.js';
+import { TownNet } from './townnet.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const SCREENS = ['title', 'home', 'stage', 'hero', 'armory', 'shop', 'ach', 'rank', 'settings', 'result', 'pause', 'load', 'story', 'coop', 'daily'];
@@ -39,7 +41,9 @@ export const UI = {
     this.bS = $('.b-s'); this.bR = $('.b-r');
     Install.onChange(() => { if (this.cur === 'title' || this.cur === 'home') this.show(this.cur); });
     this.applyBtnLayout();
+    this.emoteInit();
     const S = Save.data; this.sel = { ...S.last };
+    addEventListener('keydown', (e) => { if ((this.cur !== 'home' && this.cur !== '') || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return; const m = /^Digit(\d)$/.exec(e.code); if (m) { const i = (+m[1] + 9) % 10; if (EMOTES[i]) this.doEmote(EMOTES[i].k); } });
     // 招待URL(?room=部屋番号)から来た人は、タイトルの後でその部屋へ直行する
     try {
       const q = new URLSearchParams(location.search), c = (q.get('room') || '').trim();
@@ -74,6 +78,7 @@ export const UI = {
     if (name && this['r_' + name]) this['r_' + name]();
     $('#hud').classList.toggle('hide', name !== '' && name !== 'pause');
     $('#touch').classList.toggle('hide', name !== '' && name !== 'home');
+    { const on = name === '' || name === 'home'; $('#emote-fab').classList.toggle('on', on); if (!on) $('#emote-pad').classList.remove('on'); }
     if (this.app.onScreen) this.app.onScreen(name);
   },
   html(name, h, dim) { const s = $('#s-' + name); s.innerHTML = h; s.classList.toggle('dim', !!dim); },
@@ -316,6 +321,24 @@ export const UI = {
   },
 
   // ================= 各画面 =================
+  // 町でアクション(自分が動き、町の人にも届く)
+  doEmote(k) {
+    const now = performance.now(); if (now - (this._emoT || 0) < 800) return;
+    const B = this.app.battle, f = this.app.field;
+    if (this.cur === '' && B && B.player) { this._emoT = now; B.emote(B.player, k, true); Audio.sfx('ui'); }
+    else if (this.cur === 'home' && f && f.emote && f.emote(k)) { this._emoT = now; Audio.sfx('ui'); if (this.app.fieldKind === 'town') TownNet.emote(k); }
+    $('#emote-pad').classList.remove('on');
+  },
+  // アクションのボタンと一覧(画面の左。町・世界地図・合戦で出す)
+  emoteInit() {
+    const fab = el('button', '', '💬'); fab.id = 'emote-fab'; fab.title = 'アクション';
+    const pad = el('div', '', EMOTES.map((e, i) => `<button data-k="${e.k}"><b>${e.e}</b><span>${e.n}</span><i>${(i + 1) % 10}</i></button>`).join('')); pad.id = 'emote-pad';
+    const stop = (ev) => { ev.stopPropagation(); };
+    fab.addEventListener('pointerdown', stop); pad.addEventListener('pointerdown', stop);
+    fab.addEventListener('click', (ev) => { ev.stopPropagation(); Audio.sfx('ui'); pad.classList.toggle('on'); });
+    pad.addEventListener('click', (ev) => { ev.stopPropagation(); const b = ev.target.closest('[data-k]'); if (b) this.doEmote(b.dataset.k); });
+    document.body.append(fab, pad);
+  },
   // 言語の切り替えボタン(いまが日本語なら English、英語なら 日本語 と出す)
   langBtn(cls) { return `<button class="lang-btn ${cls}" data-a="lang">🌐 ${LANG === 'en' ? '日本語' : 'English'}</button>`; },
   r_title() {

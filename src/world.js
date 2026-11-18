@@ -13,6 +13,7 @@ import { Input } from './input.js';
 import { T } from './i18n.js';
 import { Save } from './save.js';
 import { TownNet } from './townnet.js';
+import { EMOTE } from './emotes.js';
 import { box, cyl, cone, at, merge, ico, torus, sph, lathe } from './geo.js';
 import { clamp, damp } from './util.js';
 
@@ -40,6 +41,15 @@ function nameSprite(name, me) {
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace;
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthWrite: false, depthTest: false, transparent: true }));
   s.scale.set(2.6, 2.6 * 96 / 512, 1); s.renderOrder = 40; return s;
+}
+// 頭の上の絵文字(アクション中)
+function emojiSprite(e) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128; const c = cv.getContext('2d');
+  c.fillStyle = 'rgba(255,255,255,0.92)'; c.beginPath(); c.arc(64, 60, 52, 0, 7); c.fill(); c.beginPath(); c.moveTo(52, 104); c.lineTo(64, 124); c.lineTo(76, 104); c.fill();
+  c.font = '64px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(e, 64, 62);
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthWrite: false, depthTest: false, transparent: true }));
+  s.scale.set(1.1, 1.1, 1); s.renderOrder = 41; return s;
 }
 const freeSprite = (s) => { if (!s) return; if (s.parent) s.parent.remove(s); s.material.map.dispose(); s.material.dispose(); };
 function labelSprite(lines, scale = 3.2) {
@@ -96,6 +106,25 @@ class Field {
       e.textContent = T(`キャラクターを読み込み中… ${Math.round(vrmProgress(this.loading) * 100)}%`); e.classList.add('on');
     } else if (e) e.classList.remove('on');
   }
+  // アクションを始める(自分)
+  emote(k) { if (!EMOTE[k] || !this.model) return false; this.emo = { k, t: 0 }; return true; }
+  // アクションの進行(自分・ほかの人で共通)。o.emo = { k, t }
+  _emoteStep(o, rig, speed, dt, x, y, z, heroId) {
+    if (!rig) return;
+    const E = o.emo && EMOTE[o.emo.k];
+    if (E && (speed > 1.2 && o.emo.t > 0.25 || o.emo.t > E.dur)) o.emo = null;
+    // アクション中は武器をしまう
+    const wm = rig.model && rig.model.wMeshes, show = !(o.emo && E);
+    if (wm && wm._shown !== show) { wm._shown = show; for (const m of [...wm.R, ...wm.L]) m.visible = show; }
+    if (o.emo && E) {
+      o.emo.t += dt; rig.customPose = { ...E.pose(o.emo.t), free: true }; rig.setMode('pose');
+      if (!o.bubble || o.bubbleK !== E.k) { freeSprite(o.bubble); o.bubble = emojiSprite(E.e); o.bubbleK = E.k; this.group.add(o.bubble); }
+      o.bubble.position.set(x, y + 2.35 * ((HERO[heroId] && HERO[heroId].look.scale) || 1) + 0.9, z);
+    } else {
+      if (rig.mode === 'pose') { rig.customPose = null; rig.setMode('loco'); }
+      if (o.bubble) { freeSprite(o.bubble); o.bubble = null; o.bubbleK = null; }
+    }
+  }
   _drop() { if (this.model) { disposeModel(this.model); this.model = null; this.rig = null; } }
   setFrame(name) { this.frame = name; }
   // 入る(各画面を開く)。歩くのを止めて、その場で画面を重ねる
@@ -119,6 +148,7 @@ class Field {
     P.y = this.stage.heightAt(P.x, P.z);
     if (this.model) {
       const r = this.model.root; r.position.set(P.x, P.y, P.z); r.rotation.y = P.yaw;
+      this._emoteStep(this, this.rig, sp, dt, P.x, P.y, P.z, this.heroId);
       this.rig.speed = sp; this.rig.update(dt);   // VRM の体は rig.update の中で合わせる
     }
     // 入口の案内
@@ -361,7 +391,7 @@ export class Town extends Field {
     loadVrm(h.vrm || h.id).then((vrm) => { if (g.dead) return; if (vrm) { new VrmBody(model, vrm); setArmor(vrm, h.vrm || h.id, ARMOR_SLOT_KEYS.reduce((m, k) => (m[k] = (o.a && ARMOR_SETS[o.a[k]] ? o.a[k] : 'guren'), m), {})); } model.root.visible = true; }).catch(() => { model.root.visible = true; });
     return g;
   }
-  _dropGhost(g) { g.dead = true; freeSprite(g.name); disposeModel(g.model); }
+  _dropGhost(g) { g.dead = true; freeSprite(g.name); freeSprite(g.bubble); disposeModel(g.model); }
   _ghosts(dt) {
     const others = TownNet.others, P = this.p, MAXG = 8;
     // 近い人から最大8人だけ描く(スマホの負担を抑える)
@@ -373,6 +403,8 @@ export class Town extends Field {
       const k = Math.min(1, dt * 8); g.x += (o.x - g.x) * k; g.z += (o.z - g.z) * k;
       let d = (o.r || 0) - g.r; d = Math.atan2(Math.sin(d), Math.cos(d)); g.r += d * Math.min(1, dt * 10);
       const y = this.stage.heightAt(g.x, g.z), r = g.model.root; r.position.set(g.x, y, g.z); r.rotation.y = g.r;
+      if (o.eN && o.eN !== g.eN) { g.eN = o.eN; g.emo = { k: o.e, t: 0 }; }
+      this._emoteStep(g, g.rig, o.m || 0, dt, g.x, y, g.z, o.h);
       g.rig.speed = o.m || 0; g.rig.update(dt);
       const nm = T(o.n || '星牙使い');
       if (nm !== g.nameTxt) { freeSprite(g.name); g.name = nameSprite(nm, false); g.nameTxt = nm; this.group.add(g.name); }
