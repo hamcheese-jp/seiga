@@ -4,6 +4,7 @@ import { rollShop, shopDay, weaponFit, JOBS, APT, heroJob, weaponApt, armorApt, 
   HEROES, HERO, ELEMENTS, STAGES, ENDLESS, STAGE, DIFFS, RARITY, RAR_MAXLV, traitText, weaponName, weaponAtk, synthInfo, doSynth, SYN_MAX, starterWeapon, forgeCost, sellPrice, GACHA_COST, rollWeapon, calcStats, expNeed,
   ACHIEVEMENTS, STAR_LABELS, UNLOCKS, FOE_UNLOCKS, GAME_TITLE, GAME_SUB, MAX_LV, maxNormals, maxCharges } from './data.js';
 import { VERSION } from './config.js';
+import { Input } from './input.js';
 import { Install } from './install.js';
 import { Audio } from './audio.js';
 import { GFX } from './gfx.js';
@@ -45,7 +46,7 @@ export const UI = {
     this.cur = name;
     if (name && this['r_' + name]) this['r_' + name]();
     $('#hud').classList.toggle('hide', name !== '' && name !== 'pause');
-    $('#touch').classList.toggle('hide', name !== '');
+    $('#touch').classList.toggle('hide', name !== '' && name !== 'home');
     if (this.app.onScreen) this.app.onScreen(name);
   },
   html(name, h, dim) { const s = $('#s-' + name); s.innerHTML = h; s.classList.toggle('dim', !!dim); },
@@ -60,10 +61,10 @@ export const UI = {
         // 初回はオープニングムービーから
         if (!S.story.op) { this.show('scene'); Story.opening(() => { S.story.op = 1; Save.persist(false); Audio.bgm('title'); this.show('home'); this.app.cloudSync(); }); break; }
         Audio.bgm('title'); this.show('home'); this.app.cloudSync(); break;
-      case 'go': Audio.sfx(v === 'home' || v === 'stage' ? 'back' : 'ui'); if (v === 'endless') { sel.stage = 'endless'; v = 'hero'; } if (v === 'armory') { this.armHero = sel.hero; this.armSel = null; } this.show(v); break;
+      case 'go': Audio.sfx(v === 'home' || v === 'stage' ? 'back' : 'ui'); if (v === 'endless') { sel.stage = 'endless'; v = 'hero'; this.heroBack = null; } if (v === 'armory') { this.armHero = sel.hero; this.armSel = null; } this.show(v); break;
       case 'stage': Audio.sfx('ui'); sel.stage = v; this.r_stage(); break;
       case 'diff': Audio.sfx('ui'); sel.diff = +v; this.r_stage(); break;
-      case 'tohero': Audio.sfx('ok'); this.show('hero'); break;
+      case 'tohero': Audio.sfx('ok'); this.heroBack = null; this.show('hero'); break;
       case 'hero': Audio.sfx('ui'); sel.hero = v; this.app.lobbyHero(v); this.r_hero(); break;
       case 'sortie': {
         if (!S.unlockedHeroes.includes(sel.hero)) { Audio.sfx('deny'); break; }
@@ -270,20 +271,10 @@ export const UI = {
     $('#s-title').dataset.a = 'start';
   },
   r_home() {
-    const S = Save.data, h = HERO[this.sel.hero];
-    this.html('home', `<div class="head"><div class="who">${esc(S.name)}</div><div class="sp"></div>${this.installBtn('inst-home')}<div class="goldv">${S.gold.toLocaleString()}</div></div>
-      <div class="home-menu">
-        <button class="mbtn main" data-a="go" data-v="stage">出撃<small>章を選んで戦いへ</small></button>
-        <button class="mbtn" ${Save.stageCleared('s1') ? 'data-a="go" data-v="endless"' : 'style="opacity:.45"'}>星海の試練<small>${Save.stageCleared('s1') ? `最高 ${S.endless.ko}人撃破 / 第${S.endless.wave}波` : '第一章クリアで解放'}</small></button>
-        <button class="mbtn" data-a="go" data-v="armory">装備<small>職業・武器・防具の装備・強化・転職</small></button>
-        <button class="mbtn" data-a="go" data-v="shop">店<small>武器と防具を買う(毎日入れ替わり)</small></button>
-        <button class="mbtn" data-a="go" data-v="coop">オンライン<small>最大4人で協力 ／ 4対4で対戦</small></button>
-        <button class="mbtn" data-a="go" data-v="story">物語<small>オープニング・各章の物語</small></button>
-        <button class="mbtn" data-a="go" data-v="ach">称号<small>${Object.keys(S.ach).length} / ${ACHIEVEMENTS.length} 達成</small></button>
-        <button class="mbtn" data-a="go" data-v="rank">ランキング<small>全国ランキング</small></button>
-        <button class="mbtn" data-a="go" data-v="settings">設定<small>画質・音量・データ保存</small></button>
-      </div>`);
-    this.app.lobbyHero(h.id);
+    const S = Save.data, map = this.app.fieldKind === 'map';
+    this.html('home', `<div class="field-hud"><div class="head"><div class="who">${esc(S.name)}</div><div class="sp"></div>${this.installBtn('inst-home')}<div class="goldv">${S.gold.toLocaleString()}</div></div>
+      <div class="field-hint">${map ? '戦場の旗へ歩いて出撃 ／ 赤い門で町へ戻る' : '建物に近づいて入る ／ 南の赤い門から世界地図へ'}　${Input.usedTouch ? '左でスティック・右で視点' : 'WASD で歩く・ドラッグで視点'}</div></div>`);
+    this.app.lobbyHero(this.sel.hero);
   },
   r_stage() {
     const S = Save.data, sel = this.sel;
@@ -308,7 +299,7 @@ export const UI = {
     const h = HERO[sel.hero], hs = S.heroes[h.id], st = calcStats(S, h.id), E = ELEMENTS[h.elem], w = st.weapon, open = S.unlockedHeroes.includes(h.id);
     const need = Object.entries(UNLOCKS).find(([, v]) => v === h.id) || Object.entries(FOE_UNLOCKS).find(([, v]) => v === h.id);
     const info = sel.stage === 'endless' ? ENDLESS.name : `${STAGE[sel.stage].name} / ${DIFFS[sel.diff].n}`;
-    this.html('hero', `${this.head('星牙使い選択', sel.stage === 'endless' ? 'home' : 'stage', `<div class="dim-t" style="font-size:12px;text-shadow:0 1px 3px #000">${info}</div>`)}
+    this.html('hero', `${this.head('星牙使い選択', this.heroBack || (sel.stage === 'endless' ? 'home' : 'stage'), `<div class="dim-t" style="font-size:12px;text-shadow:0 1px 3px #000">${info}</div>`)}
       <div class="cols hero"><div class="l"><div class="heroes">${HEROES.map((x) => { const u = S.unlockedHeroes.includes(x.id);
         return `<div class="hsel ${x.id === h.id ? 'on' : ''} ${u ? '' : 'lock'} ${x.foe ? 'foe' : ''}" style="--ec:${ELEMENTS[x.elem].css}" data-a="hero" data-v="${x.id}"><b>${x.name}</b><i>${u ? 'Lv' + S.heroes[x.id].lv : '未解放'}</i></div>`; }).join('')}</div></div>
       <div class="r"><div class="panel scroll" style="flex:1">

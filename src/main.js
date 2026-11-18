@@ -4,7 +4,7 @@ import { Input } from './input.js';
 import { Audio } from './audio.js';
 import { Save, Cloud } from './save.js';
 import { UI } from './ui.js';
-import { Lobby } from './lobby.js';
+import { Town, WorldMap } from './world.js';
 import { Battle } from './battle.js';
 import { STAGE, HEROES, HERO } from './data.js';
 import { preloadVrm, probeVrm, VRM_KEYS } from './vrmchar.js';
@@ -17,7 +17,7 @@ import { Voice, VOICES } from './voice.js';
 import { BOSS_VOICE } from './voicedata.js';
 
 const App = {
-  mode: 'menu', battle: null, lobby: null, paused: false, last: 0, busy: false,
+  mode: 'menu', battle: null, field: null, fieldKind: 'town', paused: false, last: 0, busy: false,
 
   init() {
     Save.load();
@@ -27,8 +27,9 @@ const App = {
     Input.init();
     UI.init(this);
     probeVrm(); Voice.init();
-    this.lobby = new Lobby(); this.lobby.setHero(UI.sel.hero);
-    preloadWeapons().then(() => { if (this.lobby) this.lobby.setHero(UI.sel.hero, true); });
+    // メニューの代わりに拠点の町を歩く(世界地図へも出られる)
+    this.field = new Town(UI); this.field.setHero(UI.sel.hero);
+    preloadWeapons().then(() => { if (this.field) this.field.setHero(UI.sel.hero, true); });
     UI.show('title');
     const boot = document.getElementById('boot');
     boot.classList.add('out'); setTimeout(() => boot.remove(), 700);
@@ -43,16 +44,27 @@ const App = {
     Input.update(dt);
     if (this.mode === 'battle' && this.battle) {
       if (!this.paused) { if (Input.consume('pause', 0.3)) this.pause(); else this.battle.update(dt); }
-    } else if (this.lobby) this.lobby.update(dt);
+    } else if (this.field) this.field.update(dt);
     if (!this.paused) GFX.perf(dt);
     GFX.render(this.paused ? 0 : dt);
     Input.endFrame();
   },
 
-  lobbyHero(id, force) { if (this.lobby) this.lobby.setHero(id, force); },
+  lobbyHero(id, force) { if (this.field) this.field.setHero(id, force); },
+  // 町 ⇔ 世界地図
+  toField(kind) {
+    if (this.busy || this.mode !== 'menu') return; this.busy = true;
+    UI.fade(true);
+    setTimeout(() => {
+      if (this.field) { this.field.dispose(); this.field = null; }
+      this.fieldKind = kind; this.field = kind === 'map' ? new WorldMap(UI) : new Town(UI); this.field.setHero(UI.sel.hero);
+      UI.show('home'); UI.fade(false); this.busy = false;
+    }, 380);
+  },
   onScreen(name) {
-    if (this.lobby) this.lobby.setFrame(name);
-    Input.active = name === '';
+    if (this.field) { this.field.setFrame(name); if (name === 'home') this.field.setHero(UI.sel.hero); }
+    document.body.classList.toggle('field', name === 'home');
+    Input.active = name === '' || name === 'home';
     if (name === 'home' && this.mode === 'menu') Audio.bgm('title');
   },
 
@@ -68,7 +80,7 @@ const App = {
         await Promise.race([Promise.all([preloadVrm(need), preloadSoldier(), preloadNature(), preloadWeapons()]), new Promise((r) => setTimeout(r, 15000))]);
         try {
           if (this.battle) { this.battle.dispose(); this.battle = null; }
-          if (this.lobby) { this.lobby.dispose(); this.lobby = null; }
+          if (this.field) { this.field.dispose(); this.field = null; }
           this.battle = new Battle({ stage: STAGE[sel.stage], heroId: sel.hero, diff: sel.diff, save: Save.data, ui: UI, onEnd: (r) => this.endBattle(r), ...extra });
           UI.hudStart(this.battle);
           this.mode = 'battle'; this.paused = false;
@@ -98,7 +110,7 @@ const App = {
     this.mode = 'menu'; this.paused = false;
     Net.locked = false;
     UI.clearFx();
-    if (!this.lobby) { this.lobby = new Lobby(); this.lobby.setHero(UI.sel.hero); }
+    if (!this.field) { this.fieldKind = 'town'; this.field = new Town(UI); this.field.setHero(UI.sel.hero); }
     UI.show(screen);
   },
   pause() {

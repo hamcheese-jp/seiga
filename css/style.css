@@ -384,3 +384,16 @@ p { margin: 4px 0; font-size: clamp(11px, 3vmin, 13px); line-height: 1.55; }
 #vrm-loading.on { display: flex; }
 #vrm-loading i { width: 16px; height: 16px; border: 2px solid rgba(243, 207, 109, .3); border-top-color: var(--gold); border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* 町・世界地図: 入口の案内(近づくと出る。押すと入る) */
+#field-prompt { position: fixed; left: 50%; bottom: 14vh; transform: translateX(-50%) translateY(20px); z-index: 12; display: none; flex-direction: column; align-items: center; gap: 2px;
+  padding: 10px 26px 9px; border-radius: 14px; background: rgba(12, 9, 6, .82); border: 1px solid rgba(255, 210, 120, .7); color: #ffe9b8; font-family: var(--serif); cursor: pointer; pointer-events: auto; transition: transform .18s, opacity .18s; opacity: 0; }
+#field-prompt.on { display: flex; opacity: 1; transform: translateX(-50%) translateY(0); }
+#field-prompt b { font-size: 20px; letter-spacing: .1em; }
+#field-prompt small { font-size: 12px; color: #d8c8a8; }
+#field-prompt i { font-style: normal; font-size: 11px; color: #9ad0ff; margin-top: 2px; }
+/* 町を歩く間は、合戦用のボタンを隠してスティックだけにする */
+body.field #touch .btn { display: none; }
+.field-hud { position: fixed; left: 0; right: 0; top: 0; z-index: 6; pointer-events: none; }
+.field-hud .head { pointer-events: auto; }
+.field-hint { position: fixed; left: 50%; top: 9vh; transform: translateX(-50%); width: max-content; max-width: 92vw; text-align: center; font-size: 12px; color: #e8dcc0; text-shadow: 0 1px 3px #000; pointer-events: none; }
