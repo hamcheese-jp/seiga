@@ -15,6 +15,8 @@ export const RESTS = {
   axe:    { az: -28, el: -55, bend: 55, wr: 120, azL: 30, elL: -60, bendL: 50, wrL: 100 },
   fan:    { az: -42, el: -52, bend: 70, wr: 100, azL: 42, elL: -52, bendL: 70, wrL: 100 },
   scythe: { az: -30, el: -52, bend: 50, wr: 125, azL: 30, elL: -60, bendL: 50, wrL: 100 },
+  bow:    { az: -30, el: -62, bend: 40, wr: 60, azL: 25, elL: -55, bendL: 25, wrL: 90 },   // 弓は左手
+  staff:  { az: -26, el: -50, bend: 70, wr: 95, azL: 30, elL: -62, bendL: 45, wrL: 100 },
 };
 // 立ち止まっている時の構え(武器ごと)
 export const IDLES = {
@@ -25,6 +27,8 @@ export const IDLES = {
   axe:    { stance: 0.6, crouch: 0.1, lean: 6, tw: -10, head: 10, az: -12, el: -50, bend: 15, wr: 175 },
   fan:    { stance: 0.4, crouch: 0.04, lean: 2, tw: -15, head: 12, az: -70, el: -20, bend: 80, wr: 90, azL: 60, elL: 30, bendL: 100, wrL: 80 },
   scythe: { stance: 0.45, crouch: 0.05, lean: 4, tw: -25, head: 20, az: -30, el: -55, bend: 45, wr: 75 },
+  bow:    { stance: 0.5, crouch: 0.06, lean: 4, tw: 10, head: -8, az: -35, el: -55, bend: 40, wr: 40, azL: 30, elL: -35, bendL: 25, wrL: 90 },   // 弓を左手で低く構える
+  staff:  { stance: 0.45, crouch: 0.04, lean: 2, tw: -12, head: 10, az: -28, el: -30, bend: 85, wr: 95, azL: 40, elL: -60, bendL: 40 },   // 杖を体の右に立てる
 };
 // 走る時の武器の持ち方(武器種ごと)。one: 両手武器でも走る間は片手で持つ
 export const RUNS = {
@@ -35,6 +39,8 @@ export const RUNS = {
   spear:  { az: -122, el: -40, bend: 34, wr: 132 },                                                // 腰だめに引き、穂先を前へ
   twin:   { az: -150, el: -30, bend: 16, wr: 30, azL: 150, elL: -30, bendL: 16, wrL: 30 },         // 両腕を後ろへ流す
   fan:    { az: -132, el: -18, bend: 30, wr: 60, azL: 132, elL: -18, bendL: 30, wrL: 60 },
+  bow:    { az: -140, el: -30, bend: 20, wr: 30, azL: 120, elL: -30, bendL: 20, wrL: 90 },
+  staff:  { az: -135, el: -30, bend: 18, wr: 30 },
 };
 const REST_COMMON = { tw: 0, lean: 2, side: 0, crouch: 0, stance: 0.1, y: 0, spin: 0, flip: 0, head: 0, step: 1 };
 
@@ -86,7 +92,7 @@ function buildWeapon(type, tier, P) {
   const flat = (g, s) => at(g, 0, 0, 0, 0, 0, 0, s, 1, 1);
   const side = (pts, d, c) => at(extrude(pts, d, c), 0, 0, 0, 0, -PI / 2, 0);   // 形の x → +Z
   const mirror = (pts) => pts.map(([x, y]) => [-x, y]).reverse();
-  let tip, base, two = false, dual = false, grip = [0, -0.4, 0];
+  let tip, base, two = false, dual = false, left = false, grip = [0, -0.4, 0];   // left: 左手だけに持つ(弓)
   if (type === 'sword') {
     // 大太刀: 幅広の刀身・峰・光る刃・翼の鍔
     const len = 0.92 + tier * 0.07, w = 0.085 + tier * 0.01, b0 = 0.2;
@@ -186,8 +192,20 @@ function buildWeapon(type, tier, P) {
     for (let i = 1; i <= 9; i++) { const a = (98 - i * 9.5) * PI / 180; add('g', at(sph(0.022, glow, 5, 4), 0, 0.585 + Math.sin(a) * 0.85 * bs, Math.cos(a) * 0.85 * bs)); }
     add('g', at(sph(0.04, glow, 6, 5), 0, 1.44, 0.055));
     tip = [0, 0.55, 1.1 * bs]; base = [0, 1.48, 0]; two = true; grip = [0, -0.38, 0];   // 左手は右手より柄尻側
+  } else if (type === 'bow') {
+    // 長弓(左手で持つ): 反った弓幹と弦
+    for (let i = 0; i < 8; i++) { const z0 = -0.7 + i * 0.25, u = (z0 + 0.12 - 0.3) / 1.0; add('c', at(cyl(0.014, 0.014, 0.26, '#141018', 6), -0.12 * (1 - u * u), z0 + 0.12, 0)); }
+    add('m', at(cyl(0.003, 0.003, 2.0, '#ddd8c8', 4), 0.01, 0.3, 0));
+    add('m', at(cyl(0.022, 0.022, 0.18, gold, 8), -0.12, 0, 0));
+    tip = [0, 1.3, 0]; base = [0, -0.7, 0]; dual = true; left = true;
+  } else if (type === 'staff') {
+    // 宝杖: 長い柄と光る宝珠
+    add('c', at(cyl(0.022, 0.024, 1.8, '#3a2618', 8), 0, 0.3, 0));
+    for (const y of [-0.1, 0.14, 1.12]) add('m', at(cyl(0.03, 0.03, 0.03, gold, 8), 0, y, 0));
+    add('g', at(sph(0.08, glow, 10, 8), 0, 1.36, 0));
+    tip = [0, 1.4, 0]; base = [0, 1.0, 0];
   }
-  return { parts, tip, base, two, dual, grip };
+  return { parts, tip, base, two, dual, grip, left };
 }
 
 function hairAndGear(B, L, P, J, dang, G) {
@@ -375,20 +393,20 @@ export function buildHero(look, wtype, tier = 0) {
   const G3 = weaponGlb(wtype, tier, P.glow);
   if (G3) {
     for (const k in wb) delete wb[k];
-    const r = G3.make(); J.handR.add(r); wMeshes.R.push(r);
+    if (!W.left) { const r = G3.make(); J.handR.add(r); wMeshes.R.push(r); }
     if (W.dual) { const l = G3.make(); J.handL.add(l); wMeshes.L.push(l); }
     W.tip = G3.tip; W.base = G3.base;
   }
   for (const k in wb) {
     const geo = merge(wb[k]);
-    const m = new THREE.Mesh(geo, M[k]); m.castShadow = true; J.handR.add(m); wMeshes.R.push(m);
+    if (!W.left) { const m = new THREE.Mesh(geo, M[k]); m.castShadow = true; J.handR.add(m); wMeshes.R.push(m); }
     if (W.dual) { const m2 = new THREE.Mesh(geo, M[k]); m2.castShadow = true; J.handL.add(m2); wMeshes.L.push(m2); }
   }
   B.build(J, M);
   J.root.scale.setScalar(L.scale);
 
   return {
-    root: J.root, J, M, dang, scale: L.scale, wtype, two: W.two, dual: W.dual, armor: L.armor || '', spiky: !!L.vrmSpiky, pal: P, motion: L.motion || 1, armOut: L.armOut || 0, belly: L.belly || 0,
+    root: J.root, J, M, dang, scale: L.scale, wtype, two: W.two, dual: W.dual, leftOnly: !!W.left, armor: L.armor || '', spiky: !!L.vrmSpiky, pal: P, motion: L.motion || 1, armOut: L.armOut || 0, belly: L.belly || 0,
     // 両手持ちで左手が握れる柄の範囲(右手からの距離, m)。この中で体にめり込まない位置を毎フレーム選ぶ
     gripRange: { sword: [-0.19, -0.08], spear: [-0.62, -0.2], hammer: [-0.54, -0.2], axe: [-0.54, -0.2], scythe: [-0.56, -0.2] }[wtype] || null,   /* 左手は右手の下の柄巻き */ run: RUNS[wtype] || RUNS.sword, oneRun: !!(RUNS[wtype] && RUNS[wtype].one),   // oneRun: 走る時は片手で持つ
     tip: new THREE.Vector3(...W.tip), base: new THREE.Vector3(...W.base), grip: new THREE.Vector3(...W.grip),

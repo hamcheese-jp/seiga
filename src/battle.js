@@ -7,7 +7,7 @@ import { Fighter } from './fighter.js';
 import { FX } from './fx.js';
 import { Audio } from './audio.js';
 import { Input } from './input.js';
-import { HERO, HEROES, ELEMENTS, LOOKS, OFFICER_NAMES, DIFFS, THEMES, calcStats, rollWeapon, rollArmor } from './data.js';
+import { HERO, HEROES, ELEMENTS, LOOKS, OFFICER_NAMES, DIFFS, THEMES, calcStats, rollWeapon, rollArmor, WEAPON_TYPE_NAMES } from './data.js';
 import { MS } from './moves.js';
 import { Voice } from './voice.js';
 import { Net, NetHost, NetGuest, spawnInfo, sanitizeMember } from './net.js';
@@ -397,6 +397,13 @@ export class Battle {
     else if (p.kind === 'tornado') o.fxi = FX.tornado(o.x, o.z, c, r * 0.9, 7.5, p.life);
     else if (p.kind === 'orb') o.fxi = FX.shell(o.x, 1.2, o.z, c, r * 0.75, r * 0.75, 99, 1.6);
     else if (p.kind === 'disc') { o.fxi = FX.crescent(o.x, 1.0, o.z, yaw, c, r, 99, 0, 1.2); o.fxi2 = FX.crescent(o.x, 1.0, o.z, yaw + PI, c, r, 99, 0, 1.2); }
+    // 弓・投げナイフ・魔法: 矢やつぶては敵将に当たると止まる(雑兵は貫く)。火球は当たった所で爆ぜる
+    else if (p.kind === 'arrow') o.fxi = FX.arrow(o.x, 1.3, o.z, yaw, 1.05, 99);
+    else if (p.kind === 'knife') o.fxi = FX.arrow(o.x, 1.2, o.z, yaw, 0.45, 99);
+    else if (p.kind === 'ice') o.fxi = FX.shard(o.x, 1.2, o.z, yaw, 0.7, 99, 'ice');
+    else if (p.kind === 'dark') o.fxi = FX.shard(o.x, 1.2, o.z, yaw, 0.7, 99, 'dark');
+    else if (p.kind === 'fire') { o.fxi = FX.shell(o.x, 1.2, o.z, c, r * 0.55, r * 0.55, 99, 1.8); o.fxi2 = FX.shell(o.x, 1.2, o.z, [c[0] * 0.6 + 0.6, c[1] * 0.6 + 0.4, c[2] * 0.4 + 0.1], r * 0.3, r * 0.3, 99, 2.2); }
+    o.stopOn = !!p.stop; o.boom = p.boom || 0;
     this.proj.push(o);
     if (att.isPlayer || this.nearCam(o.x, o.z, 30)) Audio.sfx(p.kind === 'tornado' ? 'wind' : 'swing', 0.8);
   }
@@ -406,6 +413,7 @@ export class Battle {
       const o = P[i]; o.life -= dt; o.x += o.vx * dt; o.z += o.vz * dt;
       if (this.stage.sdf(o.x, o.z) > 0.8) o.life = 0;
       const c = o.att.col;
+      if (o.fxi2 && !o.fxi2.dead && o.kind === 'fire') { o.fxi2.mesh.position.x = o.x; o.fxi2.mesh.position.z = o.z; }
       if (o.fxi && !o.fxi.dead) { o.fxi.mesh.position.x = o.x; o.fxi.mesh.position.z = o.z; if (o.kind === 'disc') { o.spin += dt * 22; o.fxi.mesh.rotation.y = o.spin; if (o.fxi2) { o.fxi2.mesh.position.x = o.x; o.fxi2.mesh.position.z = o.z; o.fxi2.mesh.rotation.y = o.spin + PI; } } }
       if (Math.random() < dt * 40) FX.glowP.add(o.x + rnd(-o.r, o.r) * 0.6, rnd(0.5, 1.6), o.z + rnd(-o.r, o.r) * 0.6, 0, rnd(0, 1), 0, 0.3, 0.3, 0.05, c[0], c[1], c[2], 0.8);
       let doTest = true;
@@ -416,10 +424,20 @@ export class Battle {
           const dx = t.x - o.x, dz = t.z - o.z, rr = o.r + t.rad; if (dx * dx + dz * dz > rr * rr) return;
           if (o.hit) { const key = t.isFighter ? t : t.gen; if (o.hit.has(key)) return; o.hit.add(key); }
           ctx.kx = o.vx / l; ctx.kz = o.vz / l; this._strike(att, h, t, ctx);
+          if (o.stopOn && t.isFighter) o.life = 0;
         };
         this.horde.forEachIn(o.x, o.z, o.r + 1, (s) => { if (s.team !== att.team && s.st !== ST.DEAD) hitOne(s); });
         for (const f of this.fighters) if (f.team !== att.team && f.alive) hitOne(f);
         this._after(att, h, ctx);
+      }
+      if (o.life <= 0 && o.boom && !o.boomed) {
+        // 爆発: 周りの敵へもう一度当てる
+        o.boomed = true; const ctx = o.ctx, att = o.att, h = o.h, R = o.boom; ctx.hits = 0; ctx.fxN = 0; ctx.off = false; ctx.dealt = 0;
+        const hitB = (t) => { const dx = t.x - o.x, dz = t.z - o.z, rr = R + t.rad; if (dx * dx + dz * dz > rr * rr) return; const d = Math.hypot(dx, dz) || 1; ctx.kx = dx / d; ctx.kz = dz / d; this._strike(att, h, t, ctx); };
+        this.horde.forEachIn(o.x, o.z, R + 1, (s) => { if (s.team !== att.team && s.st !== ST.DEAD) hitB(s); });
+        for (const f of this.fighters) if (f.team !== att.team && f.alive) hitB(f);
+        this._after(att, h, ctx);
+        if (this.nearCam(o.x, o.z, 60)) { FX.shell(o.x, 1.0, o.z, c, R * 0.3, R * 1.1, 0.35, 1); FX.embers(o.x, 0.4, o.z, c[0], c[1], c[2], 14, R * 0.5, 6); Audio.sfx('explode', 0.7); }
       }
       if (o.life <= 0) { FX.kill(o.fxi); FX.kill(o.fxi2); if (this.nearCam(o.x, o.z, 50)) FX.spark(o.x, 1, o.z, c[0], c[1], c[2], 6, 5); P[i] = P[P.length - 1]; P.pop(); }
     }
@@ -471,7 +489,9 @@ export class Battle {
   }
   _lootWeapon(minRar = 1) {
     const heroes = this.save.unlockedHeroes, hid = Math.random() < 0.75 ? this.player.heroId : pick(heroes);
-    return rollWeapon(HERO[hid].wtype, this.power + this.wave * 1.5, this.player.S.luck, minRar);
+    // 15% は種類を問わず落ちる(適性外の武器や、弓・杖も手に入る)
+    const types = Object.keys(WEAPON_TYPE_NAMES), wt = Math.random() < 0.15 ? types[Math.floor(Math.random() * types.length)] : HERO[hid].wtype;
+    return rollWeapon(wt, this.power + this.wave * 1.5, this.player.S.luck, minRar);
   }
 
   // ---------- 各種イベント ----------

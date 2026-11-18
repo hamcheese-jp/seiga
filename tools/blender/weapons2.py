@@ -183,4 +183,43 @@ def fan():
     # 持ち手は付けない: 扇は要(かなめ)と親骨の根元をそのまま握る
     return B.finish()
 
-MAKERS = {'spear': spear, 'twin': twin, 'hammer': hammer, 'axe': axe, 'scythe': scythe, 'fan': fan}
+def bow():
+    """和弓: 握りが下寄り(全長の 1/3)の長い弓。黒漆の弓幹に籐巻き、革の握り、張った弦。握る所が原点、Z=上"""
+    B = Builder('bow'); M = tex_mats(); wrap = wrap_mat(); string = mat('string', (0.85, 0.82, 0.72), 0.7)
+    z0, z1 = -0.72, 1.34; n = 30
+    def cx(z):                                                               # 弓幹の反り(弦と反対の -X へ張り出す)。先端は少し戻す(反り返り)
+        u = (z - z0) / (z1 - z0) * 2 - 1
+        return -0.13 * (1 - u * u) + 0.03 * u ** 6
+    rings = []
+    for i in range(n + 1):
+        z = z0 + (z1 - z0) * i / n; u = abs((z - z0) / (z1 - z0) * 2 - 1)
+        w = 0.016 * (1 - 0.55 * u ** 2) + 0.004; t = 0.011 * (1 - 0.5 * u ** 2) + 0.003
+        rings.append(B.ring(z, t, w, n=8, cx=cx(z)))
+    B.loft(rings, M['black'], smooth=True)
+    B.lathe([(-0.09, 0.02), (0.09, 0.02)], wrap, n=12)                       # 握り(革)
+    for z in (-0.4, -0.1, 0.12, 0.55, 0.95): band(B, z, 0.016, 0.02, M['gold'], n=10)
+    for z in (z0 + 0.02, z1 - 0.02): B.lathe([(z - 0.02, 0.012), (z, 0.016), (z + 0.02, 0.01)], M['gold'], n=8)   # 弭(はず)
+    # 弦: 両端を結ぶ細い糸(弓幹より +X 側 = 引く側)
+    B.loft([B.ring(z0 + 0.015, 0.0028, n=5, cx=cx(z0) + 0.004), B.ring(z1 - 0.015, 0.0028, n=5, cx=cx(z1) + 0.004)], string)
+    return B.finish()
+
+def staff():
+    """魔導の杖: ねじれた黒木の長杖。頭に金の爪で宝珠を抱える(宝珠は光る)。握る所が原点、Z=上"""
+    B = Builder('staff'); M = tex_mats(); orb = mat('glow_orb', (0.9, 0.5, 0.25), 0.2, emit=(1.0, 0.45, 0.15))
+    rings = []
+    for i in range(25):
+        z = -0.55 + 1.75 * i / 24; r = 0.02 + 0.004 * math.sin(i * 1.3)
+        rings.append(B.ring(z, r, r * 0.85, n=10, rot=i * 0.35))
+    B.loft(rings, M['wood'], smooth=True)
+    cone(B, -0.55, -0.66, 0.02, M['gold'])                                   # 石突
+    B.lathe([(-0.08, 0.024), (0.12, 0.024)], wrap_mat(), n=12)               # 握り
+    for z in (-0.1, 0.14, 0.9, 1.12): band(B, z, 0.028, 0.03, M['gold'], n=12)
+    B.lathe([(1.2, 0.024), (1.26, 0.05), (1.3, 0.055)], M['gold'], n=14, cap_end=False)   # 爪の台
+    for k in range(4):                                                       # 宝珠を抱える爪
+        a = math.tau * k / 4
+        pts = [Vector((math.cos(a) * r, math.sin(a) * r, z)) for r, z in ((0.05, 1.3), (0.085, 1.36), (0.08, 1.44), (0.04, 1.5))]
+        B.loft([B.ring(p.z, 0.008, n=6, cx=p.x, cy=p.y) for p in pts], M['gold'])
+    B.lathe([(1.32 + 0.075 * (1 - math.cos(math.pi * i / 12)), 0.075 * math.sin(math.pi * i / 12) + 0.0005) for i in range(13)], orb, n=16)   # 宝珠
+    return B.finish()
+
+MAKERS = {'spear': spear, 'bow': bow, 'staff': staff, 'twin': twin, 'hammer': hammer, 'axe': axe, 'scythe': scythe, 'fan': fan}

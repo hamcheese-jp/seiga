@@ -431,6 +431,97 @@ MS.p_zenova = { spName: '覇星墜天',
   n: [B5.n0, B5.n1, B5.n2, B5.n3, MS.yomi.n[4], MS.yomi.n[5]],
   c: [pl(B5.warp), MS.yomi.c[1], pl(B5.orbs), MS.yomi.c[3], pl(B5.reap), MS.yomi.c[5]], sp: MS.yomi.sp };
 
+// ================= 弓・杖(全員が装備できる。適性外は能力が下がる) =================
+// 射る: 左腕で弓を前へ押し出し、右手で弦を顔の横まで引き絞って放つ。y0/y1 で跳びながら射る
+function shoot(o) {
+  const w = o.wind ?? 0.2, h = o.hit ?? 0.05, rc = o.rec ?? 0.2, ev = o.elv ?? 0, y0 = o.y0 ?? 0, y1 = o.y1 ?? y0;
+  const keys = [
+    { t: w * 0.45, e: 'out', az: -30, el: ev + 2, bend: 115, wr: 10, azL: 6, elL: ev, bendL: 12, wrL: 90, tw: -28, lean: 2, side: 0, crouch: o.crouch ?? 0.1, stance: 0.75, y: y0, spin: o.spin0 ?? 0, flip: 0, head: 26 },
+    { t: w, e: 'in', az: -110, el: ev + 12, bend: 165, wr: 0, azL: 4, elL: ev, bendL: 4, wrL: 90, tw: -36, lean: 0, crouch: o.crouch ?? 0.12, stance: 0.8, y: y0, spin: o.spin0 ?? 0, head: 32 },
+    { t: w + h, e: 'out', az: -128, el: ev + 8, bend: 120, wr: 20, azL: 4, elL: ev, bendL: 6, wrL: 90, tw: -36, lean: -2, crouch: 0.1, stance: 0.8, y: y1, spin: o.spin1 ?? o.spin0 ?? 0, head: 32 },
+    { t: w + h + rc, e: 'out', az: -45, el: -40, bend: 60, wr: 30, azL: 20, elL: -25, bendL: 20, wrL: 90, tw: -10, lean: 2, crouch: 0.06, stance: 0.6, y: 0, spin: o.spin1 ?? o.spin0 ?? 0, head: 10 },
+  ];
+  return finish(keys, w + h + rc, w + h + rc * (o.chain ?? 0.3), [], { ...o, noTrail: true }, o.mv ? [[0, w + h, o.mv]] : [], [], [[w * 0.9, o.sfx || 'swing']]);
+}
+// 唱える(杖): 杖を振り上げ、前へ突き出して放つ
+function cast(o) {
+  const w = o.wind ?? 0.22, h = o.hit ?? 0.08, rc = o.rec ?? 0.24, ev = o.elv ?? 0;
+  const keys = [
+    { t: w, e: 'out', az: -18, el: 78, bend: 45, wr: 20, azL: 45, elL: 30, bendL: 60, wrL: 40, tw: -16, lean: -6, side: 0, crouch: 0.16, stance: 0.6, y: o.y0 ?? 0, spin: 0, flip: 0, head: 0 },
+    { t: w + h, e: 'in', az: -4, el: ev + 8, bend: 8, wr: 55, azL: 50, elL: -20, bendL: 40, tw: 14, lean: 14, crouch: 0.14, stance: 0.9, y: o.y1 ?? 0, spin: 0 },
+    { t: w + h + rc, e: 'out', az: -20, el: -20, bend: 60, wr: 60, azL: 40, elL: -50, bendL: 40, tw: 0, lean: 4, crouch: 0.06, stance: 0.6, y: 0, spin: 0 },
+  ];
+  return finish(keys, w + h + rc, w + h + rc * (o.chain ?? 0.3), [], o, o.mv ? [[w * 0.5, w + h, o.mv]] : [], [[w * 0.8, w + h + 0.05]], [[w * 0.7, o.sfx || 'fire']]);
+}
+// 矢・魔弾
+const arw = (t, yaw = 0, o = {}) => { const { proj, ...rest } = o; return P(t, { kind: 'arrow', speed: 48, life: 0.7, r: 0.7, yaw, stop: true, ...(proj || {}) }, { dmg: 0.9, kb: 3, ...rest }); };
+const orb = (t, yaw = 0, o = {}) => { const { proj, ...rest } = o; return P(t, { kind: 'fire', speed: 20, life: 0.9, r: 0.9, yaw, stop: true, boom: 2.4, ...(proj || {}) }, { dmg: 1.0, kb: 5, lift: 2, el: 1, ...rest }); };
+const fanOf = (n, spread, f) => rep(n, (i) => f(n === 1 ? 0 : -spread / 2 + spread * i / (n - 1), i));
+const rain = (t, fwd, el) => ({ ...DEF_HIT, t, shape: 'circle', fwd, r: 2.4, dmg: 0.9, kb: 2, lift: 3, el, fx: 'spark', shake: 0.08, stop: 0.01 });
+MS.p_bow = { spName: '天穿流星',
+  n: [
+    shoot({ wind: 0.18, extra: [arw(0.2)] }),
+    shoot({ wind: 0.14, extra: [arw(0.16)] }),
+    shoot({ wind: 0.18, extra: fanOf(2, 10, (y) => arw(0.2, y)) }),
+    seq(shoot({ wind: 0.1, rec: 0.08, extra: [arw(0.12)] }), shoot({ wind: 0.08, rec: 0.08, extra: [arw(0.1, -5)] }), shoot({ wind: 0.08, rec: 0.2, extra: [arw(0.1, 5)] })),
+    X(shoot({ wind: 0.16, y0: 0.6, y1: 0.4, mv: -6, extra: fanOf(3, 20, (y) => arw(0.18, y)) }), { ghost: true }),   // 飛び退きながら三本
+    shoot({ wind: 0.24, rec: 0.3, extra: fanOf(5, 40, (y) => arw(0.26, y, { dmg: 1.1 })) }),
+  ],
+  c: [
+    shoot({ wind: 0.42, rec: 0.3, extra: [arw(0.44, 0, { dmg: 2.6, kb: 9, el: 1, fx: 'line', proj: { speed: 70, r: 1.2, life: 0.6, stop: false } })] }),   // 貫く一矢
+    shoot({ wind: 0.24, elv: 40, extra: [{ ...DEF_HIT, t: 0.5, shape: 'circle', fwd: 7, r: 3.2, dmg: 1.4, kb: 0, lift: 9, el: 1, fx: 'pillar', shake: 0.2, stop: 0.03 }] }),
+    seq(...rep(6, (i) => shoot({ wind: 0.07, rec: i === 5 ? 0.25 : 0.04, extra: [arw(0.08, [-6, 6, -3, 3, -8, 0][i], { dmg: 0.8 })] }))),
+    shoot({ wind: 0.3, elv: 60, rec: 0.3, extra: rep(10, (i) => rain(0.5 + i * 0.07, 6 + (i % 3) * 2.5, i === 9 ? 1 : undefined)) }),   // 矢の雨
+    shoot({ wind: 0.36, rec: 0.3, extra: [arw(0.38, 0, { dmg: 1.6, kb: 10, lift: 5, el: 1, proj: { boom: 4, speed: 40 } })] }),   // 爆ぜる矢
+    X(seq(hold(0.3, { az: -30, el: 70, azL: 30, elL: 70 }), shoot({ wind: 0.14, y0: 0.8, y1: 0.8, rec: 0.36, extra: rep(16, (i) => arw(0.16, i * 22.5, { dmg: 1.2, kb: 7 })) })), { armor: true }),
+  ],
+  sp: X(seq(hold(0.4, { az: -30, el: 80, azL: 20, elL: 80, crouch: 0.3 }, { sfx: 'tele' }),
+    ...rep(4, (k) => shoot({ wind: 0.1, rec: 0.06, extra: fanOf(7, 60, (y) => arw(0.12, y + (k % 2) * 4, { dmg: 1.0, kb: 4 })) })),
+    shoot({ wind: 0.3, rec: 0.4, extra: [arw(0.32, 0, { dmg: 5, kb: 14, lift: 8, el: 1, fx: ['line', 'nova'], shake: 0.8, proj: { speed: 60, r: 2.2, life: 0.8, stop: false, boom: 6 } })] })), { steer: 2 }),
+};
+MS.p_staff = { spName: '灼天星落',
+  n: [
+    cast({ wind: 0.18, extra: [orb(0.24)] }),
+    cast({ wind: 0.14, extra: fanOf(2, 14, (y) => orb(0.2, y, { dmg: 0.7 })) }),
+    slash({ from: [-100, 30], to: [70, -20], wind: 0.1, rec: 0.22, r: 2.4, ang: 85, dmg: 0.8, kb: 4, sfx: 'swing' }),   // 杖で打つ
+    cast({ wind: 0.16, extra: fanOf(3, 30, (y) => orb(0.22, y, { dmg: 0.7 })) }),
+    cast({ wind: 0.16, sfx: 'ice', extra: fanOf(5, 50, (y) => P(0.22, { kind: 'ice', speed: 34, life: 0.6, r: 0.8, yaw: y, stop: true }, { dmg: 0.8, kb: 3, stun: 0.6 })) }),
+    cast({ wind: 0.3, rec: 0.32, extra: [orb(0.36, 0, { dmg: 2.2, kb: 9, lift: 6, proj: { r: 1.5, boom: 4.5, speed: 16 } })] }),
+  ],
+  c: [
+    cast({ wind: 0.3, sfx: 'wind', extra: [P(0.36, { kind: 'tornado', speed: 8, life: 2.2, r: 2.4, tick: 0.3 }, { dmg: 0.7, kb: 0, lift: 5, el: 1 })] }),
+    cast({ wind: 0.26, elv: -30, extra: [{ ...DEF_HIT, t: 0.34, shape: 'circle', fwd: 6, r: 3.4, dmg: 1.8, kb: 0, lift: 11, el: 1, fx: 'pillar', shake: 0.25, stop: 0.03 }] }),   // 足元から噴き上がる柱
+    seq(...rep(5, (i) => cast({ wind: 0.08, hit: 0.05, rec: i === 4 ? 0.25 : 0.04, extra: [orb(0.1, [-8, 8, 0, -4, 4][i], { dmg: 0.8 })] }))),
+    cast({ wind: 0.42, elv: 60, rec: 0.36, extra: [{ ...DEF_HIT, t: 0.75, shape: 'circle', fwd: 7, r: 4.5, dmg: 3.0, kb: 10, lift: 8, el: 1, fx: ['quake', 'nova', 'pillar'], shake: 0.8, stop: 0.08 }] }),   // 隕石
+    X(cast({ wind: 0.3, rec: 0.34, extra: rep(10, (i) => orb(0.36, i * 36, { dmg: 1.0, proj: { speed: 14, life: 1.0 } })) }), { armor: true }),
+    cast({ wind: 0.4, rec: 0.4, extra: [{ ...DEF_HIT, t: 0.46, shape: 'line', len: 13, w: 1.6, dmg: 3.2, kb: 12, lift: 3, el: 1, fx: 'line', shake: 0.5, stop: 0.06 }] }),   // 光線
+  ],
+  sp: X(seq(hold(0.5, { az: -20, el: 85, azL: 30, elL: 70, crouch: 0.2 }, { sfx: 'tele', extra: [PULL(0.05, 9, 1.0, 0, 14)] }),
+    cast({ wind: 0.12, rec: 0.1, extra: rep(12, (i) => orb(0.14 + (i % 3) * 0.06, i * 30, { dmg: 1.0, proj: { speed: 12, life: 1.1 } })) }),
+    cast({ wind: 0.3, elv: 70, rec: 0.45, extra: [{ ...DEF_HIT, t: 0.5, shape: 'circle', fwd: 0, r: 8, dmg: 5, kb: 12, lift: 12, el: 1, fx: ['pillar', 'nova', 'ring', 'quake'], shake: 1.2, stop: 0.14 }] })), { steer: 2 }),
+};
+// 敵の弓兵・魔導士: 離れて撃ち、近寄られたら飛び退いて撃つ
+MS.off_bow = {
+  m: {
+    n0: shoot({ wind: 0.5, rec: 0.4, extra: [arw(0.52, 0, { proj: { speed: 36 } })] }),
+    n1: shoot({ wind: 0.45, rec: 0.5, extra: fanOf(3, 24, (y) => arw(0.47, y, { proj: { speed: 34 } })) }),
+    back: X(shoot({ wind: 0.3, y0: 0.6, y1: 0.4, mv: -9, rec: 0.4, extra: [arw(0.32)] }), { ghost: true }),
+    heavy: X(shoot({ wind: 0.9, rec: 0.5, extra: [arw(0.92, 0, { dmg: 2.2, kb: 8, el: 1, fx: 'line', proj: { speed: 60, r: 1.1, stop: false } })] }), { tele: 1 }),
+    burst: burst(),
+  },
+  plans: [{ seq: ['n0'], min: 4, max: 15, w: 5 }, { seq: ['n1'], min: 5, max: 13, w: 3 }, { seq: ['heavy'], min: 6, max: 16, w: 2 }, { seq: ['back'], max: 4, w: 6 }],
+};
+MS.off_staff = {
+  m: {
+    n0: cast({ wind: 0.5, rec: 0.45, extra: [orb(0.56)] }),
+    n1: cast({ wind: 0.55, rec: 0.5, extra: fanOf(3, 30, (y) => orb(0.62, y, { dmg: 0.8 })) }),
+    back: X(shoot({ wind: 0.25, y0: 0.5, y1: 0.3, mv: -8, rec: 0.35 }), { ghost: true }),
+    heavy: X(cast({ wind: 0.95, elv: 60, rec: 0.5, extra: [{ ...DEF_HIT, t: 1.3, shape: 'circle', fwd: 7, r: 4, dmg: 2.4, kb: 9, lift: 7, el: 1, fx: ['quake', 'pillar'], shake: 0.6, stop: 0.06 }] }), { tele: 1 }),
+    burst: burst(),
+  },
+  plans: [{ seq: ['n0'], min: 4, max: 13, w: 5 }, { seq: ['n1'], min: 4, max: 11, w: 3 }, { seq: ['heavy'], min: 5, max: 12, w: 2 }, { seq: ['back'], max: 3.8, w: 6 }],
+};
+
 // ---- 足さばき: 指定のない技に、一撃ごとに踏み出す足(step)を交互に割り振る ----
 function footwork(ms) {
   // 武将の技は n(通常)・c(チャージ)、敵将・士官の技は m(名前つきの一覧)

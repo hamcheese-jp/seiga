@@ -199,6 +199,20 @@ export const FX = {
     };
     this.smats = smats;
     POOLS.spike = { free: [], make: () => { const m = new THREE.Mesh(sg, smats.ice); m.castShadow = true; return m; } };
+    // 矢・投げナイフ・氷のつぶて: 長さ1(+Z が先)の棒に、先の尖りと羽(矢羽は白)。色は頂点色
+    {
+      const parts = [], cols = [];
+      const push = (g, c) => { const ng = g.toNonIndexed(); parts.push(ng); for (let i = 0; i < ng.attributes.position.count; i++) cols.push(...c); };
+      push(new THREE.CylinderGeometry(0.012, 0.012, 0.86, 5).rotateX(PI / 2).translate(0, 0, -0.07), [0.35, 0.22, 0.12]);   // 矢柄
+      push(new THREE.ConeGeometry(0.035, 0.14, 4).rotateX(PI / 2).translate(0, 0, 0.43), [0.8, 0.82, 0.86]);               // 鏃
+      push(new THREE.PlaneGeometry(0.07, 0.16).rotateY(PI / 2).translate(0, 0.03, -0.42), [0.95, 0.94, 0.9]);              // 矢羽
+      push(new THREE.PlaneGeometry(0.07, 0.16).rotateY(PI / 2).rotateZ(PI / 2).translate(0.03, 0, -0.42), [0.95, 0.94, 0.9]);
+      const pos = []; for (const g of parts) pos.push(...g.attributes.position.array);
+      const ag = new THREE.BufferGeometry(); ag.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); ag.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3)); ag.computeVertexNormals();
+      const am = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide });
+      POOLS.arrow = { free: [], make: () => { const m = new THREE.Mesh(ag, am); m.frustumCulled = false; return m; } };
+      POOLS.shard = { free: [], make: () => { const m = new THREE.Mesh(sg, smats.ice); m.frustumCulled = false; return m; } };
+    }
   },
 
   clear() {
@@ -283,6 +297,14 @@ export const FX = {
   crescent(x, y, z, yaw, c, r, dur = 0.3, grow = 0, a = 1) {
     const it = add('crescent', dur, (it, u) => { const k = it.r * (1 + it.grow * u); it.mesh.scale.set(k, 1, k); setU(it.mesh, it.c, it.a * (it.fade ? Math.min(1, (1 - u) * 3) : 1)); }, { r, c, grow, a, fade: dur < 50 });
     it.mesh.position.set(x, y, z); it.mesh.rotation.y = yaw; return it;
+  },
+  // 飛び道具の見た目(位置と向きは呼んだ側が毎フレーム動かす)。len=長さ(m)
+  arrow(x, y, z, yaw, len = 1, dur = 2) {
+    const it = add('arrow', dur, () => {}, {}); it.mesh.position.set(x, y, z); it.mesh.rotation.set(0, yaw, 0); it.mesh.scale.setScalar(len); return it;
+  },
+  shard(x, y, z, yaw, len = 0.6, dur = 2, mat = 'ice') {
+    const it = add('shard', dur, () => {}, {}); it.mesh.material = this.smats[mat] || this.smats.ice;
+    it.mesh.position.set(x, y, z); it.mesh.rotation.set(PI / 2, yaw, 0, 'YXZ'); it.mesh.scale.set(len * 0.35, len, len * 0.35); return it;
   },
   crack(x, z, r, dur = 3.5) {
     const it = add('crack', dur, (it, u) => { it.mesh.material.opacity = Math.min(1, (1 - u) * 2.5); }, {});

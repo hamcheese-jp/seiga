@@ -274,6 +274,8 @@ export const WEAPON_NAMES = {
   fan: ['舞扇', '鉄扇「青嵐」', '名扇「疾風」', '宝扇「翠嵐」', '神扇「天つ風」', '神器「鳳凰」'],
   scythe: ['草刈鎌', '大鎌「宵闇」', '名鎌「朧」', '宝鎌「黄泉路」', '神鎌「冥月」', '神器「常夜」'],
   axe: ['手斧', '戦斧「岩割」', '名斧「山崩」', '宝斧「鉄壁」', '神斧「天轟」', '神器「巨神」'],
+  bow: ['半弓', '強弓「鷹羽」', '名弓「流星」', '宝弓「天穿」', '神弓「射日」', '神器「天之麻迦古」'],
+  staff: ['樫の杖', '魔杖「焔珠」', '名杖「星詠」', '宝杖「灼天」', '神杖「万象」', '神器「如意」'],
 };
 export const TRAITS = {
   atk:    { n: '剛力', d: '攻撃力 +{v}%', min: 4, max: 30 },
@@ -360,9 +362,9 @@ export const maxCharges = (lv) => (lv >= 10 ? 6 : lv >= 5 ? 5 : 4);
 
 // セーブデータから武将の最終能力値を算出
 // 武器種ごとの重さ(本来の武器より重いと移動・攻撃が遅く、軽いと少し速い)と、その武器種の技セット
-export const WEAPON_WT = { fan: 0.6, twin: 0.8, sword: 1.0, spear: 1.2, scythe: 1.4, axe: 1.7, hammer: 1.8 };
-export const WEAPON_TYPE_NAMES = { sword: '大太刀', spear: '長槍', twin: '双剣', hammer: '大槌', fan: '双扇', scythe: '大鎌', axe: '大戦斧' };
-export const TYPE_MS = { sword: 'reiga', spear: 'setsuna', twin: 'raika', hammer: 'gandou', fan: 'fuuka', scythe: 'yomi', axe: 'p_barga' };
+export const WEAPON_WT = { fan: 0.6, bow: 0.7, twin: 0.8, staff: 0.85, sword: 1.0, spear: 1.2, scythe: 1.4, axe: 1.7, hammer: 1.8 };
+export const WEAPON_TYPE_NAMES = { sword: '大太刀', spear: '長槍', twin: '双剣', hammer: '大槌', fan: '双扇', scythe: '大鎌', axe: '大戦斧', bow: '長弓', staff: '宝杖' };
+export const TYPE_MS = { sword: 'reiga', spear: 'setsuna', twin: 'raika', hammer: 'gandou', fan: 'fuuka', scythe: 'yomi', axe: 'p_barga', bow: 'p_bow', staff: 'p_staff' };
 export const OFF_ATK = 0.8, OFF_ASPD = 0.9;   // 適性外の武器: 攻撃と攻撃速度が下がる
 // 武器を持った時の補正: { native 適性か, spd 移動倍率, aspd 攻撃速度倍率, atk 攻撃倍率 }
 export function weaponFit(heroId, type) {

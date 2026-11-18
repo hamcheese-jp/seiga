@@ -29,7 +29,7 @@ const Q = new URLSearchParams(location.search);
 const log = (s) => { document.getElementById('log').textContent += s + '\n'; };
 if (!GFX.uRim) GFX.uRim = { value: 0 };
 await preloadWeapons();
-const C = 220, COLS = 7, ROWS = 4, LBL = 18;
+const C = 200, COLS = 9, ROWS = 4, LBL = 18;
 const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
 renderer.setPixelRatio(1); renderer.setSize(C, C); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.setClearColor(0x556070, 1);
 const sheet = document.createElement('canvas'); sheet.width = C * COLS; sheet.height = (C + LBL) * ROWS; document.body.appendChild(sheet);

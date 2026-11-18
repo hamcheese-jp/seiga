@@ -18,7 +18,7 @@ import { GFX } from '../src/gfx.js';
 import { buildHero } from '../src/models.js';
 import { Rig } from '../src/rig.js';
 import { MS } from '../src/moves.js';
-import { HERO, ELEMENTS } from '../src/data.js';
+import { HERO, ELEMENTS, TYPE_MS } from '../src/data.js';
 import { VrmBody } from '../src/vrmchar.js';
 import { setArmor, ARMOR_SLOTS } from '../src/armor.js';
 import { preloadWeapons } from '../src/weaponglb.js';
@@ -46,7 +46,8 @@ async function loadVrm(url) {
   return vrm;
 }
 const id = Q.get('id') || 'gandou', h = HERO[id], E = ELEMENTS[h.elem];
-const model = buildHero({ ...h.look, pal: { ...h.look.pal, glow: E.glow } }, h.wtype, +(Q.get('tier') || 2));
+const wt = Q.get('w') || h.wtype;   // w=bow などで別の武器を持たせる
+const model = buildHero({ ...h.look, pal: { ...h.look.pal, glow: E.glow } }, wt, +(Q.get('tier') || 2));
 scene.add(model.root);
 const rig = new Rig(model);
 const key2 = h.vrm || id;
@@ -67,7 +68,7 @@ if (mvK === 'pose') {
   rig.speed = +(Q.get('speed') || 7.6); rig.phase = +(Q.get('ph') || 0);   // ph=歩幅の位相(同じ値なら毎回同じ姿)
   for (let x = 0; x < 1.5 + t; x += 1 / 60) { rig.update(1 / 60); vb.sync(1 / 60, rig); }
 } else if (mvK !== 'idle') {
-  const ms = MS[h.ms || id], mv = mvK === 'sp' ? ms.sp : mvK[0] === 'c' ? ms.c[+mvK.slice(1)] : ms.n[+mvK.slice(1)];
+  const ms = MS[wt === h.wtype ? (h.ms || id) : TYPE_MS[wt]], mv = mvK === 'sp' ? ms.sp : mvK[0] === 'c' ? ms.c[+mvK.slice(1)] : ms.n[+mvK.slice(1)];
   rig.play(mv); rig.mt = 0; for (let x = 0; x < t; x += 1 / 120) { rig.mt += 1 / 120; rig.update(1 / 120); vb.sync(1 / 120, rig); }
 }
 window.__step = (n = 1) => { for (let i = 0; i < n; i++) { rig.update(1 / 60); vb.sync(1 / 60, rig); } draw(); };

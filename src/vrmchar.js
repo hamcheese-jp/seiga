@@ -182,8 +182,30 @@ export class VrmBody {
     // 肩の関節で無理な形を直す: 腕を上げている時は手を首より前に保ち、肘を後ろへ引きすぎない(武器は手に付いてくるので頭の後ろへ倒れる)
     this._limitArm('right');
     if (!(this.model.two && !(rig && rig.oneHand))) this._limitArm('left');
+    // 杖: 技を出していない間は、体の右に縦に立てて持つ(手首の角度に任せると体の前を斜めに横切る)
+    if (this.model.wtype === 'staff') {
+      const want = rig && rig.move ? 0 : 1; this._sw = (this._sw ?? want) + (want - (this._sw ?? want)) * Math.min(1, dt * 10);
+      // 技の最中は、右の前腕が指す方へ少し上向きに(宝珠を放つ方向へ向ける)
+      const inv = _lq.copy(_rq).invert();
+      N.rightLowerArm.getWorldPosition(_C1); N.rightHand.getWorldPosition(_C2);
+      const f = _L3.copy(_C2).sub(_C1).applyQuaternion(inv).normalize();
+      const aim = _T.copy(f).add(_T4.set(0, 0.55, 0)).normalize(), stand = _L1.set(-0.12, 1, 0.1).normalize();
+      const yy = stand.lerp(aim, 1 - this._sw).normalize();
+      const zz = _L2.set(0, 0, 1); if (Math.abs(yy.z) > 0.9) zz.set(0, 1, 0);
+      zz.addScaledVector(yy, -zz.dot(yy)).normalize(); const xx = _T4.crossVectors(yy, zz);
+      Q.handR.setFromRotationMatrix(_m.makeBasis(xx, yy, zz));
+    }
     this._grip('rightHand', 'rightLowerArm', Q.handR, false);
     const two = this.model.two && !(rig && rig.oneHand);
+    // 弓(左手だけで持つ): 弓は左の前腕に直角に立て、弦を射手の側へ向ける(手首の角度に任せると横倒しになる)
+    if (this.model.leftOnly && N.leftLowerArm && N.leftHand) {
+      N.leftLowerArm.getWorldPosition(_C1); N.leftHand.getWorldPosition(_C2);
+      const inv = _lq.copy(_rq).invert(), f = _L1.copy(_C2).sub(_C1).applyQuaternion(inv).normalize();
+      const up = _L2.set(0, 1, 0).addScaledVector(f, -f.y); if (up.lengthSq() < 1e-4) up.set(0, 0, 1);
+      up.normalize().lerp(_L3.set(0.25, 1, 0).normalize(), 0.15).normalize();   // 少し外へ傾ける
+      const zz = _T.copy(f).negate(), xx = _T4.crossVectors(up, zz).normalize(); zz.crossVectors(xx, up).normalize();
+      Q.handL.setFromRotationMatrix(_m.makeBasis(xx, up, zz));
+    }
     if (this.model.dual || two) this._grip('leftHand', 'leftLowerArm', this.model.dual ? Q.handL : Q.handR, true);
     this._face(dt, rig);
     this.vrm.update(dt);

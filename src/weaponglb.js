@@ -15,6 +15,8 @@ const DEF = {
   axe:    { native: true, hold: 0.5, tip: [0.64, 1.22], base: [0.0, 0.95] },
   scythe: { native: true, hold: 0.5, tip: [1.12, 0.5], base: [0.0, 1.5] },
   fan:    { native: true, tip: [0.0, 0.62], base: [0.0, 0.12] },
+  bow:    { native: true, tip: [0.0, 1.32], base: [0.0, -0.7] },     // 左手で持つ。軌跡は使わない
+  staff:  { native: true, tip: [0.0, 1.4], base: [0.0, 1.05] },
 };
 const lib = {};
 let loading = null;
