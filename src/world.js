@@ -13,7 +13,7 @@ import { Input } from './input.js';
 import { T } from './i18n.js';
 import { Save } from './save.js';
 import { TownNet } from './townnet.js';
-import { box, cyl, cone, at, merge, ico, torus, sph } from './geo.js';
+import { box, cyl, cone, at, merge, ico, torus, sph, lathe } from './geo.js';
 import { clamp, damp } from './util.js';
 
 const PI = Math.PI;
@@ -257,13 +257,61 @@ export class Town extends Field {
     this.label(['出陣の門', '世界地図へ'], 0, gy + 8.4, gz, 4);
     this.spots.push({ x: 0, z: gz - 1, r: 4, name: '出陣の門', sub: '世界地図へ出る', act: () => ui.app.toField('map') });
     this.solids.push({ x: -4, z: gz, r: 0.6 }, { x: 4, z: gz, r: 0.6 });
-    // 広場の中央: 星の祭壇
-    this.mesh([at(cyl(3, 3.4, 0.5, '#8088aa', 32), 0, 0.25, 0), at(cyl(0.6, 0.8, 2.6, '#9aa2c4', 8), 0, 1.6, 0), at(cyl(0.4, 0.4, 0.4, '#ffe08a', 8), 0, 3.1, 0)]).position.set(0, this.stage.heightAt(0, 0), 0);
-    this.solids.push({ x: 0, z: 0, r: 3.2 });
+    // 広場の中央: 三段の噴水
+    this._fountain();
     this._plaza();
     this.ghosts = new Map(); this.myName = null;
     this.onDispose = () => { TownNet.stop(); for (const g of this.ghosts.values()) this._dropGhost(g); this.ghosts.clear(); freeSprite(this.myName); };
     this.p.x = 0; this.p.z = -14; this.p.yaw = 0; this.cam.yaw = 0;
+  }
+  // 噴水: 石の水盤(下・中・上の三段)。上から噴き上がった水が、縁からあふれて下の段へ落ちる
+  _fountain() {
+    const y = this.stage.heightAt(0, 0), stone = '#b0a792', dark = '#8f8672';
+    const g = [
+      at(lathe([[0, 0], [6.6, 0], [6.9, 0.15], [6.9, 0.95], [6.5, 1.0], [6.3, 0.95], [6.3, 0.3], [0, 0.3]], stone, 56), 0, 0, 0),
+      at(cyl(0.9, 1.25, 1.6, dark, 16), 0, 1.1, 0),
+      at(lathe([[0, 0], [1.2, 0.05], [2.7, 0.25], [3.1, 0.65], [3.05, 0.75], [2.85, 0.72], [2.45, 0.35], [0, 0.35]], stone, 40), 0, 1.75, 0),
+      at(cyl(0.32, 0.48, 1.6, dark, 12), 0, 2.9, 0),
+      at(lathe([[0, 0], [0.6, 0.05], [1.2, 0.3], [1.4, 0.55], [1.35, 0.62], [1.2, 0.6], [1.0, 0.3], [0, 0.3]], stone, 32), 0, 3.6, 0),
+      at(cyl(0.12, 0.18, 0.5, dark, 8), 0, 4.35, 0),
+    ];
+    this.mesh(g).position.set(0, y, 0);
+    this.solids.push({ x: 0, z: 0, r: 7.0 });
+    // 水面(ゆらめく)
+    const wmat = () => { const m = new THREE.MeshStandardMaterial({ color: '#4f9ed8', emissive: '#1a4a7a', emissiveIntensity: 0.25, roughness: 0.08, metalness: 0.35, transparent: true, opacity: 0.82 }); this.mats.push(m); return m; };
+    this.water = [[6.3, 0.85], [2.85, 2.38], [1.22, 4.1]].map(([rad, wy]) => { const m = new THREE.Mesh(new THREE.CircleGeometry(rad, 48), wmat()); m.rotation.x = -PI / 2; m.position.set(0, y + wy, 0); this.group.add(m); return m; });
+    // 縁から流れ落ちる水の膜
+    const sheet = (rad, top, bot) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(rad, rad + 0.18, top - bot, 40, 1, true), new THREE.MeshStandardMaterial({ color: '#cfe8ff', roughness: 0.1, transparent: true, opacity: 0.32, side: THREE.DoubleSide, depthWrite: false })); this.mats.push(m.material); m.position.set(0, y + (top + bot) / 2, 0); this.group.add(m); return m; };
+    this.sheets = [sheet(1.42, 4.15, 2.4), sheet(3.12, 2.45, 0.86)];
+    // しぶき(粒): 0 = 中央から噴き上がる, 1 = 上の段からこぼれる, 2 = 中の段からこぼれる
+    const N = 1100, pos = new Float32Array(N * 3), P = this.fp = { n: N, pos, v: new Float32Array(N * 3), k: new Uint8Array(N), y };
+    for (let i = 0; i < N; i++) { P.k[i] = i < 420 ? 0 : i < 700 ? 1 : 2; this._sprayReset(i, true); }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const dc = document.createElement('canvas'); dc.width = dc.height = 32; const dx = dc.getContext('2d'), gr = dx.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.45, 'rgba(230,245,255,0.8)'); gr.addColorStop(1, 'rgba(230,245,255,0)'); dx.fillStyle = gr; dx.fillRect(0, 0, 32, 32);
+    const dt = new THREE.CanvasTexture(dc); this.texs.push(dt);
+    const pm = new THREE.PointsMaterial({ color: '#eef8ff', map: dt, size: 0.2, transparent: true, opacity: 0.9, depthWrite: false });
+    this.mats.push(pm); this.spray = new THREE.Points(geo, pm); this.spray.frustumCulled = false; this.group.add(this.spray);
+  }
+  // 粒を出し直す
+  _sprayReset(i, init) {
+    const P = this.fp, o = i * 3, a = Math.random() * PI * 2, k = P.k[i];
+    if (k === 0) { const sp = 0.25 + Math.random() * 0.55; P.pos[o] = Math.cos(a) * 0.05; P.pos[o + 1] = P.y + 4.6; P.pos[o + 2] = Math.sin(a) * 0.05; P.v[o] = Math.cos(a) * sp; P.v[o + 1] = 3.8 + Math.random() * 1.4; P.v[o + 2] = Math.sin(a) * sp; }
+    else { const rad = k === 1 ? 1.4 : 3.1, h = k === 1 ? 4.15 : 2.42, sp = 0.35 + Math.random() * 0.35; P.pos[o] = Math.cos(a) * rad; P.pos[o + 1] = P.y + h; P.pos[o + 2] = Math.sin(a) * rad; P.v[o] = Math.cos(a) * sp; P.v[o + 1] = -Math.random() * 0.3; P.v[o + 2] = Math.sin(a) * sp; }
+    if (init) { const t = Math.random() * 1.2; P.pos[o] += P.v[o] * t; P.pos[o + 1] += P.v[o + 1] * t - 4.9 * t * t; P.pos[o + 2] += P.v[o + 2] * t; P.v[o + 1] -= 9.8 * t; }
+  }
+  _fountainUpdate(dt) {
+    const P = this.fp; if (!P) return;
+    const floor = [P.y + 4.1, P.y + 2.38, P.y + 0.85];
+    for (let i = 0; i < P.n; i++) {
+      const o = i * 3; P.v[o + 1] -= 9.8 * dt;
+      P.pos[o] += P.v[o] * dt; P.pos[o + 1] += P.v[o + 1] * dt; P.pos[o + 2] += P.v[o + 2] * dt;
+      if (P.pos[o + 1] < floor[P.k[i]] && P.v[o + 1] < 0) this._sprayReset(i);
+    }
+    this.spray.geometry.attributes.position.needsUpdate = true;
+    // 水面と水の膜を少し揺らす
+    const t = this.t;
+    this.water.forEach((w, j) => { w.material.emissiveIntensity = 0.22 + 0.08 * Math.sin(t * 3.1 + j * 1.7); w.position.y += Math.sin(t * 2.3 + j) * 0.0006; });
+    this.sheets.forEach((m, j) => { m.material.opacity = 0.26 + 0.08 * Math.sin(t * 7 + j * 2); m.rotation.y += dt * 0.3; });
   }
   // 広場の飾り: 石畳の輪・並木・ベンチ・灯籠
   _plaza() {
@@ -273,11 +321,6 @@ export class Town extends Field {
       const m = new THREE.Mesh(new THREE.RingGeometry(r0, r1, 96), new THREE.MeshStandardMaterial({ color: col, roughness: 0.95 }));
       m.rotation.x = -PI / 2; m.position.y = y0(0, 0) + dy; m.receiveShadow = true; this.mats.push(m.material); this.group.add(m);
     }
-    // 噴水(祭壇のまわりの水盤)
-    const wm = new THREE.Mesh(new THREE.CylinderGeometry(6.2, 6.2, 0.2, 48), new THREE.MeshStandardMaterial({ color: '#5aa8e0', roughness: 0.15, metalness: 0.2, transparent: true, opacity: 0.85 }));
-    wm.position.y = y0(0, 0) + 0.35; this.mats.push(wm.material); this.group.add(wm);
-    this.mesh([at(torus(6.4, 0.35, '#9a9282', 6, 48), 0, 0.4, 0, PI / 2)]).position.set(0, y0(0, 0), 0);
-    this.solids.push({ x: 0, z: 0, r: 6.6 });
     // 市場の屋台(赤・青・黄の日よけ)と花壇
     const AW = ['#d84a3a', '#3a6ad8', '#e8b83a', '#3aa86a', '#c85ad8', '#e87a3a'];
     for (let i = 0; i < 6; i++) {
@@ -338,6 +381,7 @@ export class Town extends Field {
   }
   onUpdate(dt) {
     FX.weather('petal', this.p.x, 1.5, this.p.z, dt);
+    this._fountainUpdate(dt);
     // 町を歩いている間だけ、ほかのプレイヤーとつながる
     if (this.frame === 'home' && !TownNet.on) TownNet.start(() => this._me());
     TownNet.update(dt);
