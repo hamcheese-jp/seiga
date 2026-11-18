@@ -431,3 +431,7 @@ html[lang="en"] .goldv::before { content: 'G '; }
 .lang-btn { padding: 6px 12px; font-size: clamp(12px, 3.2vmin, 15px); color: #fff; background: rgba(9, 13, 30, .78); border: 1px solid var(--line); border-radius: 3px; pointer-events: auto; }
 .lang-title { position: absolute; left: calc(var(--sl) + 12px); top: calc(var(--st) + 12px); z-index: 2; }
 .lang-home { margin-left: 8px; padding: 4px 10px; font-size: clamp(11px, 3vmin, 13px); }
+/* 町: 読み込み中の表示と、町にいる人数 */
+#field-loading { position: fixed; left: 50%; bottom: 22%; transform: translateX(-50%); padding: 8px 18px; background: rgba(9, 13, 30, .82); border: 1px solid var(--line); border-radius: 4px; color: #fff3cf; font-size: 14px; z-index: 7; opacity: 0; pointer-events: none; transition: opacity .3s; }
+#field-loading.on { opacity: 1; }
+.town-count { margin-left: 8px; font-size: clamp(11px, 3vmin, 13px); color: #bfe0ff; text-shadow: 0 1px 2px #000; }

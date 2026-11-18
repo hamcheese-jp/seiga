@@ -3,16 +3,17 @@
 import * as THREE from 'three';
 import { GFX } from './gfx.js';
 import { Stage } from './stage.js';
-import { THEMES, HERO, ELEMENTS, STAGES, calcStats } from './data.js';
+import { THEMES, HERO, ELEMENTS, STAGES, calcStats, ARMOR_SETS, ARMOR_SLOT_KEYS } from './data.js';
 import { buildHero, disposeModel } from './models.js';
-import { loadVrm, VrmBody } from './vrmchar.js';
+import { loadVrm, VrmBody, vrmProgress } from './vrmchar.js';
 import { setArmor } from './armor.js';
 import { Rig } from './rig.js';
 import { FX } from './fx.js';
 import { Input } from './input.js';
 import { T } from './i18n.js';
 import { Save } from './save.js';
-import { box, cyl, cone, at, merge } from './geo.js';
+import { TownNet } from './townnet.js';
+import { box, cyl, cone, at, merge, ico, torus, sph } from './geo.js';
 import { clamp, damp } from './util.js';
 
 const PI = Math.PI;
@@ -30,6 +31,17 @@ function labelTex(lines, w = 512, h = 160, bg = 'rgba(20,14,10,0.82)', fg = '#ff
   if (b) { c.fillStyle = '#d8c8a8'; c.font = '36px sans-serif'; c.fillText(b, w / 2, h * 0.76); }
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
+// 頭の上の名前(自分は金、ほかの人は白)
+function nameSprite(name, me) {
+  const cv = document.createElement('canvas'); cv.width = 512; cv.height = 96; const c = cv.getContext('2d');
+  c.font = 'bold 54px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.lineWidth = 10; c.strokeStyle = 'rgba(0,0,0,0.85)'; c.strokeText(name, 256, 50);
+  c.fillStyle = me ? '#ffd76a' : '#ffffff'; c.fillText(name, 256, 50);
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthWrite: false, depthTest: false, transparent: true }));
+  s.scale.set(2.6, 2.6 * 96 / 512, 1); s.renderOrder = 40; return s;
+}
+const freeSprite = (s) => { if (!s) return; if (s.parent) s.parent.remove(s); s.material.map.dispose(); s.material.dispose(); };
 function labelSprite(lines, scale = 3.2) {
   const m = new THREE.SpriteMaterial({ map: labelTex(lines), depthWrite: false, transparent: true });
   const s = new THREE.Sprite(m); s.scale.set(scale, scale * 160 / 512, 1); s.renderOrder = 30; return s;
@@ -72,8 +84,17 @@ class Field {
     const model = this.model = buildHero({ ...h.look, pal: { ...h.look.pal, glow: E.glow } }, st.wtype, st.tier);
     GFX.scene.add(model.root); model.root.visible = false;
     this.rig = new Rig(model);
-    loadVrm(h.vrm || id).then((vrm) => { if (this.model !== model) return; if (vrm) { new VrmBody(model, vrm); setArmor(vrm, h.vrm || id, st.armor); } model.root.visible = true; FX.shell(this.p.x, 1.5, this.p.z, this.col, 0.6, 2.2, 0.35, 0.45); })
-      .catch((e) => { console.warn(e); model.root.visible = true; });
+    this.loading = id;
+    loadVrm(h.vrm || id).then((vrm) => { if (this.model !== model) return; if (vrm) { new VrmBody(model, vrm); setArmor(vrm, h.vrm || id, st.armor); } model.root.visible = true; this.loading = null; FX.shell(this.p.x, 1.5, this.p.z, this.col, 0.6, 2.2, 0.35, 0.45); })
+      .catch((e) => { console.warn(e); model.root.visible = true; this.loading = null; });
+  }
+  // 読み込み中の表示(重いキャラのデータを待つ間)
+  _loadingUi() {
+    let e = document.getElementById('field-loading');
+    if (this.loading && this.frame !== 'scene') {
+      if (!e) { e = document.createElement('div'); e.id = 'field-loading'; document.body.appendChild(e); }
+      e.textContent = T(`キャラクターを読み込み中… ${Math.round(vrmProgress(this.loading) * 100)}%`); e.classList.add('on');
+    } else if (e) e.classList.remove('on');
   }
   _drop() { if (this.model) { disposeModel(this.model); this.model = null; this.rig = null; } }
   setFrame(name) { this.frame = name; }
@@ -106,6 +127,7 @@ class Field {
     if (near !== this.near) { this.near = near; if (near) this.promptEl.innerHTML = `<b>${near.name}</b><small>${near.sub || ''}</small><i>${Input.usedTouch ? 'タップで入る' : 'J / Enter で入る'}</i>`; }
     this.promptEl.classList.toggle('on', !!near);
     if (near && Input.consume('a', 0.3)) this.enter(near);
+    this._loadingUi();
     this.onUpdate && this.onUpdate(dt);
     FX.update(dt);
     this._camera(dt);
@@ -132,7 +154,8 @@ class Field {
     cam.position.set(cx, cy, cz); cam.lookAt(C.x, C.y, C.z);
   }
   dispose() {
-    this.promptEl.classList.remove('on');
+    this.promptEl.classList.remove('on'); this.loading = null; this._loadingUi();
+    if (this.onDispose) this.onDispose();
     this._drop(); this.stage.dispose(); FX.clear();
     GFX.scene.remove(this.group);
     this.group.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
@@ -140,24 +163,74 @@ class Field {
   }
 }
 
+// ---- 町の建物: 店ごとに形と色を変える。{ g: 部品, r: 当たりの半径, h: 看板の高さ } ----
+const door = (w, h, z, c = '#24180f') => at(box(w, h, 0.12, c), 0, h / 2, z);
+const roof4 = (w, h, y, c, sx = 1.25, sz = 0.95) => at(cone(w, h, c, 4), 0, y, 0, 0, PI / 4, 0, sx, 1, sz);
+function houseParts(kind, wall) {
+  switch (kind) {
+    case 'shop': {   // 道具屋: 木の店構え、赤白の日よけ、木箱と樽
+      const g = [at(box(7, 3.2, 5, '#c8a678'), 0, 1.6, 0), at(box(7.3, 0.35, 5.3, '#6a4630'), 0, 0.18, 0), roof4(5.4, 2.0, 4.2, '#7a4a2a'), door(2.2, 2.4, 2.56)];
+      for (let i = 0; i < 7; i++) g.push(at(box(1.0, 0.08, 1.8, i % 2 ? '#f2e6c8' : '#d84a3a'), -3 + i, 2.9, 3.2, 0.35));
+      g.push(at(box(0.9, 0.9, 0.9, '#a07a4a'), -2.8, 0.45, 3.4), at(box(0.7, 0.7, 0.7, '#8a6438'), -2.7, 1.25, 3.3), at(cyl(0.45, 0.45, 1.0, '#7a5030', 10), 2.9, 0.5, 3.3), at(cyl(0.45, 0.45, 1.0, '#6a4428', 10), 2.0, 0.5, 3.6));
+      return { g, r: 3.8, h: 4.6 };
+    }
+    case 'smith': {  // 鍛冶屋: 石造り、煙突と炉の火、金床
+      return { g: [at(box(7, 3.2, 5, '#6c6c74'), 0, 1.6, 0), at(box(7.3, 0.4, 5.3, '#3a3a40'), 0, 0.2, 0), roof4(5.4, 1.8, 4.1, '#24242a'), door(2.0, 2.4, 2.56, '#1a1410'),
+        at(box(1.1, 5.2, 1.1, '#55555c'), 2.4, 2.6, -1.4), at(cyl(0.45, 0.45, 0.4, '#ff7a2a', 8), 2.4, 5.3, -1.4), at(box(1.6, 0.9, 0.2, '#ff5a1e'), 2.3, 1.0, 2.58),
+        at(box(1.0, 0.35, 0.5, '#2a2a30'), -2.6, 0.9, 3.4), at(box(0.4, 0.7, 0.4, '#3a3a40'), -2.6, 0.35, 3.4)], r: 3.8, h: 4.4 };
+    }
+    case 'dojo': {   // 道場: 低い基壇の上の広い堂、二重の屋根、白い扁額
+      return { g: [at(box(9.2, 0.6, 6.6, '#5a4030'), 0, 0.3, 0), at(box(8, 3.0, 5.6, '#f0eadc'), 0, 2.1, 0),
+        ...[-3.8, -1.3, 1.3, 3.8].map((px) => at(box(0.35, 3.2, 0.35, '#7a2a1e'), px, 2.1, 2.85)),
+        roof4(7.2, 1.7, 4.4, '#2e2e38', 1.35, 1.0), roof4(4.6, 1.5, 5.7, '#2e2e38', 1.3, 1.0), at(box(2.4, 0.8, 0.12, '#f8f4e8'), 0, 3.2, 2.9), at(box(2.6, 1.0, 0.08, '#3a2418'), 0, 3.2, 2.86), door(2.6, 2.2, 2.82, '#3a2418')], r: 4.6, h: 5.8 };
+    }
+    case 'guard': {  // 詰所: 石の砦、胸壁と青い旗
+      const g = [at(box(6.6, 4.4, 6, '#8a8578'), 0, 2.2, 0), at(box(7, 0.5, 6.4, '#5c584e'), 0, 4.45, 0), door(2.2, 2.8, 3.06, '#2a2420'),
+        at(box(1.0, 2.6, 0.06, '#2a5ab8'), -2.2, 2.9, 3.05), at(box(1.0, 2.6, 0.06, '#2a5ab8'), 2.2, 2.9, 3.05), at(box(0.5, 0.5, 0.07, '#e8eef8'), -2.2, 3.5, 3.09), at(box(0.5, 0.5, 0.07, '#e8eef8'), 2.2, 3.5, 3.09)];
+      for (let i = -3; i <= 3; i += 1.5) for (const z of [-3, 3]) g.push(at(box(0.8, 0.7, 0.6, '#8a8578'), i, 5.0, z));
+      return { g, r: 4.0, h: 6.4 };
+    }
+    case 'tavern': { // 酒場: 二階建ての木造、赤い提灯の列
+      const g = [at(box(7.6, 5.4, 5.4, '#9a5a3a'), 0, 2.7, 0), at(box(7.9, 0.3, 5.7, '#5a3420'), 0, 2.8, 0), roof4(5.8, 2.2, 6.5, '#6a1e1a'), door(2.4, 2.4, 2.76, '#2a160c'),
+        at(box(5.6, 0.9, 0.1, '#ffd98a'), 0, 4.2, 2.72)];
+      for (let i = -3; i <= 3; i += 1.5) g.push(at(cyl(0.28, 0.28, 0.6, '#e8402a', 8), i, 3.2, 2.95));
+      return { g, r: 4.0, h: 7.4 };
+    }
+    case 'story': {  // 語り部: 星模様の天幕
+      return { g: [at(cyl(3.6, 3.6, 2.6, '#4a3a6a', 14), 0, 1.3, 0), at(cone(4.3, 2.8, '#2a1e48', 14), 0, 4.0, 0), at(ico(0.45, '#ffd76a', 0), 0, 5.6, 0),
+        at(box(1.6, 2.2, 0.15, '#1a1230'), 0, 1.1, 3.55), ...[0, 1, 2, 3, 4, 5].map((i) => at(ico(0.18, '#ffe9a8', 0), Math.sin(i + 0.6) * 3.62, 1.6 + (i % 2) * 0.6, Math.cos(i + 0.6) * 3.62))], r: 3.9, h: 6.2 };
+    }
+    case 'inn': {    // 宿: 大きな二階建て、緑の屋根、灯りのともった窓と縁側
+      const g = [at(box(8.6, 5.6, 5.6, '#ece4d4'), 0, 2.8, 0), at(box(8.9, 0.4, 5.9, '#2e5a3e'), 0, 0.2, 0), roof4(7.0, 2.4, 6.8, '#2e5a3e', 1.3, 0.95),
+        at(box(8.6, 0.25, 1.4, '#5a3a24'), 0, 2.9, 3.3), at(box(8.6, 0.6, 0.1, '#5a3a24'), 0, 3.3, 4.0), door(2.2, 2.4, 2.86, '#2a1a10')];
+      for (const px of [-3, -1, 1, 3]) g.push(at(box(1.0, 0.9, 0.08, '#ffd98a'), px, 4.4, 2.84));
+      for (const px of [-3, 3]) g.push(at(box(1.0, 0.9, 0.08, '#ffd98a'), px, 1.6, 2.84));
+      return { g, r: 4.4, h: 8.0 };
+    }
+    default:
+      return { g: [at(box(7, 3.4, 5.2, '#e8e0d0'), 0, 1.7, 0), at(box(7.3, 0.4, 5.5, wall), 0, 0.2, 0), roof4(5.6, 2.4, 4.6, '#3a3a44'), door(2.0, 2.4, 2.62)], r: 3.6, h: 4.4 };
+  }
+}
+
 // ================= 拠点の町 =================
 // 広場を囲む建物: [名前, 説明, 角度(度), 色, 入った時の動作]
 export class Town extends Field {
   constructor(ui) {
-    super({ id: 'town', theme: 'plains', size: 130, nodes: [[0, 0, 34], [0, -46, 9]], links: [[0, 1, 9]], bases: [] }, 'plains');
+    super({ id: 'town', theme: 'plains', size: 230, nodes: [[0, 0, 72], [0, -86, 11]], links: [[0, 1, 11]], bases: [] }, 'plains');
+    this.walkSpd = 9;
     this.ui = ui;
     const B = [
-      ['道具屋', '武器・防具を買う', 30, '#6a4630', () => ui.show('shop')],
-      ['鍛冶屋', '武器・防具の装備と強化', 75, '#4c4c58', () => { ui.armMode = 'weapon'; ui.act('go', 'armory'); }],
-      ['道場', '職業・転職', 120, '#5a3a2a', () => { ui.armMode = 'job'; ui.act('go', 'armory'); }],
-      ['詰所', '武将を入れ替える', 165, '#3e4a5a', () => { ui.heroBack = 'home'; ui.show('hero'); }],
-      ['酒場', 'オンラインで協力・対戦', 210, '#6a3a3a', () => ui.act('go', 'coop')],
-      ['語り部', '物語をふり返る', 255, '#4a3a5a', () => ui.act('go', 'story')],
+      ['道具屋', '武器・防具を買う', 30, '#6a4630', () => ui.show('shop'), 'shop'],
+      ['鍛冶屋', '武器・防具の装備と強化', 75, '#4c4c58', () => { ui.armMode = 'weapon'; ui.act('go', 'armory'); }, 'smith'],
+      ['道場', '職業・転職', 120, '#5a3a2a', () => { ui.armMode = 'job'; ui.act('go', 'armory'); }, 'dojo'],
+      ['詰所', '武将を入れ替える', 165, '#3e4a5a', () => { ui.heroBack = 'home'; ui.show('hero'); }, 'guard'],
+      ['酒場', 'オンラインで協力・対戦', 210, '#6a3a3a', () => ui.act('go', 'coop'), 'tavern'],
+      ['語り部', '物語をふり返る', 255, '#4a3a5a', () => ui.act('go', 'story'), 'story'],
       ['高札', '称号・ランキング', 300, '#5a5a3a', () => ui.act('go', 'ach')],
-      ['宿', '設定・データの保存', 335, '#3a5a4a', () => ui.act('go', 'settings')],
+      ['宿', '設定・データの保存', 335, '#3a5a4a', () => ui.act('go', 'settings'), 'inn'],
     ];
-    const R = 24;
-    for (const [name, sub, deg, wall, act] of B) {
+    const R = 52;
+    for (const [name, sub, deg, wall, act, kind] of B) {
       const a = deg * PI / 180, x = Math.sin(a) * R, z = Math.cos(a) * R, ry = a + PI;   // 正面を広場の中心へ
       const y = this.stage.heightAt(x, z);
       if (name === '高札') {
@@ -165,26 +238,21 @@ export class Town extends Field {
         m.position.set(x, y, z); m.rotation.y = ry;
         this.solids.push({ x, z, r: 1.6 });
       } else {
-        // 建物: 白壁と柱、瓦屋根(四角錐)、入口ののれん
-        const g = [
-          at(box(7, 3.4, 5.2, '#e8e0d0'), 0, 1.7, 0), at(box(7.3, 0.4, 5.5, wall), 0, 0.2, 0),
-          ...[-3.4, 3.4].flatMap((px) => [-2.5, 2.5].map((pz) => at(box(0.3, 3.5, 0.3, '#4a3020'), px, 1.75, pz))),
-          at(cone(5.6, 2.4, '#3a3a44', 4), 0, 4.6, 0, 0, PI / 4, 0, 1.25, 1, 0.95),
-          at(box(2.0, 2.4, 0.12, '#24180f'), 0, 1.2, 2.62), at(box(2.4, 0.9, 0.06, wall), 0, 2.1, 2.7),
-        ];
-        const m = this.mesh(g); m.position.set(x, y, z); m.rotation.y = ry;
-        this.solids.push({ x, z, r: 3.6 });
+        // 建物: 店ごとに形と色が違う
+        const H = houseParts(kind, wall); this._lh = H.h;
+        const m = this.mesh(H.g); m.position.set(x, y, z); m.rotation.y = ry;
+        this.solids.push({ x, z, r: H.r });
       }
       // 看板と入口
-      const fx = x + Math.sin(ry) * 4.2, fz = z + Math.cos(ry) * 4.2;
-      this.label([name, sub], x + Math.sin(ry) * 3.2, y + 4.4, z + Math.cos(ry) * 3.2, 3.4);
+      const fx = x + Math.sin(ry) * 5.0, fz = z + Math.cos(ry) * 5.0;
+      this.label([name, sub], x + Math.sin(ry) * 3.4, y + (name === '高札' ? 4.4 : this._lh || 4.4), z + Math.cos(ry) * 3.4, 3.4);
       this.spots.push({ x: fx, z: fz, r: 3.2, name, sub, act });
       // 提灯
       const lx = fx + Math.cos(ry) * 1.8, lz = fz - Math.sin(ry) * 1.8;
       this.mesh([at(cyl(0.05, 0.06, 2.2, '#3a2a1a', 5), 0, 1.1, 0), at(cyl(0.28, 0.28, 0.5, '#ffd27a', 10), 0, 2.4, 0)]).position.set(lx, this.stage.heightAt(lx, lz), lz);
     }
     // 出陣の門(南): 鳥居のような大門。くぐると世界地図へ
-    const gz = -34, gy = this.stage.heightAt(0, gz);
+    const gz = -72, gy = this.stage.heightAt(0, gz);
     this.mesh([at(cyl(0.45, 0.5, 7, '#a8321e', 10), -4, 3.5, 0), at(cyl(0.45, 0.5, 7, '#a8321e', 10), 4, 3.5, 0), at(box(11, 0.7, 1.0, '#a8321e'), 0, 6.4, 0), at(box(12.4, 0.5, 1.4, '#2a1a14'), 0, 7.1, 0), at(box(9, 0.45, 0.6, '#a8321e'), 0, 5.2, 0)]).position.set(0, gy, gz);
     this.label(['出陣の門', '世界地図へ'], 0, gy + 8.4, gz, 4);
     this.spots.push({ x: 0, z: gz - 1, r: 4, name: '出陣の門', sub: '世界地図へ出る', act: () => ui.app.toField('map') });
@@ -192,9 +260,95 @@ export class Town extends Field {
     // 広場の中央: 星の祭壇
     this.mesh([at(cyl(3, 3.4, 0.5, '#8088aa', 32), 0, 0.25, 0), at(cyl(0.6, 0.8, 2.6, '#9aa2c4', 8), 0, 1.6, 0), at(cyl(0.4, 0.4, 0.4, '#ffe08a', 8), 0, 3.1, 0)]).position.set(0, this.stage.heightAt(0, 0), 0);
     this.solids.push({ x: 0, z: 0, r: 3.2 });
-    this.p.x = 0; this.p.z = -10; this.p.yaw = 0; this.cam.yaw = 0;
+    this._plaza();
+    this.ghosts = new Map(); this.myName = null;
+    this.onDispose = () => { TownNet.stop(); for (const g of this.ghosts.values()) this._dropGhost(g); this.ghosts.clear(); freeSprite(this.myName); };
+    this.p.x = 0; this.p.z = -14; this.p.yaw = 0; this.cam.yaw = 0;
   }
-  onUpdate(dt) { FX.weather('petal', this.p.x, 1.5, this.p.z, dt); }
+  // 広場の飾り: 石畳の輪・並木・ベンチ・灯籠
+  _plaza() {
+    const y0 = (x, z) => this.stage.heightAt(x, z);
+    // 石畳(広場いっぱい)と、模様の輪
+    for (const [r0, r1, col, dy] of [[0, 40, '#b3a993', 0.03], [9.3, 10.7, '#8f8672', 0.05], [21.4, 22.6, '#8f8672', 0.05], [35.2, 36.8, '#8f8672', 0.05], [39.2, 40.4, '#7a7262', 0.05]]) {
+      const m = new THREE.Mesh(new THREE.RingGeometry(r0, r1, 96), new THREE.MeshStandardMaterial({ color: col, roughness: 0.95 }));
+      m.rotation.x = -PI / 2; m.position.y = y0(0, 0) + dy; m.receiveShadow = true; this.mats.push(m.material); this.group.add(m);
+    }
+    // 噴水(祭壇のまわりの水盤)
+    const wm = new THREE.Mesh(new THREE.CylinderGeometry(6.2, 6.2, 0.2, 48), new THREE.MeshStandardMaterial({ color: '#5aa8e0', roughness: 0.15, metalness: 0.2, transparent: true, opacity: 0.85 }));
+    wm.position.y = y0(0, 0) + 0.35; this.mats.push(wm.material); this.group.add(wm);
+    this.mesh([at(torus(6.4, 0.35, '#9a9282', 6, 48), 0, 0.4, 0, PI / 2)]).position.set(0, y0(0, 0), 0);
+    this.solids.push({ x: 0, z: 0, r: 6.6 });
+    // 市場の屋台(赤・青・黄の日よけ)と花壇
+    const AW = ['#d84a3a', '#3a6ad8', '#e8b83a', '#3aa86a', '#c85ad8', '#e87a3a'];
+    for (let i = 0; i < 6; i++) {
+      const a = (i + 0.5) / 6 * PI * 2 + 0.26, x = Math.sin(a) * 26, z = Math.cos(a) * 26;
+      if (Math.abs(Math.atan2(Math.sin(a - PI), Math.cos(a - PI))) < 0.45) continue;
+      const m = this.mesh([at(box(3.2, 1.0, 1.4, '#8a6438'), 0, 0.5, 0), ...[-1.4, 1.4].flatMap((px) => [-0.6, 0.6].map((pz) => at(cyl(0.07, 0.07, 2.4, '#5a3a24', 5), px, 1.2, pz))),
+        at(box(3.6, 0.12, 2.0, AW[i]), 0, 2.45, 0, 0.18), at(box(0.5, 0.35, 0.5, '#e8d06a'), -0.8, 1.17, 0), at(sph(0.25, '#d84a3a', 8, 6), 0.4, 1.2, 0.1), at(sph(0.25, '#f2a03a', 8, 6), 0.9, 1.2, -0.1)]);
+      m.position.set(x, y0(x, z), z); m.rotation.y = a + PI; this.solids.push({ x, z, r: 1.8 });
+    }
+    for (let i = 0; i < 8; i++) {
+      const a = i / 8 * PI * 2, x = Math.sin(a) * 10, z = Math.cos(a) * 10;
+      if (Math.abs(Math.atan2(Math.sin(a - PI), Math.cos(a - PI))) < 0.3) continue;
+      const fl = ['#ff7aa8', '#ffd76a', '#ffffff', '#b07aff'][i % 4];
+      this.mesh([at(cyl(1.2, 1.3, 0.5, '#8a8272', 10), 0, 0.25, 0), at(cyl(1.05, 1.05, 0.1, '#4a7a2e', 10), 0, 0.52, 0), ...[0, 1, 2, 3, 4].map((k) => at(sph(0.22, fl, 6, 4), Math.sin(k * 1.3) * 0.6, 0.7, Math.cos(k * 1.3) * 0.6))]).position.set(x, y0(x, z), z);
+      this.solids.push({ x, z, r: 1.3 });
+    }
+    for (let i = 0; i < 16; i++) {
+      const a = (i + 0.5) / 16 * PI * 2; if (Math.abs(Math.atan2(Math.sin(a - PI), Math.cos(a - PI))) < 0.3) continue;   // 門への道はあける
+      const x = Math.sin(a) * 30, z = Math.cos(a) * 30, y = y0(x, z);
+      if (i % 2) { this.mesh([at(cyl(0.25, 0.35, 2.6, '#5a3a24', 6), 0, 1.3, 0), at(cone(1.9, 3.4, '#3f7a2e', 7), 0, 3.6, 0), at(cone(1.4, 2.6, '#4f9036', 7), 0, 5.0, 0)]).position.set(x, y, z); this.solids.push({ x, z, r: 0.6 }); }
+      else { const m = this.mesh([at(box(2.4, 0.18, 0.7, '#7a5636'), 0, 0.55, 0), at(box(0.18, 0.5, 0.6, '#4a3222'), -1, 0.25, 0), at(box(0.18, 0.5, 0.6, '#4a3222'), 1, 0.25, 0)]); m.position.set(x, y, z); m.rotation.y = a; }
+    }
+    for (let i = 0; i < 8; i++) {
+      const a = i / 8 * PI * 2 + PI / 8, x = Math.sin(a) * 16, z = Math.cos(a) * 16;
+      this.mesh([at(cyl(0.35, 0.45, 0.5, '#8a8478', 6), 0, 0.25, 0), at(cyl(0.12, 0.12, 1.4, '#8a8478', 6), 0, 1.2, 0), at(box(0.8, 0.7, 0.8, '#ffd27a'), 0, 2.2, 0), at(cone(0.75, 0.5, '#5a5448', 4), 0, 2.8, 0, 0, PI / 4, 0)]).position.set(x, y0(x, z), z);
+      this.solids.push({ x, z, r: 0.5 });
+    }
+  }
+  // ---- ほかのプレイヤー(町で同時に遊んでいる人) ----
+  _me() {
+    const S = Save.data, st = calcStats(S, this.heroId || 'reiga');
+    return { n: S.name, h: this.heroId || 'reiga', a: st.armor, x: this.p.x, z: this.p.z, r: this.p.yaw, m: Math.hypot(this.p.vx, this.p.vz) };
+  }
+  _ghost(id, o) {
+    const h = HERO[o.h] || HERO.reiga, model = buildHero({ ...h.look }, h.wtype, 0);
+    GFX.scene.add(model.root); model.root.visible = false; model.root.position.set(o.x, this.stage.heightAt(o.x, o.z), o.z);
+    const g = { id, h: o.h, model, rig: new Rig(model), x: o.x, z: o.z, r: o.r || 0, name: null, nameTxt: '' };
+    loadVrm(h.vrm || h.id).then((vrm) => { if (g.dead) return; if (vrm) { new VrmBody(model, vrm); setArmor(vrm, h.vrm || h.id, ARMOR_SLOT_KEYS.reduce((m, k) => (m[k] = (o.a && ARMOR_SETS[o.a[k]] ? o.a[k] : 'guren'), m), {})); } model.root.visible = true; }).catch(() => { model.root.visible = true; });
+    return g;
+  }
+  _dropGhost(g) { g.dead = true; freeSprite(g.name); disposeModel(g.model); }
+  _ghosts(dt) {
+    const others = TownNet.others, P = this.p, MAXG = 8;
+    // 近い人から最大8人だけ描く(スマホの負担を抑える)
+    const want = [...others].map(([id, o]) => [id, o, Math.hypot(o.x - P.x, o.z - P.z)]).sort((a, b) => a[2] - b[2]).slice(0, MAXG);
+    const keep = new Set(want.map((w) => w[0]));
+    for (const [id, g] of this.ghosts) if (!keep.has(id) || (others.get(id) && others.get(id).h !== g.h)) { this._dropGhost(g); this.ghosts.delete(id); }
+    for (const [id, o] of want) {
+      let g = this.ghosts.get(id); if (!g) { g = this._ghost(id, o); this.ghosts.set(id, g); }
+      const k = Math.min(1, dt * 8); g.x += (o.x - g.x) * k; g.z += (o.z - g.z) * k;
+      let d = (o.r || 0) - g.r; d = Math.atan2(Math.sin(d), Math.cos(d)); g.r += d * Math.min(1, dt * 10);
+      const y = this.stage.heightAt(g.x, g.z), r = g.model.root; r.position.set(g.x, y, g.z); r.rotation.y = g.r;
+      g.rig.speed = o.m || 0; g.rig.update(dt);
+      const nm = T(o.n || '星牙使い');
+      if (nm !== g.nameTxt) { freeSprite(g.name); g.name = nameSprite(nm, false); g.nameTxt = nm; this.group.add(g.name); }
+      g.name.position.set(g.x, y + 2.35 * ((HERO[o.h] && HERO[o.h].look.scale) || 1), g.z);
+    }
+  }
+  onUpdate(dt) {
+    FX.weather('petal', this.p.x, 1.5, this.p.z, dt);
+    // 町を歩いている間だけ、ほかのプレイヤーとつながる
+    if (this.frame === 'home' && !TownNet.on) TownNet.start(() => this._me());
+    TownNet.update(dt);
+    this._ghosts(dt);
+    // 自分の名前
+    const nm = T(Save.data.name);
+    if (!this.myName || this.myName.userData.t !== nm) { freeSprite(this.myName); this.myName = nameSprite(nm, true); this.myName.userData.t = nm; this.group.add(this.myName); }
+    this.myName.visible = !!(this.model && this.model.root.visible) && this.frame === 'home';
+    this.myName.position.set(this.p.x, this.p.y + 2.35 * ((HERO[this.heroId] && HERO[this.heroId].look.scale) || 1), this.p.z);
+    const cnt = document.getElementById('town-count'); if (cnt) cnt.textContent = TownNet.on && TownNet.peer ? T(`町にいる人: ${TownNet.count()}人`) : '';
+  }
 }
 
 // ================= 世界地図 =================

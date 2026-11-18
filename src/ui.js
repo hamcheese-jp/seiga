@@ -324,7 +324,7 @@ export const UI = {
   },
   r_home() {
     const S = Save.data, map = this.app.fieldKind === 'map';
-    this.html('home', `<div class="field-hud"><div class="head"><div class="who">${esc(S.name)}</div>${this.langBtn('lang-home')}<button class="daily-btn" data-a="daily">今日の目標 <b>${Daily.done()}/3</b></button><div class="sp"></div>${this.installBtn('inst-home')}<div class="goldv">${S.gold.toLocaleString()}</div></div>
+    this.html('home', `<div class="field-hud"><div class="head"><div class="who">${esc(S.name)}</div>${this.langBtn('lang-home')}<span id="town-count" class="town-count"></span><button class="daily-btn" data-a="daily">今日の目標 <b>${Daily.done()}/3</b></button><div class="sp"></div>${this.installBtn('inst-home')}<div class="goldv">${S.gold.toLocaleString()}</div></div>
       <div class="field-hint">${map ? '戦場の旗へ歩いて出撃 ／ 赤い門で町へ戻る' : '建物に近づいて入る ／ 南の赤い門から世界地図へ'}　${Input.usedTouch ? '左でスティック・右で視点' : 'WASD で歩く・ドラッグで視点'}</div></div>`);
     this.app.lobbyHero(this.sel.hero);
   },

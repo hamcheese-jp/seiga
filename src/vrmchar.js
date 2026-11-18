@@ -23,10 +23,22 @@ export function probeVrm() {
 }
 
 export const hasVrm = (id) => !!(id && fileFor(HERO_VRM[id] || id));
+const VRM_PROG = {};
+// キャラの読み込みの進み具合(0〜1)。VRMが無いキャラは1
+export const vrmProgress = (id) => { const f = fileFor(HERO_VRM[id] || id); return f ? VRM_PROG[f] || 0 : 1; };
 function fetchBuf(id) {
   const f = fileFor(id);
   if (!f) return Promise.resolve(null);
-  if (!bufs.has(f)) bufs.set(f, fetch(f).then((r) => (r.ok ? r.arrayBuffer() : null)).catch(() => null));
+  if (!bufs.has(f)) bufs.set(f, fetch(f).then(async (r) => {
+    if (!r.ok) return null;
+    // 少しずつ受け取り、進み具合(0〜1)を記録する(町の「読み込み中」表示に使う)
+    const len = +r.headers.get('content-length') || 0;
+    if (!len || !r.body || !r.body.getReader) { const b = await r.arrayBuffer(); VRM_PROG[f] = 1; return b; }
+    const rd = r.body.getReader(), parts = []; let got = 0;
+    for (;;) { const { done, value } = await rd.read(); if (done) break; parts.push(value); got += value.length; VRM_PROG[f] = Math.min(0.99, got / len); }
+    const out = new Uint8Array(got); let o = 0; for (const p of parts) { out.set(p, o); o += p.length; }
+    VRM_PROG[f] = 1; return out.buffer;
+  }).catch(() => null));
   return bufs.get(f);
 }
 // 合戦前などに先読み
