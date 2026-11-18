@@ -57,7 +57,7 @@ export const LOOKS = {
     pal: { skin: '#c99672', hair: '#281410', c1: '#6a1014', c2: '#181416', c3: '#c08a2a', metal: '#4c4e5c', gold: '#d2a030', glow: [4.5, 0.7, 0.2], eye: '#3a0808', cape: '#4a0a0e' } },
   boss2: { scale: 1.1, bulk: 1.0, sw: 0.255, headScale: 1.1, hair: 'short', gear: 'hood mask', cape: 'scarf', pauldron: 0, tasset: 'none', tails: 3, arms: 'bare',
     pal: { skin: '#b9825a', hair: '#201810', c1: '#8a3a1e', c2: '#2a1c14', c3: '#e8c070', metal: '#6a5a44', gold: '#e8c070', glow: [4.2, 2.4, 0.4], eye: '#2a1408', cape: '#b0562a' } },
-  boss3: { scale: 1.22, bulk: 1.25, sw: 0.285, headScale: 1.05, hair: 'long', gear: 'horn', cape: 'long', pauldron: 2, tasset: 'plate', tails: 2, fur: true,
+  boss3: { scale: 1.38, bulk: 1.25, sw: 0.285, headScale: 1.05, hair: 'long', gear: 'horn', cape: 'long', pauldron: 2, tasset: 'plate', tails: 2, fur: true,
     pal: { skin: '#d8c4b8', hair: '#c8d4e2', c1: '#3a5a86', c2: '#1a2434', c3: '#cfe2f6', metal: '#7a8ea8', gold: '#dbe8f6', glow: [0.6, 2.3, 4.6], eye: '#0c2a4a', cape: '#e8eef6' } },
   boss4: { scale: 1.35, bulk: 1.5, sw: 0.32, headScale: 1.0, hair: 'bald', gear: 'kabuto horn hornbig', cape: 'long', pauldron: 2, tasset: 'plate', tails: 0,
     pal: { skin: '#8a5a48', hair: '#140c0a', c1: '#2a1410', c2: '#120c0a', c3: '#ff6a1e', metal: '#40302a', gold: '#ff7a2a', glow: [5.0, 1.4, 0.2], eye: '#ff4a10', cape: '#3a0e08' } },

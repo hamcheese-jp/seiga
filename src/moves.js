@@ -373,6 +373,10 @@ MS.boss_twin = {
   },
   plans: [{ seq: ['n0', 'n1', 'n2', 'n3'], max: 3.4, w: 5 }, { seq: ['n0', 'n1'], max: 3.4, w: 2 }, { seq: ['dash'], min: 4, max: 13, w: 4 }, { seq: ['knives'], min: 4, max: 12, w: 4 }, { seq: ['storm'], max: 9, w: 2, p2: true }],
 };
+// 氷の魔法(ヴォルグ): 槍を突き出すと、氷のつぶてが扇状に飛ぶ
+const iceShard = (t, yaw = 0, o = {}) => P(t, { kind: 'ice', speed: 30, life: 0.7, r: 0.8, yaw, stop: true }, { dmg: 0.8, kb: 3, stun: 0.5, el: 1, ...o });
+const iceThrust = (n, spread, o = {}) => thrust({ wind: o.wind ?? 0.2, rec: o.rec ?? 0.24, len: 4.2, w: 1.0, dmg: 0.8, sfx: 'ice',
+  extra: rep(n, (i) => iceShard(0.22, n === 1 ? 0 : -spread / 2 + spread * i / (n - 1), o.hit || {})) });
 MS.boss_spear = {
   m: {
     n0: thrust({ wind: 0.26, rec: 0.2, len: 5.2, w: 1.1, mv: 4 }),
@@ -382,9 +386,10 @@ MS.boss_spear = {
     dash: X(thrust({ wind: 0.5, hit: 0.16, rec: 0.5, len: 9, w: 1.5, dmg: 2.1, kb: 9, mv: 20, fx: 'line', shake: 0.2 }), { tele: 1, ghost: true }),
     spikes: X(seq(hold(0.7, { az: -10, el: 100, bend: 30 }, { sfx: 'tele' }), smash({ jump: 0, up: 0.1, rec: 0.7, r: 3.2, fwd: 3, dmg: 1.8, kb: 3, lift: 8, el: 1, fx: ['pillar'], shake: 0.5,
       extra: rep(4, (i) => ({ ...DEF_HIT, t: 0.3 + i * 0.14, shape: 'circle', fwd: 6.5 + i * 3.5, r: 3.2, dmg: 1.8, kb: 3, lift: 8, el: 1, fx: 'pillar', shake: 0.4 })) })), { tele: 2, armor: true }),
+    ice: iceThrust(5, 50, { wind: 0.45, rec: 0.4 }),
     burst: burst(),
   },
-  plans: [{ seq: ['n0', 'n1', 'n2'], max: 4.6, w: 5 }, { seq: ['heavy'], max: 5, w: 2 }, { seq: ['dash'], min: 5, max: 13, w: 3 }, { seq: ['spikes'], min: 3, max: 18, w: 3, p2: true }],
+  plans: [{ seq: ['n0', 'n1', 'n2'], max: 4.6, w: 5 }, { seq: ['heavy'], max: 5, w: 2 }, { seq: ['dash'], min: 5, max: 13, w: 3 }, { seq: ['ice'], min: 4, max: 13, w: 4 }, { seq: ['spikes'], min: 3, max: 18, w: 3, p2: true }],
 };
 MS.boss_hammer = {
   m: {
@@ -427,8 +432,8 @@ MS.p_zahar = { spName: '砂塵千刃',
   n: [B2.n0, B2.n1, B2.n2, B2.n3, throwK(3, 24), MS.raika.n[5]],
   c: [pl(B2.dash), seq(throwK(5, 40, { rec: 0.05 }), throwK(5, 40, { wind: 0.08, rec: 0.05 }), throwK(7, 70, { wind: 0.08, rec: 0.3, hit: { dmg: 0.9 } })), MS.raika.c[2], MS.raika.c[3], MS.raika.c[4], pl(B2.storm)], sp: MS.raika.sp };
 MS.p_volg = { spName: '氷狼牙陣',
-  n: [B3.n0, B3.n1, B3.n2, MS.setsuna.n[3], MS.setsuna.n[4], MS.setsuna.n[5]],
-  c: [pl(B3.dash), MS.setsuna.c[1], MS.setsuna.c[2], pl(B3.heavy), pl(B3.spikes), MS.setsuna.c[5]], sp: MS.setsuna.sp };
+  n: [B3.n0, B3.n1, B3.n2, iceThrust(3, 26), MS.setsuna.n[4], MS.setsuna.n[5]],
+  c: [pl(B3.dash), seq(iceThrust(5, 50, { rec: 0.05 }), iceThrust(5, 50, { wind: 0.1, rec: 0.05 }), iceThrust(9, 120, { wind: 0.1, rec: 0.3, hit: { dmg: 1.0 } })), MS.setsuna.c[2], pl(B3.heavy), pl(B3.spikes), MS.setsuna.c[5]], sp: MS.setsuna.sp };
 MS.p_ignas = { spName: '獄炎噴火',
   n: [B4.n0, B4.n1, pl(B4.n2), MS.gandou.n[3], MS.gandou.n[4], MS.gandou.n[5]],
   c: [MS.gandou.c[0], MS.gandou.c[1], pl(B4.erupt), pl(B4.heavy), MS.gandou.c[4], pl(B4.nova)], sp: MS.gandou.sp };

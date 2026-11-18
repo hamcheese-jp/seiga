@@ -33,6 +33,18 @@ PRESETS = {
         mask=(0.3, 0.06, 0.05), scar=True, braid=dict(n=11, seg=0.05),
         outfit=dict(hakama=(0.09, 0.06, 0.035), sleeve=(0.05, 0.04, 0.032), hem=0.06, sode=0.025),
     ),
+    # ヴォルグ: 北の大男。たくましい体、後ろへなびく白銀のたてがみと白いひげ、頬の青い戦化粧、狼の毛皮の襟巻き
+    'volg': dict(
+        fat=[(J('UpperChest'), 0.035, None, (-0.2, 1.0)), (J('Chest'), 0.02, 'front', (0.0, 1.0)), (J('Neck'), 0.022, None, (-0.3, 0.7)),
+             (J('Shoulder', 'l'), 0.025, None, (0.2, 1.2)), (J('Shoulder', 'r'), 0.025, None, (0.2, 1.2)),
+             (J('UpperArm', 'l'), 0.028, None, (0.05, 0.95)), (J('UpperArm', 'r'), 0.028, None, (0.05, 0.95)),
+             (J('LowerArm', 'l'), 0.016, None, (0.0, 0.75)), (J('LowerArm', 'r'), 0.016, None, (0.0, 0.75)),
+             (J('UpperLeg', 'l'), 0.022, None, (0.05, 0.9)), (J('UpperLeg', 'r'), 0.022, None, (0.05, 0.9))],
+        skin=(0.95, 0.9, 0.92), shade=(0.7, 0.66, 0.74), scowl=(0.95, 0.45), jowl=0.06, eyes=0.62, legs=1.04,
+        brows=dict(th=0.01), beard=dict(len=0.8, top=0.012, burn=0.035), wrinkles=True, hair='mane', mane=dict(len=1.0),
+        parts=(0.82, 0.84, 0.9), parts_flat=True, hairtint=(0.7, 0.72, 0.78), paint=(0.15, 0.35, 0.95), fur=(0.34, 0.31, 0.29),
+        outfit=dict(hakama=(0.04, 0.05, 0.09), sleeve=(0.05, 0.06, 0.1), hem=0.07, sode=0.03),
+    ),
 }
 P = PRESETS[PRESET]
 rng = random.Random(11)
@@ -210,6 +222,11 @@ try:
     mt = mtoon(smat).extensions.vrmc_materials_mtoon
     mt.parametric_rim_color_factor = (0.0, 0.0, 0.0); mt.matcap_factor = (0.0, 0.0, 0.0); mt.rim_lighting_mix_factor = 0.0
     if P.get('parts'): mtoon(smat).pbr_metallic_roughness.base_color_factor = (*P['parts'], 1.0)   # ひげ・眉・髷は濃い色
+    if P.get('parts_flat'):   # 白銀のひげなど: 髪のテクスチャを使わず無地にする
+        for tex in (mtoon(smat).pbr_metallic_roughness.base_color_texture, mtoon(smat).extensions.vrmc_materials_mtoon.shade_multiply_texture):
+            try: tex.index.source = None
+            except Exception: pass
+        mtoon(smat).extensions.vrmc_materials_mtoon.shade_color_factor = tuple(c * 0.7 for c in P['parts'])
 except Exception as e: print('MTOON', e)
 
 bm = bmesh.new(); uv = bm.loops.layers.uv.new('UVMap')
@@ -287,7 +304,9 @@ def strip(pts_xz, th, lift=0.0015):
         rows.append([bm.verts.new(p + n * lift + UP * w), bm.verts.new(p + n * lift - UP * w)])
     for i in range(len(rows) - 1):
         a, b = rows[i]; c, d = rows[i + 1]; face_of([a, b, d, c])
+wr_bm = None
 if P.get('wrinkles') and eyes:
+    bm_main, uv_main = bm, uv; bm = bmesh.new(); uv = bm.loops.layers.uv.new('UVMap')   # しわは別の暗い色にする(白いひげと分ける)
     ex = eye_x
     for j, dz in enumerate((0.03, 0.042, 0.054)):                                   # 額
         w = 0.045 - 0.006 * j
@@ -297,6 +316,7 @@ if P.get('wrinkles') and eyes:
         for k2 in (0, 1):                                                           # 目尻
             strip([(sx * (ex + 0.004 + t * 0.014), eye_top - 0.014 - k2 * 0.009 - t * (0.004 + k2 * 0.006)) for t in [i / 3 for i in range(4)]], 0.0012)
         strip([(sx * (0.017 + t * 0.022), mouth_z + 0.034 - t * 0.04) for t in [i / 6 for i in range(7)]], 0.0016)   # ほうれい線
+    wr_bm = bm; bm, uv = bm_main, uv_main
 
 # ── 髪: 元の長い髪を外す。頭皮の地毛(短い髪)は残し、髷を結う
 if P.get('hair') and hair_ob:
@@ -436,12 +456,106 @@ if P.get('braid'):
         bmesh.ops.recalc_face_normals(b2, faces=b2.faces[:])
         attach(b2, color_mat('braid', P.get('parts', (0.1, 0.08, 0.07))), W)
 
+# たてがみ: 頭頂から後ろへ、長い毛束を背中へ流す(前髪は短く後ろへ撫でつける)
+if P.get('hair') == 'mane':
+    b2, uv2 = new_bm(); W = []; n_m = 0
+    for el in range(-20, 90, 6):
+        ring = max(1, int(round(360 * math.cos(math.radians(el)) / 12)))
+        for k in range(ring):
+            az = 360 * (k + rng.random() * 0.6) / ring - 180
+            f = math.cos(math.radians(az)); hl = 18 if f > 0.4 else (-15 if f > -0.3 else -25)
+            if el < hl: continue
+            p, n = scalp(dir_of(az, el))
+            if p is None: continue
+            back = max(0.0, -f)
+            L = R * (0.35 + 0.9 * back + 0.25 * (el / 90)) * P['mane'].get('len', 1.0) * (0.8 + 0.4 * rng.random())
+            out = (n * 0.35 + Vector((0, 0.75, -0.55 - 0.5 * back)) + Vector((0, 0, 0.35)) * (1 - back)).normalized()
+            out = (out + Vector((rng.uniform(-1, 1), rng.uniform(-0.5, 0.5), rng.uniform(-0.5, 0.5))) * 0.15).normalized()
+            k0 = len(b2.verts)
+            side = out.cross(n if abs(out.dot(n)) < 0.97 else Vector((1, 0, 0))).normalized(); up2 = side.cross(out).normalized(); wd = R * 0.14
+            base = p - n * 0.004; ringv = [b2.verts.new(base + (side * math.cos(t) + up2 * math.sin(t) * 0.5) * wd) for t in (0, math.pi / 2, math.pi, 3 * math.pi / 2)]
+            mid = b2.verts.new(base + out * L * 0.55 + Vector((0, 0.01, -0.03)) * back + side * wd * 0.2); tip = b2.verts.new(base + out * L + Vector((0, 0, -0.06)) * back)
+            for q in range(4):
+                for fv in ([ringv[q], ringv[(q + 1) % 4], mid], [mid, ringv[(q + 1) % 4], tip]) if False else ([ringv[q], ringv[(q + 1) % 4], mid],):
+                    fc = b2.faces.new(fv); fc.smooth = True
+                    for l in fc.loops: l[uv2].uv = dark_uv
+            try:
+                fc = b2.faces.new([mid, tip, ringv[0]]); fc.smooth = True
+                for l in fc.loops: l[uv2].uv = dark_uv
+            except ValueError: pass
+            # 長い後ろ髪は根元が頭、先は胸の骨にも付けて背中に沿わせる
+            for vi in range(len(b2.verts) - k0):
+                is_tip = vi >= 4
+                W.append([(J('Head'), 1.0 - 0.5 * back * is_tip), (J('UpperChest'), 0.5 * back * is_tip)] if back > 0.2 and is_tip else [(J('Head'), 1.0)])
+            n_m += 1
+    bmesh.ops.recalc_face_normals(b2, faces=b2.faces[:])
+    attach(b2, color_mat('mane', P.get('parts', (0.7, 0.7, 0.75))), W)
+    print('MANE', n_m)
+
+# 戦化粧: 両頬に青い三本線
+if P.get('paint') and eyes:
+    b2, uv2 = new_bm()
+    for sx in (-1, 1):
+        for k in range(3):
+            pts = []
+            for t in [i / 5 for i in range(6)]:
+                x = sx * (0.035 + 0.012 * k + 0.004 * t); z = eye_top - 0.03 - 0.008 * k - 0.035 * t
+                p, n = hit_from(Vector((x, C.y - R * 3, z)), FWD * -1)
+                if p is not None: pts.append((p, n))
+            rows = []
+            for i, (p, n) in enumerate(pts):
+                w = 0.0024 * (1 - 0.6 * i / max(1, len(pts) - 1))
+                rows.append([b2.verts.new(p + n * 0.0015 + Vector((w, 0, 0))), b2.verts.new(p + n * 0.0015 - Vector((w, 0, 0)))])
+            for i in range(len(rows) - 1):
+                fc = b2.faces.new([rows[i][0], rows[i][1], rows[i + 1][1], rows[i + 1][0]])
+                for l in fc.loops: l[uv2].uv = (0.5, 0.5)
+    bmesh.ops.recalc_face_normals(b2, faces=b2.faces[:])
+    attach(b2, color_mat('paint', P['paint']), J('Head'))
+
+# 狼の毛皮の襟巻き: 首の付け根から肩にかけて、外と下へ垂れる毛を一周に生やす
+if P.get('fur'):
+    bverts, bpolys = [], []
+    for ob in [o for o in bpy.data.objects if o.type == 'MESH']:
+        me = ob.data; gi = {g.index: g.name for g in ob.vertex_groups}; mw = ob.matrix_world
+        keep = {J('UpperChest'), J('Shoulder', 'l'), J('Shoulder', 'r'), J('Neck'), J('Chest')}
+        ok = [sum(g.weight for g in v.groups if gi.get(g.group) in keep) > 0.5 for v in me.vertices]
+        b0 = len(bverts); bverts += [mw @ v.co for v in me.vertices]
+        bpolys += [[b0 + i for i in p.vertices] for p in me.polygons if all(ok[i] for i in p.vertices)]
+    tb = BVHTree.FromPolygons(bverts, bpolys)
+    nk = arm.matrix_world @ bones[J('Neck')].head_local
+    b2, uv2 = new_bm(); W = []
+    for zi, dz in enumerate((0.0, -0.035, -0.07)):
+        cnt = 46 + zi * 8
+        for k in range(cnt):
+            a = math.tau * (k + rng.random() * 0.5) / cnt
+            d = Vector((math.sin(a), -math.cos(a), 0.0))
+            o = Vector((nk.x, nk.y, nk.z + dz)) + d * 0.6
+            h = tb.ray_cast(o, -d, 0.6)
+            if h[0] is None: continue
+            p = h[0]; side = abs(math.sin(a))
+            out = (d * 0.7 + Vector((0, 0, -0.55 - 0.3 * zi))).normalized()
+            L = (0.045 + 0.04 * side + 0.02 * zi) * (0.8 + 0.4 * rng.random())
+            k0 = len(b2.verts); tuft_b = b2
+            sd = out.cross(Vector((0, 0, 1))); sd = sd.normalized() if sd.length > 1e-4 else Vector((1, 0, 0)); u2 = sd.cross(out).normalized(); wd = 0.02
+            rv = [b2.verts.new(p + (sd * math.cos(t) + u2 * math.sin(t) * 0.5) * wd) for t in (0, math.pi / 2, math.pi, 3 * math.pi / 2)]
+            tp = b2.verts.new(p + out * L)
+            for q in range(4):
+                fc = b2.faces.new([rv[q], rv[(q + 1) % 4], tp]); fc.smooth = True
+                for l in fc.loops: l[uv2].uv = (0.5, 0.5)
+            bone = J('Shoulder', 'l' if p.x > 0 else 'r') if side > 0.75 else J('UpperChest')
+            for _ in range(len(b2.verts) - k0): W.append([(bone, 1.0)])
+    bmesh.ops.recalc_face_normals(b2, faces=b2.faces[:])
+    attach(b2, color_mat('fur', P['fur']), W)
+
+if wr_bm is not None:
+    bmesh.ops.recalc_face_normals(wr_bm, faces=wr_bm.faces[:]); attach(wr_bm, color_mat('wrinkle', P.get('wrinkle', (0.2, 0.12, 0.1))), J('Head'))
+
 # 頭皮の地毛の色(剃った頭の青み・濃い色)
 if P.get('hairtint'):
     # 体の中の頭皮(地毛)の材質を、無地の濃い色に差し替える
     stub = color_mat('stubble', P['hairtint'])
     for i, m in enumerate(body.data.materials):
-        if m and 'HAIR' in m.name and not any(k in m.name for k in ('spike', 'mask', 'scar', 'braid', 'stubble', 'CLOTH')):
+        if m and 'HAIR' in m.name and 'HAIR_' not in m.name and 'CLOTH' not in m.name:   # 付け足しの部品(HAIR_〜)は除く
             body.data.materials[i] = stub; print('HAIRTINT', m.name)
 
 # 脚と腕のタイツ模様を隠す: 袴と広袖(設定の outfit)
