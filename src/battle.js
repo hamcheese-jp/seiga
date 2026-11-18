@@ -15,7 +15,7 @@ import { clamp, rnd, pick, damp, angWrap, lerp, D2R, ease } from './util.js';
 
 const PI = Math.PI;
 const BOSS_ELEM = { boss1: 'earth', boss2: 'wind', boss3: 'ice', boss4: 'fire', boss5: 'dark' };
-const MS_WT = { off_sword: 'sword', off_spear: 'spear', off_axe: 'axe' };
+const MS_WT = { off_sword: 'sword', off_spear: 'spear', off_axe: 'axe', off_bow: 'bow', off_staff: 'staff' };
 const BOSS_LINES = { boss1: 'ぬうう…小癪な! 本気で叩き潰してくれるわ!', boss2: 'ククク…ここからが蠍の毒の回りどころよ。', boss3: '血の匂いだ…狼は手負いの時こそ牙を剥く!', boss4: '燃えろ! すべて灰になれ!', boss5: '見事だ。ならば覇星の真の力、その身に刻め。' };
 
 class Base {
@@ -172,7 +172,7 @@ export class Battle {
         x: nd.x, z: nd.z + (this.endless ? 0 : 3), yaw: PI });
       f.lookId = od.look; f.role = this.endless ? 'hunt' : 'boss'; if (!this.endless) this.boss = f;
     } else {
-      f = this._add({ team: 1, vrmKey: 'enemyOfficer', name, look: LOOKS.enemyOfficer, wtype: od.wtype || MS_WT[od.ms], tier: 1, ms: od.ms, hp: E.oHp * (od.hp || 1) * mul, atk: E.oAtk * mul, def: E.oDef, spd: 5.2, exp: E.oExp * (od.hp || 1),
+      f = this._add({ team: 1, vrmKey: 'enemyOfficer', name, title: od.title, look: LOOKS.enemyOfficer, wtype: od.wtype || MS_WT[od.ms], tier: 1, ms: od.ms, hp: E.oHp * (od.hp || 1) * mul, atk: E.oAtk * mul, def: E.oDef, spd: 5.2, exp: E.oExp * (od.hp || 1),
         x: nd.x + rnd(-2, 2), z: nd.z + rnd(-2, 2), yaw: PI });
       f.role = od.order === 'attack' ? 'attack' : od.order === 'hunt' ? 'hunt' : 'hold';
       f.homeBase = this.bases.find((b) => b.node === od.n) || null;
@@ -641,7 +641,7 @@ export class Battle {
       }
       if (w % 5 === 0) { const b = pick([['boss1', 'boss_axe', 'axe'], ['boss2', 'boss_twin', 'twin'], ['boss3', 'boss_spear', 'spear'], ['boss4', 'boss_staff', 'staff'], ['boss5', 'boss_final', 'scythe']]);
         this._enemyOfficer({ n: 1 + ((w / 5) | 0) % 4, boss: true, look: b[0], ms: b[1], wtype: b[2], hp: 2.2, title: '猛将', squad: 6 }, pick(OFFICER_NAMES)); Audio.sfx('warn'); this.ui.say('斥候', '強敵が現れました!'); }
-      else if (w % 2 === 0) this._spawnOfficer({ n: 1 + (w % 4), ms: pick(['off_sword', 'off_spear', 'off_axe']), order: 'hunt', squad: 5 }, 1);
+      else if (w % 2 === 0) this._spawnOfficer({ n: 1 + (w % 4), ms: pick(['off_sword', 'off_spear', 'off_axe', 'off_bow', 'off_staff']), order: 'hunt', squad: 5 }, 1);
       this.ui.banner(`第${w}波`, w % 5 === 0 ? '強敵襲来' : '', w % 5 === 0 ? 'bad' : 'gold'); Audio.sfx('drum');
       const p = this.player; if (w > 1) { p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.08); this.gold += 40 + w * 10; }
       if (w % 3 === 0) this.drop('hp', rnd(-8, 8), rnd(-8, 8), 25);

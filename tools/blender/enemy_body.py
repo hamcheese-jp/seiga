@@ -60,6 +60,9 @@ PRESETS = {
         brows=dict(th=0.006), parts=(0.85, 0.85, 0.92), parts_flat=True,
         undereye=(0.42, 0.12, 0.6), crown=dict(band=(0.08, 0.07, 0.1), spike=(0.95, 0.72, 0.25), gem=(0.75, 0.1, 1.0)),
     ),
+    # 敵将(雑兵を率いる将): 顔の見えない兜と棘の鎧はそのまま。桃色のタイツの脚と腕に、鉄色の袴と袖を着せる
+    'officer': dict(fat=[], skin=(1.0, 1.0, 1.0), shade=(0.8, 0.8, 0.8),
+        outfit=dict(hakama=(0.05, 0.05, 0.06), sleeve=(0.07, 0.07, 0.08), hem=0.07, sode=0.03)),
 }
 P = PRESETS[PRESET]
 rng = random.Random(11)

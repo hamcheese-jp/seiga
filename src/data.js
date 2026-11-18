@@ -258,6 +258,12 @@ export const ENDLESS = {
   links: [[0, 1, 9], [0, 2, 9], [0, 3, 9], [0, 4, 9]],
   bases: [], sealNeed: 0, start: 0, officers: [], events: [{ at: 2, say: ['軍師ミコト', '敵は四方の門から無限に湧きます。どこまで戦えるか…ご武運を!'] }],
 };
+// 弓兵の将・魔導の将: 各章で守りにつく敵将の所に加える(弓は第一章から、魔導は第二章から)。離れて撃ち、寄られたら飛び退く
+STAGES.forEach((st, i) => {
+  const holds = st.officers.filter((o) => o.t === 1 && !o.boss && o.order === 'hold');
+  if (holds[0]) st.officers.push({ t: 1, n: holds[0].n, ms: 'off_bow', wtype: 'bow', order: 'hold', title: '弓の将' });
+  if (i >= 1 && holds[1]) st.officers.push({ t: 1, n: holds[1].n, ms: 'off_staff', wtype: 'staff', order: 'hold', title: '魔導の将' });
+});
 export const STAGE = Object.fromEntries([...STAGES, ENDLESS].map((s) => [s.id, s]));
 
 // ---- 武器 ----
