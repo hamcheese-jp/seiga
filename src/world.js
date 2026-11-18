@@ -86,7 +86,8 @@ class Field {
     if (walking) { ix = Input.mx; iz = Input.my; if (Input.camDX || Input.camDY) { this.cam.yaw -= Input.camDX * 0.006; this.cam.pitch = clamp(this.cam.pitch + Input.camDY * 0.004, 0.12, 1.0); } }
     const m = Math.hypot(ix, iz), spd = this.walkSpd || 7.2;
     const fx = Math.sin(this.cam.yaw), fz = Math.cos(this.cam.yaw);
-    const wx = (ix * fz + iz * fx) * spd, wz = (-ix * fx + iz * fz) * spd;
+    // カメラから見た右方向は (-fz, fx)。右入力で画面の右へ進む
+    const wx = (-ix * fz + iz * fx) * spd, wz = (ix * fx + iz * fz) * spd;
     P.vx = damp(P.vx, m > 0.05 ? wx : 0, 10, dt); P.vz = damp(P.vz, m > 0.05 ? wz : 0, 10, dt);
     P.x += P.vx * dt; P.z += P.vz * dt;
     const sp = Math.hypot(P.vx, P.vz);
