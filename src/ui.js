@@ -1,6 +1,6 @@
 // 画面UI: 合戦HUD・演出テロップ・各メニュー画面(DOM)
 import { Save, Cloud } from './save.js';
-import { weaponFit, WEAPON_WT, WEAPON_TYPE_NAMES, ARMOR_SLOT_KEYS, ARMOR_SLOT_TAB, ARMOR_SLOT_NAMES, ARMOR_SETS, armorName, armorSell, heroArmor,
+import { weaponFit, JOBS, APT, heroJob, weaponApt, armorApt, WEAPON_WT, WEAPON_TYPE_NAMES, ARMOR_SLOT_KEYS, ARMOR_SLOT_TAB, ARMOR_SLOT_NAMES, ARMOR_SETS, armorName, armorSell, heroArmor,
   HEROES, HERO, ELEMENTS, STAGES, ENDLESS, STAGE, DIFFS, RARITY, RAR_MAXLV, traitText, weaponName, weaponAtk, synthInfo, doSynth, SYN_MAX, starterWeapon, forgeCost, sellPrice, GACHA_COST, rollWeapon, calcStats, expNeed,
   ACHIEVEMENTS, STAR_LABELS, UNLOCKS, FOE_UNLOCKS, GAME_TITLE, GAME_SUB, MAX_LV, maxNormals, maxCharges } from './data.js';
 import { VERSION } from './config.js';
@@ -106,6 +106,8 @@ export const UI = {
       }
       case 'ahero': Audio.sfx('ui'); this.armHero = v; this.armSel = null; this.synBase = null; this.armType = null; this.app.lobbyHero(v); this.r_armory(); break;
       case 'atype': Audio.sfx('ui'); this.armType = v; this.armSel = null; this.r_armory(); break;
+      case 'jsel': Audio.sfx('ui'); this.jobSel = v; this.r_armory(); break;
+      case 'ajob': { const hs2 = S.heroes[this.armHero]; if (!JOBS[v] || heroJob(S, this.armHero) === v) { Audio.sfx('deny'); break; } hs2.job = v; Audio.sfx('levelup'); Save.persist(); this.app.lobbyHero(this.armHero, true); this.toast(`${HERO[this.armHero].name}は「${JOBS[v].n}」に転職しました`); this.r_armory(); break; }
       case 'amode': Audio.sfx('ui'); this.armMode = v; this.armASel = null; this.synBase = null; this.r_armory(); break;
       case 'asel': Audio.sfx('ui'); this.armASel = v; this.r_armory(); break;
       case 'aequip': { const a = S.armors.find((x) => x.uid === this.armASel); if (!a) { Audio.sfx('deny'); break; }
@@ -312,32 +314,34 @@ export const UI = {
   r_armory() {
     const S = Save.data; if (!this.armHero || !S.unlockedHeroes.includes(this.armHero)) this.armHero = S.unlockedHeroes.includes(this.sel.hero) ? this.sel.hero : S.unlockedHeroes[0];
     const h = HERO[this.armHero], hs = S.heroes[h.id];
+    if (this.armMode === 'job') return this.r_jobView(h, hs);
     if (this.armMode && this.armMode !== 'weapon') return this.r_armorView(h, hs);
+    const job = heroJob(S, h.id), mark = (t) => APT[weaponApt(job, t)].m;
     // どの武器でも装備できる。本来の武器種(適性)を先頭に並べる
     // 種類で絞り込む(最初は装備中の武器の種類)。一覧が長くなってキャラが隠れないように
     const eqW = S.weapons.find((w) => w.uid === hs.weapon);
-    const types = Object.keys(WEAPON_TYPE_NAMES).filter((t) => S.weapons.some((w) => w.type === t)).sort((a, b) => (b === h.wtype) - (a === h.wtype));
+    const types = Object.keys(WEAPON_TYPE_NAMES).filter((t) => S.weapons.some((w) => w.type === t)).sort((a, b) => weaponApt(job, b) - weaponApt(job, a));
     if (!this.armType || !types.includes(this.armType)) this.armType = (eqW && eqW.type) || h.wtype;
     if (!types.includes(this.armType)) this.armType = types[0];
     const list = S.weapons.filter((w) => w.type === this.armType).sort((a, b) => b.rar - a.rar || weaponAtk(b) - weaponAtk(a));
     const pc = (x) => (x >= 1 ? '+' : '') + Math.round((x - 1) * 100) + '%';
     const cur = list.find((w) => w.uid === this.armSel) || list.find((w) => w.uid === hs.weapon) || list[0];
-    const typeTabs = `<div class="tabs wtypes">${types.map((t) => `<button class="tab ${t === this.armType ? 'on' : ''}" data-a="atype" data-v="${t}">${WEAPON_TYPE_NAMES[t]}${t === h.wtype ? '◎' : ''}${eqW && eqW.type === t ? '●' : ''}</button>`).join('')}</div>`;
+    const typeTabs = `<div class="tabs wtypes">${types.map((t) => `<button class="tab ${t === this.armType ? 'on' : ''}" data-a="atype" data-v="${t}">${WEAPON_TYPE_NAMES[t]}${mark(t)}${eqW && eqW.type === t ? '●' : ''}</button>`).join('')}</div>`;
     this.armSel = cur.uid; if (cur.isNew) { cur.isNew = false; }
     const eq = cur.uid === hs.weapon, mx = RAR_MAXLV[cur.rar], cost = forgeCost(cur), R = RARITY[cur.rar];
     this.html('armory', `${this.head('装備', 'home')}
       <div class="tabs">${HEROES.filter((x) => S.unlockedHeroes.includes(x.id)).map((x) => `<button class="tab ${x.id === h.id ? 'on' : ''}" data-a="ahero" data-v="${x.id}">${x.name}</button>`).join('')}</div>
       ${this.armTabs()}
       ${typeTabs}
-      <div class="cols"><div class="l scroll">${list.map((w) => `<div class="card wcard ${w.uid === cur.uid ? 'on' : ''}" style="border-left-color:${RARITY[w.rar].col}" data-a="wsel" data-v="${w.uid}"><div class="n"><div class="a" style="color:${RARITY[w.rar].col}">${weaponName(w)}${w.uid === hs.weapon ? '<span class="eq">装備中</span>' : ''}${w.isNew ? '<span class="new">NEW</span>' : ''}${w.lock ? ' 🔒' : ''}</div><div class="b">${RARITY[w.rar].star}　${WEAPON_TYPE_NAMES[w.type] || w.type}${w.type === h.wtype ? '' : '<span style="color:#ff8a6a">(適性外)</span>'}　特性${w.traits.length}</div></div><div class="atk">攻+${weaponAtk(w)}</div></div>`).join('')}
-        <p class="note">◎=${h.name}の適性 ●=装備中の種類(${WEAPON_TYPE_NAMES[this.armType]} ${list.length}本 / 全武器 ${S.weapons.length}/150)</p></div>
+      <div class="cols"><div class="l scroll">${list.map((w) => `<div class="card wcard ${w.uid === cur.uid ? 'on' : ''}" style="border-left-color:${RARITY[w.rar].col}" data-a="wsel" data-v="${w.uid}"><div class="n"><div class="a" style="color:${RARITY[w.rar].col}">${weaponName(w)}${w.uid === hs.weapon ? '<span class="eq">装備中</span>' : ''}${w.isNew ? '<span class="new">NEW</span>' : ''}${w.lock ? ' 🔒' : ''}</div><div class="b">${RARITY[w.rar].star}　${WEAPON_TYPE_NAMES[w.type] || w.type}<span style="color:${weaponApt(job, w.type) > 0 ? 'var(--gold)' : '#ff8a6a'}">${mark(w.type)}</span>　特性${w.traits.length}</div></div><div class="atk">攻+${weaponAtk(w)}</div></div>`).join('')}
+        <p class="note">◎得意 ○扱える △不慣れ ×苦手(職業「${JOBS[job].n}」) ●=装備中の種類(${WEAPON_TYPE_NAMES[this.armType]} ${list.length}本 / 全武器 ${S.weapons.length}/150)</p></div>
       <div class="r"><div class="panel scroll" style="flex:1">
         <div class="dim-t" style="color:${R.col}">${R.star}　${R.n}</div><h3 style="color:${R.col}">${weaponName(cur)}</h3>
         <div class="stat"><span>攻撃<b>+${weaponAtk(cur)}</b></span><span>強化<b>${cur.lv}/${mx}</b></span></div>
-        ${(() => { const f = weaponFit(h.id, cur.type); return `<div class="stat"><span>種類<b>${WEAPON_TYPE_NAMES[cur.type] || cur.type}</b></span><span>重さ<b>${WEAPON_WT[cur.type] ?? 1}</b></span></div><div class="stat"><span>${h.name}が持つと</span><span>移動<b>${pc(f.spd)}</b></span><span>攻撃速度<b>${pc(f.aspd)}</b></span>${f.native ? '<span style="color:var(--gold)">適性◎</span>' : `<span style="color:#ff8a6a">適性外 攻撃${pc(f.atk)}</span>`}</div>`; })()}
+        ${(() => { const f = weaponFit(h.id, cur.type, job), A = APT[f.apt]; return `<div class="stat"><span>種類<b>${WEAPON_TYPE_NAMES[cur.type] || cur.type}</b></span><span>重さ<b>${WEAPON_WT[cur.type] ?? 1}</b></span></div><div class="stat"><span>${h.name}が持つと</span><span>移動<b>${pc(f.spd)}</b></span><span>攻撃速度<b>${pc(f.aspd)}</b></span><span style="color:${f.apt > 0 ? 'var(--gold)' : '#ff8a6a'}">適性${A.m}${A.n}${f.atk < 1 ? ' 攻撃' + pc(f.atk) : ''}</span></div>`; })()}
         ${cur.syn ? `<div class="stat"><span>合成<b style="color:${cur.syn > 0 ? 'var(--gold)' : '#ff6a6a'}">${cur.syn > 0 ? '+' : ''}${cur.syn}</b></span><span class="dim-t">攻撃${cur.syn > 0 ? '+' : ''}${cur.syn * 6}% 特性${cur.syn > 0 ? '+' : ''}${cur.syn * 4}%</span></div>` : ''}
         ${cur.traits.length ? cur.traits.map((t) => `<div class="trait"><b>${traitName(t.k)}</b>${traitText(t, cur)}</div>`).join('') : '<p class="dim-t">特性なし</p>'}
-        <p class="note">敵将を倒すと武器を落とします。難易度が高いほど良質に。<br>どの武器も装備できますが、適性外は攻撃と攻撃速度が下がり、重い武器ほど動きが遅くなります。技は武器の種類で決まります。</p></div>
+        <p class="note">敵将を倒すと武器を落とします。難易度が高いほど良質に。<br>どの武器も装備できます。適性(◎○△×)は職業で決まり、不得手な武器ほど攻撃と攻撃速度が下がります。重い武器ほど動きが遅くなります。技は武器の種類で決まります。</p></div>
         <div class="row"><button class="sbtn" data-a="equip" ${eq ? 'disabled' : ''}>${eq ? '装備中' : '装備'}</button>
           <button class="sbtn" data-a="forge" ${cur.lv >= mx || S.gold < cost ? 'disabled' : ''}>強化 ${cur.lv >= mx ? '(最大)' : cost + '金'}</button>
           <button class="sbtn" data-a="sell" ${eq ? 'disabled' : ''}>売却 +${sellPrice(cur)}</button>
@@ -349,7 +353,26 @@ export const UI = {
   // 武器と防具(頭・胴・腕・足)の切り替え
   armTabs() {
     const m = this.armMode || 'weapon';
-    return `<div class="tabs"><button class="tab ${m === 'weapon' ? 'on' : ''}" data-a="amode" data-v="weapon">武器</button>${ARMOR_SLOT_KEYS.map((k) => `<button class="tab ${m === k ? 'on' : ''}" data-a="amode" data-v="${k}">${ARMOR_SLOT_TAB[k]}</button>`).join('')}</div>`;
+    return `<div class="tabs"><button class="tab ${m === 'job' ? 'on' : ''}" data-a="amode" data-v="job">職業</button><button class="tab ${m === 'weapon' ? 'on' : ''}" data-a="amode" data-v="weapon">武器</button>${ARMOR_SLOT_KEYS.map((k) => `<button class="tab ${m === k ? 'on' : ''}" data-a="amode" data-v="${k}">${ARMOR_SLOT_TAB[k]}</button>`).join('')}</div>`;
+  },
+  // 職業の画面: 職業ごとの適性を見比べ、転職する(いつでも無料で変えられる)
+  r_jobView(h, hs) {
+    const S = Save.data, job = heroJob(S, h.id), sel = JOBS[this.jobSel] ? this.jobSel : job, J = JOBS[sel], st = calcStats(S, h.id);
+    const MODN = { atk: '攻撃', hp: '体力', def: '防御', spd: '移動', aspd: '攻撃速度', range: '間合い', crit: '会心', steal: '吸収', elem: '属性', charge: '溜め' };
+    const cell = (a) => `<b style="color:${a > 0 ? 'var(--gold)' : a < 0 ? '#ff6a6a' : '#ccc'}">${APT[a].m}</b>`;
+    this.html('armory', `${this.head('装備', 'home')}
+      <div class="tabs">${HEROES.filter((x) => S.unlockedHeroes.includes(x.id)).map((x) => `<button class="tab ${x.id === h.id ? 'on' : ''}" data-a="ahero" data-v="${x.id}">${x.name}</button>`).join('')}</div>
+      ${this.armTabs()}
+      <div class="cols"><div class="l scroll">${Object.entries(JOBS).map(([k, j]) => `<div class="card wcard ${k === sel ? 'on' : ''}" data-a="jsel" data-v="${k}"><div class="n"><div class="a">${j.n}${k === job ? '<span class="eq">いまの職業</span>' : ''}</div><div class="b">得意: ${Object.keys(j.w).filter((t) => j.w[t] === 2).map((t) => WEAPON_TYPE_NAMES[t]).join('・')}</div></div></div>`).join('')}
+        <p class="note">${h.name}のいまの職業: ${JOBS[job].n}</p></div>
+      <div class="r"><div class="panel scroll" style="flex:1">
+        <h3>${J.n}</h3><p class="dim-t">${J.d}</p>
+        <div class="stat"><span>能力の傾向</span>${Object.entries(J.mod).map(([k, v]) => `<span>${MODN[k] || k}<b style="color:${v > 0 ? 'var(--gold)' : '#ff8a6a'}">${v > 0 ? '+' : ''}${v}%</b></span>`).join('')}</div>
+        <div class="stat" style="flex-wrap:wrap"><span>武器</span>${Object.keys(WEAPON_TYPE_NAMES).map((t) => `<span>${WEAPON_TYPE_NAMES[t]}${cell(J.w[t] ?? 0)}</span>`).join('')}</div>
+        <div class="stat"><span>鎧</span>${Object.keys(ARMOR_SETS).map((k) => `<span>${ARMOR_SETS[k].n}${cell(J.a[k] ?? 1)}</span>`).join('')}</div>
+        <div class="stat"><span>いまの${h.name}</span><span>攻撃<b>${st.atk}</b></span><span>防御<b>${st.def}</b></span><span>体力<b>${st.hp}</b></span></div>
+        <p class="note">◎得意 ○扱える △不慣れ ×苦手。不得手な武器ほど攻撃と攻撃速度が下がり、不得手な鎧ほど防御が下がります。<br>転職はいつでも無料です。技は武器の種類で決まり、職業では変わりません。</p></div>
+        <div class="row"><button class="pbtn" style="font-size:15px;padding:8px 18px" data-a="ajob" data-v="${sel}" ${sel === job ? 'disabled' : ''}>${sel === job ? 'いまの職業' : '「' + J.n + '」に転職する'}</button></div></div></div>`);
   },
   // 防具の画面: 選んだ部位の手持ちを並べ、着ける・外す・売る
   r_armorView(h, hs) {
@@ -366,11 +389,11 @@ export const UI = {
         <p class="note">${ARMOR_SLOT_NAMES[slot]} ${list.length}個(全防具 ${S.armors.length}/120)</p></div>
       <div class="r"><div class="panel scroll" style="flex:1">
         ${cur ? `<div class="dim-t" style="color:${R.col}">${R.star}　${R.n}</div><h3 style="color:${R.col}">${armorName(cur)}</h3>
-        <div class="stat"><span>防御<b>+${cur.def}</b></span><span>部位<b>${ARMOR_SLOT_TAB[slot]}</b></span></div>
+        <div class="stat"><span>防御<b>+${cur.def}</b></span><span>部位<b>${ARMOR_SLOT_TAB[slot]}</b></span>${(() => { const A = APT[armorApt(heroJob(S, h.id), cur.set)]; return `<span style="color:${A.def >= 1 ? 'var(--gold)' : '#ff8a6a'}">適性${A.m}${A.n} 防御${A.def >= 1 ? '+' : ''}${Math.round((A.def - 1) * 100)}%</span>`; })()}</div>
         <p class="dim-t">${ARMOR_SETS[cur.set].d}</p>` : '<p class="dim-t">防具なし</p>'}
         <div class="stat"><span>${h.name}の防御<b>${st.def}</b></span><span>うち防具<b>+${st.armDef}</b></span></div>
         <div class="stat">${ARMOR_SLOT_KEYS.map((k) => `<span>${ARMOR_SLOT_TAB[k]}<b>${worn[k] ? ARMOR_SETS[worn[k].set].n : '—'}</b></span>`).join('')}</div>
-        <p class="note">防具は合戦に勝つと手に入ります。部位ごとに違う鎧を組み合わせられ、着けた鎧は姿にも表れます。</p></div>
+        <p class="note">防具は合戦に勝つと手に入ります。部位ごとに違う鎧を組み合わせられ、着けた鎧は姿にも表れます。<br>鎧のセットごとの適性(◎○△×)は職業で決まり、防御が増減します。</p></div>
         <div class="row"><button class="sbtn" data-a="aequip" ${!cur || eq ? 'disabled' : ''}>${eq ? '装備中' : '装備'}</button>
           <button class="sbtn" data-a="aunequip" ${hs.armor[slot] ? '' : 'disabled'}>外す</button>
           <button class="sbtn" data-a="asell" ${!cur || eq || cur.lock || wearer[cur.uid] ? 'disabled' : ''}>売却${cur ? ' +' + armorSell(cur) : ''}</button>

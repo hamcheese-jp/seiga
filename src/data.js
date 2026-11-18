@@ -365,23 +365,49 @@ export const maxCharges = (lv) => (lv >= 10 ? 6 : lv >= 5 ? 5 : 4);
 export const WEAPON_WT = { fan: 0.6, bow: 0.7, twin: 0.8, staff: 0.85, sword: 1.0, spear: 1.2, scythe: 1.4, axe: 1.7, hammer: 1.8 };
 export const WEAPON_TYPE_NAMES = { sword: '大太刀', spear: '長槍', twin: '双剣', hammer: '大槌', fan: '双扇', scythe: '大鎌', axe: '大戦斧', bow: '長弓', staff: '宝杖' };
 export const TYPE_MS = { sword: 'reiga', spear: 'setsuna', twin: 'raika', hammer: 'gandou', fan: 'fuuka', scythe: 'yomi', axe: 'p_barga', bow: 'p_bow', staff: 'p_staff' };
-export const OFF_ATK = 0.8, OFF_ASPD = 0.9;   // 適性外の武器: 攻撃と攻撃速度が下がる
-// 武器を持った時の補正: { native 適性か, spd 移動倍率, aspd 攻撃速度倍率, atk 攻撃倍率 }
-export function weaponFit(heroId, type) {
+// ---- 職業: 武器の種類・鎧のセットごとの適性(2=◎ 1=○ 0=△ -1=×)と、能力の傾向(%) ----
+// 武将は最初の職業を持ち、装備画面でいつでも転職できる。技は武器の種類で決まる(職業では変わらない)
+export const APT = {
+  2: { m: '◎', n: '得意', atk: 1.0, aspd: 1.0, def: 1.1 },
+  1: { m: '○', n: '扱える', atk: 0.92, aspd: 0.96, def: 1.0 },
+  0: { m: '△', n: '不慣れ', atk: 0.8, aspd: 0.9, def: 0.85 },
+  '-1': { m: '×', n: '苦手', atk: 0.65, aspd: 0.82, def: 0.65 },
+};
+export const JOBS = {
+  kenshi: { n: '剣士', d: '大太刀を極めた武人。刃物はおおむね扱える。', w: { sword: 2, twin: 1, spear: 1, scythe: 0, axe: 0, fan: 0, bow: 0, hammer: -1, staff: -1 }, a: { guren: 2, kurogane: 1, souten: 1, ougon: 0 }, mod: { atk: 6 } },
+  souhei: { n: '槍兵', d: '長柄の武器の使い手。間合いの広さで戦う。', w: { spear: 2, scythe: 1, axe: 1, staff: 1, sword: 0, hammer: 0, bow: 0, twin: -1, fan: -1 }, a: { souten: 2, kurogane: 1, guren: 1, ougon: 0 }, mod: { def: 8, range: 6 } },
+  shinobi: { n: '忍', d: '身軽な二刀の使い手。飛び道具も得意。', w: { twin: 2, fan: 1, bow: 1, sword: 1, spear: 0, staff: 0, scythe: 0, hammer: -1, axe: -1 }, a: { souten: 2, guren: 1, kurogane: 0, ougon: -1 }, mod: { spd: 10, crit: 5, hp: -6 } },
+  goushi: { n: '重戦士', d: '大槌・大戦斧で叩き伏せる剛の者。重い鎧も苦にしない。', w: { hammer: 2, axe: 2, sword: 1, spear: 1, scythe: 0, twin: 0, staff: -1, fan: -1, bow: -1 }, a: { kurogane: 2, ougon: 2, guren: 1, souten: 0 }, mod: { hp: 12, def: 6, spd: -6 } },
+  maihime: { n: '舞姫', d: '舞うように戦う。扇と軽い装束が似合う。', w: { fan: 2, twin: 1, staff: 1, bow: 1, sword: 0, spear: 0, scythe: 0, hammer: -1, axe: -1 }, a: { souten: 2, guren: 1, kurogane: 0, ougon: -1 }, mod: { aspd: 6, spd: 5 } },
+  shinigami: { n: '死神', d: '大鎌で命を刈る闇の戦士。呪いの杖も操る。', w: { scythe: 2, spear: 1, staff: 1, sword: 1, axe: 0, twin: 0, hammer: 0, fan: 0, bow: -1 }, a: { kurogane: 2, guren: 1, souten: 1, ougon: 1 }, mod: { atk: 4, steal: 3 } },
+  kyuhei: { n: '弓兵', d: '遠くから射抜く。近寄られたら身軽にかわす。', w: { bow: 2, twin: 1, spear: 1, staff: 0, fan: 0, sword: 0, scythe: 0, hammer: -1, axe: -1 }, a: { guren: 2, souten: 2, kurogane: 0, ougon: -1 }, mod: { range: 10, spd: 4 } },
+  madou: { n: '魔導士', d: '杖から魔弾を放つ。重い鎧は動きを妨げる。', w: { staff: 2, fan: 1, bow: 1, scythe: 0, spear: 0, twin: 0, sword: 0, hammer: -1, axe: -1 }, a: { souten: 2, guren: 1, kurogane: -1, ougon: -1 }, mod: { elem: 25, charge: 10, hp: -8 } },
+};
+// 各武将・ボスの最初の職業
+export const JOB_OF = { reiga: 'kenshi', setsuna: 'souhei', raika: 'shinobi', gandou: 'goushi', fuuka: 'maihime', yomi: 'shinigami',
+  barga: 'goushi', zahar: 'shinobi', volg: 'souhei', ignas: 'madou', zenova: 'shinigami' };
+export const heroJob = (save, id) => { const j = save && save.heroes && save.heroes[id] && save.heroes[id].job; return JOBS[j] ? j : (JOB_OF[id] || 'kenshi'); };
+export const weaponApt = (job, type) => (JOBS[job] ? JOBS[job].w[type] ?? 0 : 0);
+export const armorApt = (job, set) => (JOBS[job] ? JOBS[job].a[set] ?? 1 : 1);
+// 武器を持った時の補正: { native 本来の武器か(技はその武将のもの), apt 職業での適性, spd 移動倍率, aspd 攻撃速度倍率, atk 攻撃倍率 }
+//   適性は職業で決まる。重さは武将の本来の武器との差で、重いほど遅くなる
+export function weaponFit(heroId, type, job = JOB_OF[heroId]) {
   const h = HERO[heroId], native = !type || type === h.wtype, d = (WEAPON_WT[type] ?? 1) - (WEAPON_WT[h.wtype] ?? 1);
-  return { native, d, spd: clamp(1 - 0.12 * d, 0.72, 1.1), aspd: clamp(1 - 0.1 * d, 0.75, 1.08) * (native ? 1 : OFF_ASPD), atk: native ? 1 : OFF_ATK };
+  const apt = weaponApt(job, type || h.wtype), A = APT[apt];
+  return { native, apt, d, spd: clamp(1 - 0.12 * d, 0.72, 1.1), aspd: clamp(1 - 0.1 * d, 0.75, 1.08) * A.aspd, atk: A.atk };
 }
 export function calcStats(save, heroId) {
   const h = HERO[heroId], hs = save.heroes[heroId] || { lv: 1 }, lv = hs.lv;
   const w = save.weapons.find((x) => x.uid === hs.weapon) || null;
-  const wtype = (w && w.type) || h.wtype, fit = weaponFit(heroId, wtype);
+  const job = heroJob(save, heroId), wtype = (w && w.type) || h.wtype, fit = weaponFit(heroId, wtype, job);
   const tr = {}; for (const k of TRAIT_KEYS) tr[k] = 0;
   if (w) for (const t of w.traits) tr[t.k] += t.v * synTr(w);
+  const jm = JOBS[job].mod; for (const k in jm) if (k in tr) tr[k] += jm[k];   // 職業の能力の傾向
   const b = h.base;
   const worn = heroArmor(save, heroId), look = {}; let armDef = 0;
-  for (const s of ARMOR_SLOT_KEYS) { look[s] = worn[s] ? worn[s].set : null; armDef += worn[s] ? worn[s].def : 0; }
+  for (const s of ARMOR_SLOT_KEYS) { look[s] = worn[s] ? worn[s].set : null; armDef += worn[s] ? Math.round(worn[s].def * APT[armorApt(job, worn[s].set)].def) : 0; }   // 鎧の適性で防御が増減
   return {
-    lv, weapon: w, tier: weaponTier(w), wtype, ms: fit.native ? (h.ms || h.id) : TYPE_MS[wtype], fit,
+    lv, job, weapon: w, tier: weaponTier(w), wtype, ms: fit.native ? (h.ms || h.id) : TYPE_MS[wtype], fit,
     hp: Math.round(b.hp * (1 + 0.045 * (lv - 1)) * (1 + tr.hp / 100)),
     atk: Math.round((b.atk + 2.4 * (lv - 1) * (b.atk / 34) + (w ? weaponAtk(w) : 0)) * (1 + tr.atk / 100) * fit.atk),
     def: Math.round((b.def + 1.0 * (lv - 1) + armDef) * (1 + tr.def / 100)), armor: look, armDef,
