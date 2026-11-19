@@ -342,7 +342,7 @@ export const UI = {
   // 言語の切り替えボタン(いまが日本語なら English、英語なら 日本語 と出す)
   langBtn(cls) { return `<button class="lang-btn ${cls}" data-a="lang">🌐 ${LANG === 'en' ? '日本語' : 'English'}</button>`; },
   r_title() {
-    this.html('title', `<div class="logo">${GAME_TITLE}</div><div class="logo-sub">${GAME_SUB}</div><div class="tap">画面をタップして開始</div><div class="ver">音楽:魔王魂(CC BY 4.0)「ネオロック82」ほか ／ ver ${VERSION}</div>${this.installBtn('inst-title')}${this.langBtn('lang-title')}`);
+    this.html('title', `<div class="logo">${GAME_TITLE}</div><div class="logo-sub">${GAME_SUB}</div><div class="tap">画面をタップして開始</div><div class="hc-banner" data-a="noad"></div><div class="ver">音楽:魔王魂(CC BY 4.0)「ネオロック82」ほか ／ ver ${VERSION}</div>${this.installBtn('inst-title')}${this.langBtn('lang-title')}`);
     $('#s-title').dataset.a = 'start';
   },
   r_home() {
@@ -667,7 +667,7 @@ export const UI = {
   r_ach() {
     const S = Save.data;
     this.html('ach', `${this.head('称号', 'home')}<div class="scroll" style="flex:1"><div style="max-width:720px;margin:0 auto">${ACHIEVEMENTS.map((a) => `<div class="card ach ${S.ach[a.id] ? 'done on' : ''}"><div class="mk">${S.ach[a.id] ? '✓' : ''}</div><div><div class="a">${a.n}</div><div class="b">${a.d}</div></div><div class="g">${a.gold ? '+' + a.gold.toLocaleString() + '金' : ''}</div></div>`).join('')}
-      <div class="panel" style="margin-top:8px"><div class="rs"><span>累計撃破数</span><b>${S.stats.totalKO.toLocaleString()}</b><span>戦闘回数 / 勝利</span><b>${S.stats.battles} / ${S.stats.wins}</b><span>最多撃破(1回の戦い)</span><b>${S.stats.maxKO}</b><span>最大連撃</span><b>${S.stats.maxCombo}</b><span>撃破した敵将</span><b>${S.stats.officers}</b><span>見切り回数</span><b>${S.stats.perfect}</b><span>総プレイ時間</span><b>${fmtTime(S.stats.playTime)}</b></div></div></div></div>`, true);
+      <div class="panel" style="margin-top:8px"><div class="rs"><span>累計撃破数</span><b>${S.stats.totalKO.toLocaleString()}</b><span>戦闘回数 / 勝利</span><b>${S.stats.battles} / ${S.stats.wins}</b><span>最多撃破(1回の戦い)</span><b>${S.stats.maxKO}</b><span>最大連撃</span><b>${S.stats.maxCombo}</b><span>撃破した敵将</span><b>${S.stats.officers}</b><span>見切り回数</span><b>${S.stats.perfect}</b><span>総プレイ時間</span><b>${fmtTime(S.stats.playTime)}</b></div></div><div class="hc-banner"></div></div></div>`, true);
   },
   r_rank() {
     const S = Save.data, wk = weekKey(); if (!this.rankBoard || (/^wk_/.test(this.rankBoard) && this.rankBoard !== wk)) this.rankBoard = wk;

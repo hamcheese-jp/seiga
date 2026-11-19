@@ -1,6 +1,6 @@
 // サービスワーカー: 全ファイルをキャッシュしてオフラインでも遊べるようにする
 // ※ ゲームを更新したら CACHE の番号を上げてください(古いキャッシュが破棄されます)
-const CACHE = 'seiga-v1.23.0';
+const CACHE = 'seiga-v1.23.1';
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css', 'vendor/three.module.min.js',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png',
@@ -16,7 +16,9 @@ self.addEventListener('activate', (e) => {
 });
 self.addEventListener('fetch', (e) => {
   const req = e.request;
-  if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;   // スプレッドシート連携などは素通し
+  const url = new URL(req.url);
+  if (req.method !== 'GET' || url.origin !== location.origin) return;   // スプレッドシート連携などは素通し
+  if (url.pathname === '/ads-banner.js') return;   // サイト共通の広告スクリプト: 広告番号を変えたらすぐ届くよう、キャッシュしない
   e.respondWith(
     caches.open(CACHE).then((c) => c.match(req, { ignoreSearch: true })).then((hit) => hit || fetch(req).then((res) => {
       if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); }
